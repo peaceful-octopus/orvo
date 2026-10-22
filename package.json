@@ -8,9 +8,19 @@
     "dev": "pnpm --parallel --filter @chillcall/app --filter @chillcall/signaling dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "vitest run",
-    "test:e2e": "playwright test",
-    "lint": "eslint ."
+    "test": "vitest run --passWithNoTests --changed",
+    "test:e2e": "playwright test --project=smoke --project=layout",
+    "lint": "eslint .",
+    "test:since": "vitest run --passWithNoTests --changed",
+    "test:all": "vitest run",
+    "test:protocol": "vitest run --project protocol",
+    "test:testkit": "vitest run --project testkit",
+    "test:rtc": "vitest run --project rtc",
+    "test:signaling": "vitest run --project signaling",
+    "test:app": "vitest run --project app",
+    "test:e2e:smoke": "playwright test --project=smoke",
+    "test:e2e:layout": "playwright test --project=layout",
+    "test:e2e:scale": "playwright test --project=scale"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
