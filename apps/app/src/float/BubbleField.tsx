@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useEffect, useRef } from 'react';
 import { Bubble } from '../Bubble';
 import { layout, type LayoutMode } from './layouts';
 import { useSize } from './useSize';
@@ -28,6 +29,13 @@ export function BubbleField({ members, mode, maxSize }: Props) {
   const [ref, bounds] = useSize<HTMLDivElement>();
   const { size, positions } = layout(mode, members.length, bounds, maxSize);
 
+  // Whoever is here when the field first appears is simply there; people who arrive later pop in.
+  const known = useRef<Set<string> | null>(null);
+  const first = known.current === null;
+  useEffect(() => {
+    known.current = new Set(members.map((m) => m.id));
+  });
+
   return (
     <div ref={ref} className="field">
       {members.map((m, i) => {
@@ -37,8 +45,8 @@ export function BubbleField({ members, mode, maxSize }: Props) {
           <motion.div
             key={m.id}
             className="slot"
-            initial={false}
-            animate={{ x: p.x, y: p.y, width: size, height: size }}
+            initial={first || known.current?.has(m.id) ? false : { x: p.x, y: p.y, width: size, height: size, opacity: 0, scale: 0.6 }}
+            animate={{ x: p.x, y: p.y, width: size, height: size, opacity: 1, scale: 1 }}
             transition={spring}
           >
             <Bubble

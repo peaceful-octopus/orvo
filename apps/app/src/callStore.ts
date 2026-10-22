@@ -23,6 +23,7 @@ import {
 } from './devices';
 import { createMicProcessor, noiseSupported, type MicProcessor } from './noise';
 import { useSettings } from './settingsStore';
+import { MEDIA_DENIED_MESSAGE } from './copy';
 import { telemetry } from './telemetry';
 
 export interface Remote {
@@ -215,7 +216,7 @@ export const useCall = create<CallState>((set, get) => {
         micRaw = audio.track;
         set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
       } catch {
-        set({ error: 'Camera or microphone access was denied.' });
+        set({ error: MEDIA_DENIED_MESSAGE });
       }
       await get().refreshDevices(); // device names are only available once access is granted
     },

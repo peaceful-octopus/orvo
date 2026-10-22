@@ -6,6 +6,7 @@ import { useCall } from './callStore';
 import { getServerUrl, giphyApiKey } from './config';
 import { useConfig } from './configStore';
 import { copyText, roomLink } from './roomInput';
+import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
 import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
@@ -33,7 +34,7 @@ import {
 import { LAYOUT_MODES } from './float/layouts';
 import { unreachableNotice } from './unreachable';
 import { useUi } from './uiStore';
-import type { DeviceKind } from './devices';
+import type { DeviceKind, DeviceLists, DeviceSelection } from './devices';
 
 const GifPicker = lazy(() => import('./GifPicker'));
 
@@ -63,6 +64,11 @@ export function RoomPage({ room }: { room: string }) {
     leave,
   } = useCall();
   const outputs = canSelectOutput();
+  const copyInvite = () =>
+    copyText(roomLink(room, getServerUrl())).then((ok) => {
+      setCopied(ok);
+      setTimeout(() => setCopied(false), 2000);
+    });
   const deviceProps = { devices, selected, canSelectOutput: outputs, onSelect: (kind: DeviceKind, id: string) => void selectDevice(kind, id) };
   const { mode, setMode } = useUi();
   const limits = useConfig((s) => s.config.limits);
@@ -129,21 +135,57 @@ export function RoomPage({ room }: { room: string }) {
     return (
       <main>
         <SettingsButton />
-        <h1>Join {room}</h1>
-        <div className="preview">
-          <Bubble name={name} stream={local} videoOn={video} audioOn={audio} mirrored muteAudio />
+        <div className="lobby">
+          <div className="preview">
+            <Bubble name={name} stream={local} videoOn={video} audioOn={audio} mirrored muteAudio />
+          </div>
+          <div className="lobby-form">
+            <h1>Join {room}</h1>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void join(room, name.trim());
+              }}
+            >
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
+              <button className="primary" disabled={!local || phase === 'joining'}>
+                {phase === 'joining' ? 'Joining...' : 'Join'}
+              </button>
+            </form>
+            {error === MEDIA_DENIED_MESSAGE ? (
+              <section className="state-card" role="alert">
+                <h2>{COPY.mediaDenied.title}</h2>
+                <p>{COPY.mediaDenied.body}</p>
+                <ul>
+                  {COPY.mediaDenied.steps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ul>
+                <div className="actions">
+                  <button className="primary" onClick={() => void startPreview()}>
+                    {COPY.mediaDenied.retry}
+                  </button>
+                </div>
+              </section>
+            ) : (
+              error && (
+                <section className="state-card" role="alert">
+                  <p>{error}</p>
+                  <div className="actions">
+                    <button onClick={() => location.assign('/')}>{COPY.roomError.back}</button>
+                  </div>
+                </section>
+              )
+            )}
+            <details className="devices">
+              <summary>
+                {COPY.devices}
+                <span className="hint">{deviceSummary(devices, selected)}</span>
+              </summary>
+              <DeviceSelects {...deviceProps} />
+            </details>
+          </div>
         </div>
-        <DeviceSelects {...deviceProps} />
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void join(room, name.trim());
-          }}
-        >
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
-          <button disabled={!local || phase === 'joining'}>{phase === 'joining' ? 'Joining...' : 'Join'}</button>
-        </form>
-        {error && <p className="error">{error}</p>}
       </main>
     );
   }
@@ -197,6 +239,12 @@ export function RoomPage({ room }: { room: string }) {
         </p>
       )}
       <BubbleField members={members} mode={mode} />
+      {members.length === 1 && (
+        <div className="alone">
+          <p>{COPY.alone.text}</p>
+          <button onClick={() => void copyInvite()}>{copied ? COPY.alone.copied : COPY.alone.copy}</button>
+        </div>
+      )}
       <ReactionBar disabled={!video} onReact={(emoji) => void react(emoji)} onGif={apiKey ? () => setGifOpen(true) : undefined} />
       <nav className="controls">
         <div className="modes" role="group" aria-label="Layout">
@@ -230,12 +278,7 @@ export function RoomPage({ room }: { room: string }) {
           className="icon"
           aria-label={copied ? 'Link copied' : 'Copy room link'}
           title={copied ? 'Link copied' : 'Copy a link to this room'}
-          onClick={() =>
-            void copyText(roomLink(room, getServerUrl())).then((ok) => {
-              setCopied(ok);
-              setTimeout(() => setCopied(false), 2000);
-            })
-          }
+          onClick={() => void copyInvite()}
         >
           {copied ? <CheckIcon /> : <LinkIcon />}
         </button>
@@ -266,4 +309,10 @@ export function RoomPage({ room }: { room: string }) {
       {float.pip && createPortal(floatView(false), float.pip.document.body)}
     </main>
   );
+}
+
+/** The names of the chosen devices, for the collapsed Devices line in the lobby. */
+function deviceSummary(devices: DeviceLists, selected: DeviceSelection): string {
+  const label = (kind: DeviceKind) => devices[kind].find((o) => o.id === selected[kind])?.label ?? '';
+  return [label('audioinput'), label('videoinput')].filter(Boolean).join(' · ');
 }

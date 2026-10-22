@@ -1,14 +1,25 @@
 import { MAX_NAME_LENGTH } from '@chillcall/protocol';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useCall } from './callStore';
+import { defaultServerUrl, getServerUrl, giphyApiKey, setServerUrl, setTelemetryAllowed, telemetryAllowed } from './config';
+import { useConfig } from './configStore';
 import { floatKind } from './float/float';
 import { GearIcon } from './float/icons';
 import { noiseSupported } from './noise';
 import { MAX_MIC_VOLUME, useSettings, type StartView } from './settingsStore';
+import { setTelemetryEnabled } from './telemetry';
+import { PALETTES } from './theme/palettes';
+import type { ModePreference } from './theme/theme';
 
 const START_VIEWS: { id: StartView; label: string }[] = [
   { id: 'windowed', label: 'Windowed' },
   { id: 'floating', label: 'Floating' },
+];
+
+const MODES: { id: ModePreference; label: string }[] = [
+  { id: 'system', label: 'System' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
 ];
 
 const NOISE_STATUS = {
@@ -55,12 +66,67 @@ function Slider({ label, value, max, step, unit = '', disabled, marker, onChange
   );
 }
 
+/** The server this app talks to, and what it shares with it. Rarely changed, so it sits at the bottom. */
+function Advanced() {
+  const [server, setServer] = useState(getServerUrl());
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string>();
+  const [shareStats, setShareStats] = useState(telemetryAllowed());
+  const gifsOn = useConfig((s) => Boolean(giphyApiKey(s.config)));
+
+  return (
+    <details className="setting advanced">
+      <summary>Advanced</summary>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const ok = setServerUrl(server);
+          setSaved(ok);
+          setError(ok ? undefined : 'That is not a valid server address.');
+          if (ok) {
+            setServer(getServerUrl());
+            void useConfig.getState().refresh();
+          }
+        }}
+      >
+        <input
+          value={server}
+          onChange={(e) => {
+            setServer(e.target.value);
+            setSaved(false);
+          }}
+          placeholder={defaultServerUrl()}
+          aria-label="Server address"
+        />
+        <button>{saved ? 'Saved' : 'Save'}</button>
+      </form>
+      {error && <p className="error">{error}</p>}
+      <p className="hint">Server address. Leave empty to use the default ({defaultServerUrl()}).</p>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          checked={shareStats}
+          onChange={(e) => {
+            setShareStats(e.target.checked);
+            setTelemetryAllowed(e.target.checked);
+            setTelemetryEnabled(e.target.checked);
+          }}
+        />
+        Share anonymous connection statistics with this server
+      </label>
+      <p className="hint">Whether calls connect directly, and how fast. No names, rooms or addresses.</p>
+      {gifsOn && <p className="hint">GIF search is provided by GIPHY: the terms you search for, and your address, are sent to them directly.</p>}
+    </details>
+  );
+}
+
 function SettingsPane({ onClose }: { onClose(): void }) {
-  const { name, startView, noise, micVolume, speakerVolume, setName, setStartView, setNoise, setMicVolume, setSpeakerVolume } =
-    useSettings();
+  const { name, startView, mode, palette, noise, micVolume, speakerVolume } = useSettings();
+  const { setName, setStartView, setMode, setPalette, setNoise, setMicVolume, setSpeakerVolume } = useSettings();
   const noiseStatus = useCall((s) => s.noiseStatus);
   const canNoise = noiseSupported();
   const canFloat = floatKind() !== null;
+  const palettes = Object.entries(PALETTES);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -89,6 +155,29 @@ function SettingsPane({ onClose }: { onClose(): void }) {
             ))}
           </div>
           {!canFloat && <span className="hint">Floating bubbles are not available in this browser.</span>}
+        </div>
+
+        <div className="setting" role="group" aria-label="Appearance">
+          <span className="setting-label">Appearance</span>
+          <div className="segmented" role="group" aria-label="Light or dark">
+            {MODES.map((m) => (
+              <button key={m.id} aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {palettes.length > 1 && (
+            <label className="palette">
+              <span className="hint">Colours</span>
+              <select aria-label="Colour palette" value={palette} onChange={(e) => setPalette(e.target.value)}>
+                {palettes.map(([key, p]) => (
+                  <option key={key} value={key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
         <div className="setting" role="group" aria-label="Volume">
@@ -140,8 +229,13 @@ function SettingsPane({ onClose }: { onClose(): void }) {
           </span>
         </div>
 
+        <Advanced />
+
         <div className="gif-footer">
-          <button onClick={onClose}>Done</button>
+          <span />
+          <button className="primary" onClick={onClose}>
+            Done
+          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { registerThemeTarget } from '../theme/theme';
 import { bubbleForWindow, FLOAT_BUBBLE, floatWindowSize, MAX_FLOAT_BUBBLE, MIN_FLOAT_BUBBLE, type LayoutMode } from './layouts';
 
 export type FloatKind = 'tauri' | 'pip';
@@ -98,8 +99,10 @@ export function useFloat(mode: LayoutMode, count: number) {
     } else if (kind === 'pip') {
       const win = await pipApi()!.requestWindow({ width: size.w, height: size.h });
       copyStyles(document, win.document);
+      const stopTheme = registerThemeTarget(win.document);
       win.document.documentElement.classList.add('floating', 'pip');
       win.addEventListener('pagehide', () => {
+        stopTheme();
         setPip(null);
         setActive(false);
       });

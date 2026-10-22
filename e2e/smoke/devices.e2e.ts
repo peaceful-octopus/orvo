@@ -5,6 +5,7 @@ import { expectAllConnected, joinRoom } from '../helpers';
 
 test('the lobby lists devices and defaults to the system default @smoke', async ({ page }) => {
   await page.goto(`/r/e2e-devices-lobby-${Date.now()}`);
+  await page.locator('details.devices summary').click(); // the lobby keeps the choices folded away until asked
   const camera = page.getByLabel('Camera');
   await expect(camera).toBeVisible();
   await expect(camera.locator('option').first()).toHaveText(/System default/);
