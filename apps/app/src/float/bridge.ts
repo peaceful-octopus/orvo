@@ -19,7 +19,8 @@ export type ControlAction =
   | { type: 'video' }
   | { type: 'react'; emoji: string }
   | { type: 'gif'; source: GifSource; mode: GifMode }
-  | { type: 'expand' };
+  | { type: 'expand' }
+  | { type: 'leave' };
 
 export interface Rect {
   x: number;
@@ -38,5 +39,7 @@ export function placeControls(main: Rect, size: { w: number; h: number }, monito
   const below = main.y + main.h + gap;
   const aboveY = main.y - gap - size.h;
   const above = below + size.h > monitor.y + monitor.h && aboveY >= monitor.y;
-  return { x: Math.round(x), y: Math.round(above ? aboveY : below), above };
+  // With no room on either side, overlap the bubbles rather than leave the window off the monitor.
+  const y = clamp(above ? aboveY : below, monitor.y, monitor.y + monitor.h - size.h);
+  return { x: Math.round(x), y: Math.round(y), above };
 }

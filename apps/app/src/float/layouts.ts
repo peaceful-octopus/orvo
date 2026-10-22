@@ -61,20 +61,30 @@ function campfire(count: number, w: number, h: number, maxSize: number): Placeme
   };
 }
 
-const FLOAT_BUBBLE = 128;
+export const FLOAT_BUBBLE = 128;
+export const MIN_FLOAT_BUBBLE = 48;
+export const MAX_FLOAT_BUBBLE = 800;
 const FLOAT_PAD = 8;
 
-/** Window size that fits `count` bubbles at a compact fixed diameter, for the floating window. */
-export function floatWindowSize(mode: LayoutMode, count: number): Bounds {
+/** Window size that fits `count` bubbles at diameter `bubble`, for the floating window. */
+export function floatWindowSize(mode: LayoutMode, count: number, bubble = FLOAT_BUBBLE): Bounds {
   const n = Math.max(count, 1);
-  const gap = FLOAT_BUBBLE * GAP;
-  const line = n * FLOAT_BUBBLE + (n - 1) * gap + FLOAT_PAD * 2;
-  const thin = FLOAT_BUBBLE + FLOAT_PAD * 2;
+  const gap = bubble * GAP;
+  const line = n * bubble + (n - 1) * gap + FLOAT_PAD * 2;
+  const thin = bubble + FLOAT_PAD * 2;
 
   if (mode === 'row') return { w: line, h: thin };
   if (mode === 'column') return { w: thin, h: line };
   if (n === 1) return { w: thin, h: thin };
   const s = Math.sin(Math.PI / n);
-  const side = (FLOAT_BUBBLE * (1 + GAP + s)) / s + FLOAT_PAD * 2;
+  const side = (bubble * (1 + GAP + s)) / s + FLOAT_PAD * 2;
   return { w: side, h: side };
+}
+
+/** The bubble diameter a floating window of this size currently shows, kept within sane limits. */
+export function bubbleForWindow(mode: LayoutMode, count: number, size: Bounds): number {
+  // floatWindowSize adds padding around the bubbles, so measure inside it to get the same number back.
+  const inner = { w: Math.max(size.w - FLOAT_PAD * 2, 1), h: Math.max(size.h - FLOAT_PAD * 2, 1) };
+  const d = layout(mode, count, inner, UNCAPPED).size;
+  return Math.round(Math.min(MAX_FLOAT_BUBBLE, Math.max(MIN_FLOAT_BUBBLE, d)));
 }

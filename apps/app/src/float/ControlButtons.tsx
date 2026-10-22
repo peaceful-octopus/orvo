@@ -1,4 +1,4 @@
-import { ExpandIcon, GifIcon, MicIcon, MicOffIcon, VideoIcon, VideoOffIcon } from './icons';
+import { ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, VideoIcon, VideoOffIcon } from './icons';
 
 export const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉'];
 
@@ -9,12 +9,13 @@ interface Props {
   onToggleVideo(): void;
   onReact(emoji: string): void;
   onExpand(): void;
+  onLeave(): void;
   /** Present only when GIFs are set up. */
   onGif?: () => void;
 }
 
 /** The floating view's control strip: icon buttons plus quick reactions. */
-export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onGif }: Props) {
+export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif }: Props) {
   const needsCamera = video ? undefined : 'Turn your camera on to use reactions';
   return (
     <div className="float-controls" role="toolbar" aria-label="Call controls">
@@ -38,6 +39,9 @@ export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onR
       <span className="sep" />
       <button className="icon" onClick={onExpand} aria-label="Expand" title="Back to full window">
         <ExpandIcon />
+      </button>
+      <button className="icon leave" onClick={onLeave} aria-label="Leave" title="Leave the call">
+        <LeaveIcon />
       </button>
     </div>
   );

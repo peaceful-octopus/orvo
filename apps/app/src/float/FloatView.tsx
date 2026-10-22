@@ -18,6 +18,7 @@ interface Props {
     onToggleVideo(): void;
     onReact(emoji: string): void;
     onExpand(): void;
+    onLeave(): void;
     onGif?: () => void;
   };
 }

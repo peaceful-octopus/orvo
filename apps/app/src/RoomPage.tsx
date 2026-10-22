@@ -70,7 +70,13 @@ export function RoomPage({ room }: { room: string }) {
     else if (a.type === 'video') toggleVideo();
     else if (a.type === 'react') void react(a.emoji);
     else if (a.type === 'gif') sendGif(a.source, a.mode).catch(() => {}); // the store already shows a message
+    else if (a.type === 'leave') void leaveCall();
     else void float.exit();
+  };
+  const leaveCall = async () => {
+    await float.exit(); // restore the full window before the page reloads
+    leave();
+    location.assign('/');
   };
   const controlsWindow = useControlsWindow(
     float.active && float.kind === 'tauri',
@@ -116,6 +122,7 @@ export function RoomPage({ room }: { room: string }) {
               onToggleVideo: toggleVideo,
               onReact: (emoji) => void react(emoji),
               onExpand: () => void float.exit(),
+              onLeave: () => void leaveCall(),
               onGif: apiKey ? () => setGifOpen(true) : undefined,
             }
       }

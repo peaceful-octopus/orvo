@@ -58,3 +58,9 @@ export const ExpandIcon = () => (
     <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />
   </Icon>
 );
+
+export const LeaveIcon = () => (
+  <Icon>
+    <path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5M15 8l4 4-4 4M19 12H9" />
+  </Icon>
+);

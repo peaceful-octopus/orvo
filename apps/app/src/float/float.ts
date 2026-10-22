@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { floatWindowSize, type LayoutMode } from './layouts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { bubbleForWindow, FLOAT_BUBBLE, floatWindowSize, MAX_FLOAT_BUBBLE, MIN_FLOAT_BUBBLE, type LayoutMode } from './layouts';
 
 export type FloatKind = 'tauri' | 'pip';
 
@@ -32,6 +32,29 @@ async function setWindowBorder(visible: boolean) {
   await invoke('set_window_border', { visible }).catch(() => {}); // Windows 10 and other systems have no such border
 }
 
+const BUBBLE_KEY = 'chillcall:floatBubble';
+/** Resize events this soon after the app's own resize are its own doing, not the person's. */
+const OWN_RESIZE_MS = 700;
+const SAVE_DELAY_MS = 400;
+
+function loadBubble(): number {
+  try {
+    const n = Number(localStorage.getItem(BUBBLE_KEY));
+    if (n >= MIN_FLOAT_BUBBLE && n <= MAX_FLOAT_BUBBLE) return n;
+  } catch {
+    // Storage can be unavailable; use the default.
+  }
+  return FLOAT_BUBBLE;
+}
+
+function saveBubble(n: number) {
+  try {
+    localStorage.setItem(BUBBLE_KEY, String(n));
+  } catch {
+    // Not remembering the size is harmless.
+  }
+}
+
 async function tauriWindow() {
   return (await import('@tauri-apps/api/window')).getCurrentWindow();
 }
@@ -52,9 +75,13 @@ export function useFloat(mode: LayoutMode, count: number) {
   const [pip, setPip] = useState<Window | null>(null);
 
   const [saved, setSaved] = useState<TauriSaved | null>(null);
+  /** The bubble diameter the person last chose by resizing; the window is refitted to it as people come and go. */
+  const bubble = useRef(loadBubble());
+  const ownResizeAt = useRef(0);
 
   const enter = useCallback(async () => {
-    const size = floatWindowSize(mode, count);
+    const size = floatWindowSize(mode, count, bubble.current);
+    ownResizeAt.current = Date.now();
     if (kind === 'tauri') {
       const { LogicalSize } = await import('@tauri-apps/api/dpi');
       const win = await tauriWindow();
@@ -101,8 +128,9 @@ export function useFloat(mode: LayoutMode, count: number) {
   // Keep the floating window fitted to the layout as people come and go.
   useEffect(() => {
     if (!active) return;
-    const size = floatWindowSize(mode, count);
+    const size = floatWindowSize(mode, count, bubble.current);
     if (kind === 'tauri') {
+      ownResizeAt.current = Date.now();
       void import('@tauri-apps/api/dpi').then(async ({ LogicalSize }) =>
         (await tauriWindow()).setSize(new LogicalSize(size.w, size.h)),
       );
@@ -114,6 +142,32 @@ export function useFloat(mode: LayoutMode, count: number) {
       }
     }
   }, [active, kind, mode, count, pip]);
+
+  // Remember the size the person drags the window to, for the next time and the next session.
+  useEffect(() => {
+    if (!active || kind !== 'tauri') return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let unlisten: (() => void) | undefined;
+    void tauriWindow().then(async (win) => {
+      const off = await win.onResized(() => {
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          if (Date.now() - ownResizeAt.current < OWN_RESIZE_MS) return;
+          const inner = (await win.innerSize()).toLogical(await win.scaleFactor());
+          bubble.current = bubbleForWindow(mode, count, { w: inner.width, h: inner.height });
+          saveBubble(bubble.current);
+        }, SAVE_DELAY_MS);
+      });
+      if (cancelled) off();
+      else unlisten = off;
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      unlisten?.();
+    };
+  }, [active, kind, mode, count]);
 
   return { kind, active, pip, enter, exit };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LAYOUT_MODES, MAX_BUBBLE, UNCAPPED, floatWindowSize, layout } from './layouts';
+import { LAYOUT_MODES, MAX_BUBBLE, UNCAPPED, bubbleForWindow, floatWindowSize, layout } from './layouts';
 
 const bounds = { w: 800, h: 500 };
 const EPS = 1e-6;
@@ -86,5 +86,27 @@ describe('floatWindowSize', () => {
         expect(size).toBeGreaterThanOrEqual(128 - EPS);
       }
     }
+  });
+});
+
+describe('remembered float size', () => {
+  it('a window fitted for a bubble size reports that size back, for any count and mode', () => {
+    for (const mode of LAYOUT_MODES) {
+      for (let n = 1; n <= 10; n++) {
+        for (const bubble of [64, 128, 300]) {
+          expect(Math.abs(bubbleForWindow(mode, n, floatWindowSize(mode, n, bubble)) - bubble)).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+
+  it('keeps the bubble size when people join, instead of the window size', () => {
+    const bubble = bubbleForWindow('row', 2, { w: 900, h: 400 });
+    expect(floatWindowSize('row', 4, bubble).w).toBeGreaterThan(floatWindowSize('row', 2, bubble).w);
+  });
+
+  it('clamps absurd sizes', () => {
+    expect(bubbleForWindow('row', 1, { w: 10, h: 10 })).toBe(48);
+    expect(bubbleForWindow('row', 1, { w: 9000, h: 9000 })).toBe(800);
   });
 });

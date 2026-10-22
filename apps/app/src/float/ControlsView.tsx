@@ -15,7 +15,7 @@ import { CONTROLS_BAR } from './controlsWindow';
 
 const GifPicker = lazy(() => import('../GifPicker'));
 
-const PICKER = { w: 480, h: 620 };
+const PICKER = { w: 480, h: 560 };
 const HIDE_DELAY_MS = 300;
 /** Space between the bubble window and the controls, in logical pixels. */
 const GAP = 4;
@@ -94,7 +94,7 @@ export function ControlsView() {
         const monitor = await monitorFromPoint(pos.x + outer.width / 2, pos.y + outer.height / 2);
         const size = { w: logical.w * scale, h: logical.h * scale };
         const area = monitor
-          ? { x: monitor.position.x, y: monitor.position.y, w: monitor.size.width, h: monitor.size.height }
+          ? { x: monitor.workArea.position.x, y: monitor.workArea.position.y, w: monitor.workArea.size.width, h: monitor.workArea.size.height }
           : { x: -1e6, y: -1e6, w: 2e6, h: 2e6 };
         const p = placeControls({ x: pos.x, y: pos.y, w: outer.width, h: outer.height }, size, area, GAP * scale);
         setAbove(p.above);
@@ -130,6 +130,7 @@ export function ControlsView() {
         onToggleVideo={() => void act({ type: 'video' })}
         onReact={(emoji) => void act({ type: 'react', emoji })}
         onExpand={() => void act({ type: 'expand' })}
+        onLeave={() => void act({ type: 'leave' })}
         onGif={state.giphyKey ? () => setPickerOpen(true) : undefined}
       />
       {pickerOpen && state.giphyKey && (

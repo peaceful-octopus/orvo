@@ -24,4 +24,9 @@ describe('placeControls', () => {
     const p = placeControls({ x: 0, y: 20, w: 100, h: 1040 }, size, monitor, 4);
     expect(p.above).toBe(false);
   });
+
+  it('overlaps the bubbles rather than leaving the monitor when neither side has room', () => {
+    const p = placeControls({ x: 0, y: 20, w: 100, h: 1040 }, size, monitor, 4);
+    expect(p.y + size.h).toBeLessThanOrEqual(monitor.h);
+  });
 });
