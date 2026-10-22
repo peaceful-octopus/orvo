@@ -16,6 +16,8 @@ export interface ControlsState {
   devices: DeviceLists;
   selected: DeviceSelection;
   canSelectOutput: boolean;
+  /** The chosen mood filter. */
+  filter: string;
 }
 
 export type ControlAction =
@@ -25,6 +27,7 @@ export type ControlAction =
   | { type: 'gif'; source: GifSource; mode: GifMode }
   | { type: 'expand' }
   | { type: 'device'; kind: DeviceKind; id: string }
+  | { type: 'filter'; id: string }
   | { type: 'leave' };
 
 export interface Rect {

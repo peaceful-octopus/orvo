@@ -18,6 +18,8 @@ export interface Settings {
   /** Colour palette, and whether it follows the system's light or dark setting. */
   palette: string;
   mode: ModePreference;
+  /** The look applied to your camera; 'none' for the plain picture. */
+  moodFilter: string;
   /** Microphone volume as a percentage of the original level; above 100 amplifies. */
   micVolume: number;
   /** Volume of other people, 0 to 100. */
@@ -30,6 +32,7 @@ interface SettingsState extends Settings {
   setNoise(patch: Partial<Settings['noise']>): void;
   setPalette(palette: string): void;
   setMode(mode: ModePreference): void;
+  setMoodFilter(id: string): void;
   setMicVolume(percent: number): void;
   setSpeakerVolume(percent: number): void;
 }
@@ -54,6 +57,7 @@ export const useSettings = create<SettingsState>()(
       noise: { enabled: true, strength: DEFAULT_NOISE_STRENGTH },
       palette: DEFAULT_PALETTE,
       mode: 'system',
+      moodFilter: 'none',
       micVolume: 100,
       speakerVolume: 100,
       setName: (name) => set({ name }),
@@ -61,6 +65,7 @@ export const useSettings = create<SettingsState>()(
       setNoise: (patch) => set((s) => ({ noise: { ...s.noise, ...patch } })),
       setPalette: (palette) => set({ palette }),
       setMode: (mode) => set({ mode }),
+      setMoodFilter: (moodFilter) => set({ moodFilter }),
       setMicVolume: (micVolume) => set({ micVolume }),
       setSpeakerVolume: (speakerVolume) => set({ speakerVolume }),
     }),

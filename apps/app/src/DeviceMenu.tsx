@@ -59,8 +59,8 @@ interface ButtonProps extends Omit<PanelProps, 'menu'> {
   children: ReactNode;
 }
 
-/** A button with a small arrow beside it that opens the list of devices. */
-export function DeviceButton({ menu, children, ...panel }: ButtonProps) {
+/** Open and closed state for a pop-up that closes on Escape or a click outside `ref`. */
+export function usePopover() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -77,6 +77,13 @@ export function DeviceButton({ menu, children, ...panel }: ButtonProps) {
       document.removeEventListener('keydown', esc);
     };
   }, [open]);
+
+  return { open, setOpen, ref };
+}
+
+/** A button with a small arrow beside it that opens the list of devices. */
+export function DeviceButton({ menu, children, ...panel }: ButtonProps) {
+  const { open, setOpen, ref } = usePopover();
 
   return (
     <div className="split" ref={ref}>

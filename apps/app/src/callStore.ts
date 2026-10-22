@@ -99,6 +99,19 @@ export const useCall = create<CallState>((set, get) => {
     transport?.send({ kind: 'state', audio, video });
   };
 
+  /** What goes out: your microphone, and your video as filtered or decorated if that is running, else the camera. */
+  const outgoing = (): MediaStream | undefined => {
+    const { local, localDisplay, video } = get();
+    if (!local) return undefined;
+    const drawn = localDisplay?.getVideoTracks()[0];
+    if (drawn) drawn.enabled = video;
+    return new MediaStream([...local.getAudioTracks(), ...(drawn ? [drawn] : local.getVideoTracks())]);
+  };
+  const publish = async () => {
+    const stream = outgoing();
+    if (stream) await transport?.replaceLocalStream(stream);
+  };
+
   const upsert = (id: string, patch: Partial<Remote>) =>
     set((s) => ({
       remotes: {
@@ -193,7 +206,7 @@ export const useCall = create<CallState>((set, get) => {
     output.enabled = get().audio;
     const stream = new MediaStream([output, ...current.getVideoTracks()]);
     set({ local: stream });
-    await transport?.replaceLocalStream(stream);
+    await publish();
   };
 
   return {
@@ -252,7 +265,6 @@ export const useCall = create<CallState>((set, get) => {
       try {
         const next = await acquireTrack(kind, id);
         const isVideo = kind === 'videoinput';
-        if (isVideo) effects?.end(); // an effect is drawn on the old camera
         next.track.enabled = isVideo ? video : audio;
         const old = isVideo ? local.getVideoTracks() : local.getAudioTracks();
         const kept = isVideo ? local.getAudioTracks() : local.getVideoTracks();
@@ -265,9 +277,10 @@ export const useCall = create<CallState>((set, get) => {
           micRaw?.stop();
           micRaw = next.track;
         }
-        set({ local: stream, selected, localDisplay: undefined });
+        set({ local: stream, selected });
         old.forEach((t) => t.stop());
-        await transport?.replaceLocalStream(stream);
+        if (isVideo) await effects?.restart(); // a filter or effect was drawn from the old camera
+        await publish();
         if (!isVideo) await get().applyNoise();
       } catch {
         showEffectsMessage(`Could not switch to that ${kind === 'videoinput' ? 'camera' : 'microphone'}.`);
@@ -291,15 +304,16 @@ export const useCall = create<CallState>((set, get) => {
       });
       unsubscribe = transport.on(onEvent);
       try {
-        await transport.join(room, name, get().local ?? local);
+        await transport.join(room, name, outgoing() ?? local);
         // Effects are drawn into the outgoing video only while one is showing; between them the camera is sent as is.
         effects = new EffectsController({
           camera: () => get().local,
           setStream: (stream) => {
-            void transport?.replaceLocalStream(stream);
             set({ localDisplay: stream === get().local ? undefined : stream });
+            void publish();
           },
         });
+        void effects.setFilter(useSettings.getState().moodFilter);
         set({ phase: 'in-call' });
         broadcastState();
       } catch (err) {
@@ -322,6 +336,7 @@ export const useCall = create<CallState>((set, get) => {
       const video = !get().video;
       if (!video) effects?.end(); // nobody can see effects on a camera that is off
       get().local?.getVideoTracks().forEach((t) => (t.enabled = video));
+      get().localDisplay?.getVideoTracks().forEach((t) => (t.enabled = video));
       set({ video });
       broadcastState();
     },
@@ -374,6 +389,7 @@ useSettings.subscribe((now, before) => {
     clearTimeout(noiseTimer);
     noiseTimer = setTimeout(() => void useCall.getState().applyNoise(), 150);
   }
+  if (now.moodFilter !== before.moodFilter) void effects?.setFilter(now.moodFilter);
   if (now.name !== before.name) {
     clearTimeout(nameTimer);
     nameTimer = setTimeout(() => {

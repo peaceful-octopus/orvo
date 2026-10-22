@@ -1,4 +1,5 @@
 import { Compositor, type CompositorLike } from './compositor';
+import { findFilter, type MoodFilter } from './filters';
 import type { GifMode, GifSource } from './gif-source';
 
 export interface EffectsControllerOptions {
@@ -16,18 +17,19 @@ export interface EffectsControllerOptions {
 }
 
 /**
- * Switches the outgoing video to the compositor only while an effect is showing, and back to the plain camera when
- * it ends. Between effects nothing is drawn, encoded twice or throttled with the window.
+ * Switches the outgoing video to the compositor while an effect is showing or a mood filter is chosen, and back to
+ * the plain camera when neither is. With neither, nothing is drawn, encoded twice or throttled with the window.
  */
 export class EffectsController {
   private compositor?: CompositorLike;
   private starting?: Promise<CompositorLike>;
   private lastReactionAt = -Infinity;
   private disposed = false;
+  private filter?: MoodFilter;
 
   constructor(private opts: EffectsControllerOptions) {}
 
-  /** True while effects are being drawn into the outgoing video. */
+  /** True while effects or a mood filter are being drawn into the outgoing video. */
   get active() {
     return this.compositor !== undefined || this.starting !== undefined;
   }
@@ -48,9 +50,35 @@ export class EffectsController {
     await (await this.ensure()).showGif(source, mode, durationMs);
   }
 
-  /** Ends any running effects at once and restores the camera; effects can be started again afterwards. */
+  /** Applies a mood filter to the camera (by id), or removes it with undefined or an unknown id. */
+  async setFilter(id: string | undefined): Promise<void> {
+    this.filter = findFilter(id);
+    if (this.disposed) return;
+    if (this.filter) {
+      (await this.ensure()).setFilter(this.filter);
+      return;
+    }
+    const compositor = this.compositor;
+    if (!compositor) return;
+    compositor.setFilter(undefined);
+    // With no filter the compositor is only needed while an effect is still showing.
+    if (compositor.busy) compositor.onIdle(() => this.finishIfPlain());
+    else this.finish();
+  }
+
+  /** Ends any running effects at once. The camera is restored unless a mood filter is still applied. */
   end() {
-    this.finish();
+    if (this.filter && this.compositor) this.compositor.clearEffects();
+    else this.finish();
+  }
+
+  /** Call after the camera changes: a running filter is redrawn from the new camera, anything else is dropped. */
+  async restart(): Promise<void> {
+    const compositor = this.compositor;
+    if (!this.filter || !compositor) return this.end();
+    this.compositor = undefined;
+    compositor.dispose();
+    await this.ensure();
   }
 
   /** Like `end`, and refuses all further effects. */
@@ -76,9 +104,14 @@ export class EffectsController {
       throw new Error('Effects are not available.');
     }
     this.compositor = compositor;
-    compositor.onIdle(() => this.finish());
+    compositor.setFilter(this.filter);
+    compositor.onIdle(() => this.finishIfPlain());
     this.opts.setStream(compositor.output);
     return compositor;
+  }
+
+  private finishIfPlain() {
+    if (!this.filter) this.finish();
   }
 
   private finish() {

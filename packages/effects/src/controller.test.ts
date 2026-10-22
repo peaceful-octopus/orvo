@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CompositorLike } from './compositor';
+import type { MoodFilter } from './filters';
 import { EffectsController } from './controller';
 import type { GifSource } from './gif-source';
 
@@ -11,12 +12,23 @@ class FakeCompositor implements CompositorLike {
   gifs: GifSource[] = [];
   disposed = false;
   failGif = false;
+  filter?: MoodFilter;
+  cleared = 0;
   private idle: (() => void)[] = [];
 
   constructor(private readyGate: Promise<void>) {}
 
+  get busy() {
+    return this.reactions.length > 0 && !this.cleared;
+  }
   ready() {
     return this.readyGate;
+  }
+  setFilter(filter: MoodFilter | undefined) {
+    this.filter = filter;
+  }
+  clearEffects() {
+    this.cleared++;
   }
   react(emoji: string) {
     this.reactions.push(emoji);
@@ -153,5 +165,80 @@ describe('EffectsController', () => {
     expect(made[0]!.disposed).toBe(true);
     expect(streams).toEqual(['effects', 'camera']);
     await expect(controller.react('🎉')).rejects.toThrow('not available');
+  });
+
+  describe('mood filters', () => {
+    it('sends the filtered video as soon as a filter is chosen, and the plain camera when it is removed', async () => {
+      const { controller, streams, made } = setup();
+      await controller.setFilter('noir');
+      expect(streams).toEqual(['effects']);
+      expect(made[0]!.filter?.id).toBe('noir');
+      expect(controller.active).toBe(true);
+
+      await controller.setFilter(undefined);
+      expect(streams).toEqual(['effects', 'camera']);
+      expect(made[0]!.disposed).toBe(true);
+      expect(controller.active).toBe(false);
+    });
+
+    it('keeps the filter running after reactions end', async () => {
+      const { controller, streams, made } = setup();
+      await controller.setFilter('sunset');
+      await controller.react('x');
+      made[0]!.goIdle();
+      expect(made[0]!.disposed).toBe(false);
+      expect(streams).toEqual(['effects']);
+    });
+
+    it('ending effects clears them but leaves the filter on', async () => {
+      const { controller, streams, made } = setup();
+      await controller.setFilter('sunset');
+      controller.end();
+      expect(made[0]!.cleared).toBe(1);
+      expect(streams).toEqual(['effects']);
+    });
+
+    it('changes the filter without starting a second compositor', async () => {
+      const { controller, made } = setup();
+      await controller.setFilter('noir');
+      await controller.setFilter('neon');
+      expect(made).toHaveLength(1);
+      expect(made[0]!.filter?.id).toBe('neon');
+    });
+
+    it('treats an unknown id as no filter', async () => {
+      const { controller, streams } = setup();
+      await controller.setFilter('noir');
+      await controller.setFilter('nonsense');
+      expect(streams).toEqual(['effects', 'camera']);
+    });
+
+    it('waits for a running reaction to finish before dropping the compositor when the filter is removed', async () => {
+      const { controller, streams, made } = setup();
+      await controller.setFilter('noir');
+      await controller.react('x');
+      await controller.setFilter(undefined);
+      expect(made[0]!.disposed).toBe(false);
+      made[0]!.goIdle();
+      expect(made[0]!.disposed).toBe(true);
+      expect(streams).toEqual(['effects', 'camera']);
+    });
+
+    it('redraws from the new camera when the camera changes, keeping the filter', async () => {
+      const { controller, streams, made } = setup();
+      await controller.setFilter('noir');
+      await controller.restart();
+      expect(made).toHaveLength(2);
+      expect(made[0]!.disposed).toBe(true);
+      expect(made[1]!.filter?.id).toBe('noir');
+      expect(streams).toEqual(['effects', 'effects']); // no flash of the unfiltered camera in between
+    });
+
+    it('restarting with no filter just ends effects', async () => {
+      const { controller, streams } = setup();
+      await controller.react('x');
+      await controller.restart();
+      expect(streams).toEqual(['effects', 'camera']);
+    });
   });
 });

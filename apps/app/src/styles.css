@@ -167,6 +167,11 @@ button.icon.off {
   color: var(--danger);
 }
 
+button.icon.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 button.icon.leave {
   background: var(--danger);
   border-color: var(--danger);
@@ -513,7 +518,7 @@ button.chevron {
   border-left: none;
 }
 
-.split > button.icon:first-child:not(:last-child) {
+.split > button.icon:first-child:has(+ button.chevron) {
   border-radius: 999px 0 0 999px;
 }
 
@@ -614,6 +619,49 @@ button.chevron {
 .setting select option {
   background: var(--surface);
   color: var(--text);
+}
+
+.filter-menu {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  width: 17rem;
+  padding: 0.5rem;
+  border-radius: var(--r-panel);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
+.filter-menu button {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.25rem;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 0.8125rem;
+}
+
+.filter-menu button:not(:disabled):hover {
+  background: var(--hover);
+}
+
+.filter-menu button[aria-checked='true'] {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.filter-menu .swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--raised);
+}
+
+.controls-view .filter-menu {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ---- Floating view ----------------------------------------------------------------------------------------- */

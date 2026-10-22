@@ -2,6 +2,7 @@ import type { GifMode, GifSource } from '@chillcall/effects';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { DeviceMenuPanel, menuRows, type MenuKind } from '../DeviceMenu';
 import { noDevices, noSelection } from '../devices';
+import { FilterPanel } from '../FilterMenu';
 import { ControlButtons } from './ControlButtons';
 import {
   EVT_ACTION,
@@ -21,6 +22,8 @@ const PICKER = { w: 480, h: 560 };
 const HIDE_DELAY_MS = 300;
 /** Tallest the device menu's window grows; longer lists scroll. */
 const MENU_MAX = 420;
+/** Height of the filters panel: three rows of swatches. */
+const FILTERS_HEIGHT = 230;
 /** Space between the bubble window and the controls, in logical pixels. */
 const GAP = 4;
 
@@ -32,17 +35,18 @@ export function ControlsView() {
     devices: noDevices(),
     selected: noSelection(),
     canSelectOutput: false,
+    filter: 'none',
   });
   const [mainHover, setMainHover] = useState(false);
   const [selfHover, setSelfHover] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [menu, setMenu] = useState<MenuKind | null>(null);
+  const [menu, setMenu] = useState<MenuKind | 'filters' | null>(null);
   const panelOpen = pickerOpen || menu !== null;
   const [lingering, setLingering] = useState(false);
   const [above, setAbove] = useState(false);
 
-  const rows = menu ? menuRows(menu, state.devices, state.canSelectOutput) : { sections: 0, options: 0 };
-  const menuHeight = Math.min(MENU_MAX, 20 + rows.sections * 34 + rows.options * 36);
+  const rows = menu && menu !== 'filters' ? menuRows(menu, state.devices, state.canSelectOutput) : { sections: 0, options: 0 };
+  const menuHeight = menu === 'filters' ? FILTERS_HEIGHT : Math.min(MENU_MAX, 20 + rows.sections * 34 + rows.options * 36);
 
   const shown = mainHover || selfHover || panelOpen || lingering;
 
@@ -135,7 +139,7 @@ export function ControlsView() {
     };
   }, [pickerOpen, menu, menuHeight]);
 
-  const toggleMenu = (next: MenuKind) => {
+  const toggleMenu = (next: MenuKind | 'filters') => {
     setPickerOpen(false);
     setMenu((current) => (current === next ? null : next));
   };
@@ -170,8 +174,11 @@ export function ControlsView() {
         }
         onDeviceMenu={toggleMenu}
         openMenu={menu}
+        onFilters={() => toggleMenu('filters')}
+        filterOn={state.filter !== 'none'}
       />
-      {menu && (
+      {menu === 'filters' && <FilterPanel selected={state.filter} onSelect={(id) => void act({ type: 'filter', id })} />}
+      {menu && menu !== 'filters' && (
         <DeviceMenuPanel
           menu={menu}
           devices={state.devices}

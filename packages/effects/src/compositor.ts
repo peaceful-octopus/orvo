@@ -1,3 +1,4 @@
+import { drawFiltered, type MoodFilter } from './filters';
 import type { GifMode, GifSource } from './gif-source';
 import { coverRect, fillAlpha, stickerPlacement } from './layout';
 import { anyAlive, particleState, spawnReaction, type Particle } from './particles';
@@ -11,7 +12,13 @@ const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans
 export interface CompositorLike {
   /** Camera video with the effects drawn on it, plus the camera's audio. */
   readonly output: MediaStream;
+  /** True while a reaction or GIF is showing. */
+  readonly busy: boolean;
   ready(): Promise<void>;
+  /** The look applied to the camera; undefined for none. */
+  setFilter(filter: MoodFilter | undefined): void;
+  /** Removes any reactions and GIFs at once. */
+  clearEffects(): void;
   react(emoji: string): void;
   showGif(source: GifSource, mode: GifMode, durationMs?: number): Promise<void>;
   /** Called once when the last effect has finished. */
@@ -76,6 +83,7 @@ export class Compositor implements CompositorLike {
   private idleAt?: number;
   private idleCallbacks: (() => void)[] = [];
   private disposed = false;
+  private filter?: MoodFilter;
 
   constructor(
     private camera: MediaStream,
@@ -109,6 +117,19 @@ export class Compositor implements CompositorLike {
       this.canvas.height = this.cameraVideo.videoHeight;
     }
     this.draw();
+  }
+
+  get busy() {
+    return this.particles.length > 0 || this.gif !== undefined;
+  }
+
+  setFilter(filter: MoodFilter | undefined) {
+    this.filter = filter;
+  }
+
+  clearEffects() {
+    this.particles = [];
+    this.releaseGif();
   }
 
   react(emoji: string) {
@@ -168,7 +189,7 @@ export class Compositor implements CompositorLike {
 
     if (this.cameraVideo.readyState >= 2 && this.cameraVideo.videoWidth) {
       const r = coverRect(this.cameraVideo.videoWidth, this.cameraVideo.videoHeight, W, H);
-      ctx.drawImage(this.cameraVideo, r.x, r.y, r.w, r.h);
+      drawFiltered(ctx, this.filter, W, H, () => ctx.drawImage(this.cameraVideo, r.x, r.y, r.w, r.h));
     } else {
       ctx.fillStyle = '#231f38';
       ctx.fillRect(0, 0, W, H);

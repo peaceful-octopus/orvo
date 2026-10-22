@@ -9,6 +9,7 @@ import {
   PanelTop,
   PictureInPicture2,
   Settings,
+  Sparkles,
   Video,
   VideoOff,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ export const ChevronIcon = () => <ChevronDown size={14} strokeWidth={3} aria-hid
 export const GearIcon = () => <Settings size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LinkIcon = () => <Link size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const CheckIcon = () => <Check size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const SparklesIcon = () => <Sparkles size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const FloatIcon = () => <PictureInPicture2 size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const DockIcon = () => <PanelTop size={SIZE} strokeWidth={STROKE} aria-hidden />;
 

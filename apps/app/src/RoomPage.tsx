@@ -8,6 +8,7 @@ import { useConfig } from './configStore';
 import { copyText, roomLink } from './roomInput';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
+import { FilterButton } from './FilterMenu';
 import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
 import { SettingsButton } from './SettingsPane';
@@ -78,6 +79,8 @@ export function RoomPage({ room }: { room: string }) {
   const name = useSettings((s) => s.name);
   const setName = useSettings((s) => s.setName);
   const startView = useSettings((s) => s.startView);
+  const moodFilter = useSettings((s) => s.moodFilter);
+  const setMoodFilter = useSettings((s) => s.setMoodFilter);
 
   useEffect(() => {
     void startPreview();
@@ -117,6 +120,7 @@ export function RoomPage({ room }: { room: string }) {
     else if (a.type === 'react') void react(a.emoji);
     else if (a.type === 'gif') sendGif(a.source, a.mode).catch(() => {}); // the store already shows a message
     else if (a.type === 'device') void selectDevice(a.kind, a.id);
+    else if (a.type === 'filter') setMoodFilter(a.id);
     else if (a.type === 'leave') void leaveCall();
     else void float.exit();
   };
@@ -127,7 +131,7 @@ export function RoomPage({ room }: { room: string }) {
   };
   const controlsWindow = useControlsWindow(
     float.active && float.kind === 'tauri',
-    { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs },
+    { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs, filter: moodFilter },
     onControlAction,
   );
 
@@ -264,6 +268,7 @@ export function RoomPage({ room }: { room: string }) {
             {video ? <VideoIcon /> : <VideoOffIcon />}
           </button>
         </DeviceButton>
+        <FilterButton selected={moodFilter} onSelect={setMoodFilter} />
         {float.kind && (
           <button
             className="icon"

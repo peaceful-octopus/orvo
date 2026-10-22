@@ -124,3 +124,25 @@ export async function fakeGiphy(context: BrowserContext, clip: Buffer | undefine
   await context.route('**/pingback.giphy.com/**', (route) => route.fulfill({ status: 204 }));
   return state;
 }
+
+/** Average colourfulness (0 grey to 1 vivid) of one of the call's videos. `which` 0 is your own bubble. */
+export async function saturation(page: Page, which: number): Promise<number> {
+  return page.locator('.bubble video').nth(which).evaluate((video) => {
+    const c = document.createElement('canvas');
+    c.width = 80;
+    c.height = 60;
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(video as HTMLVideoElement, 0, 0, 80, 60);
+    const { data } = ctx.getImageData(0, 0, 80, 60);
+    let total = 0;
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const max = Math.max(data[i]!, data[i + 1]!, data[i + 2]!);
+      const min = Math.min(data[i]!, data[i + 1]!, data[i + 2]!);
+      if (max < 30) continue; // black corners carry no colour either way
+      total += (max - min) / max;
+      n++;
+    }
+    return n ? total / n : 0;
+  });
+}
