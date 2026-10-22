@@ -77,3 +77,36 @@ export class NonceCache {
     return this.seen.size;
   }
 }
+
+export const ResumePayload = z.object({
+  room: z.string().min(1),
+  peerId: z.string().min(1),
+  exp: z.number().int(),
+});
+export type ResumePayload = z.infer<typeof ResumePayload>;
+
+const ResumeEnvelope = z.object({ kind: z.literal('resume'), kid: z.string(), payload: ResumePayload });
+
+/** Lets a client that lost its signaling connection rejoin under the same peer id. */
+export function signResumeToken(payload: ResumePayload, kid: string, secretKey: Uint8Array): string {
+  const envelope = { kind: 'resume', kid, payload };
+  return `${toBase64Url(utf8.encode(JSON.stringify(envelope)))}.${signValue(envelope, secretKey)}`;
+}
+
+export function verifyResumeToken(
+  token: string,
+  checks: { keys: KeyRing; now: number; room: string },
+): ResumePayload | null {
+  const [body, signature, ...rest] = token.split('.');
+  if (!body || !signature || rest.length > 0) return null;
+  try {
+    const parsed = ResumeEnvelope.safeParse(JSON.parse(utf8.decode(fromBase64Url(body))));
+    if (!parsed.success) return null;
+    const publicKey = checks.keys[parsed.data.kid];
+    if (!publicKey || !verifyValue(parsed.data, signature, publicKey)) return null;
+    const { payload } = parsed.data;
+    return payload.exp > checks.now && payload.room === checks.room ? payload : null;
+  } catch {
+    return null;
+  }
+}

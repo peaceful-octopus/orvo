@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { generateKeyPair } from './signing';
-import { NonceCache, signJoinToken, verifyJoinToken, type JoinTokenPayload } from './token';
+import {
+  NonceCache,
+  signJoinToken,
+  signResumeToken,
+  verifyJoinToken,
+  verifyResumeToken,
+  type JoinTokenPayload,
+} from './token';
 
 const now = 1_000_000;
 const pair = generateKeyPair();
@@ -62,5 +69,22 @@ describe('NonceCache', () => {
     for (let i = 0; i < 100; i++) cache.checkAndAdd(`nonce-${i}-xxxx`, now + 10, now);
     cache.checkAndAdd('fresh-nonce-1', now + 100, now + 50);
     expect(cache.size).toBe(1);
+  });
+});
+
+describe('resume tokens', () => {
+  const resume = { room: 'cozy-fox-abc123', peerId: 'p1', exp: now + 600_000 };
+
+  it('verifies for the same room until expiry', () => {
+    const token = signResumeToken(resume, 'k1', pair.secretKey);
+    expect(verifyResumeToken(token, { keys, now, room: resume.room })).toEqual(resume);
+    expect(verifyResumeToken(token, { keys, now: resume.exp + 1, room: resume.room })).toBeNull();
+    expect(verifyResumeToken(token, { keys, now, room: 'other-room-xyz' })).toBeNull();
+  });
+
+  it('rejects a join token presented as a resume token and garbage', () => {
+    const joinToken = signJoinToken(payload, 'k1', pair.secretKey);
+    expect(verifyResumeToken(joinToken, { keys, now, room: payload.room })).toBeNull();
+    expect(verifyResumeToken('junk', { keys, now, room: resume.room })).toBeNull();
   });
 });

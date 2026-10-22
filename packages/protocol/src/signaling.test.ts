@@ -22,7 +22,7 @@ describe('signaling frames', () => {
   });
 
   it('round-trips server messages', () => {
-    const frame = encodeServerMessage({ type: 'welcome', peerId: 'p1', peers: [{ id: 'p2', name: 'Bo' }], status: 'ok' });
+    const frame = encodeServerMessage({ type: 'welcome', peerId: 'p1', peers: [{ id: 'p2', name: 'Bo' }], status: 'ok', resumed: false });
     expect(parseServerMessage(frame).ok).toBe(true);
     expect(parseServerMessage(encodeServerMessage({ type: 'error', code: 'room-full' })).ok).toBe(true);
   });

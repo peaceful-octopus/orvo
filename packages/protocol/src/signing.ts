@@ -35,6 +35,13 @@ export interface KeyPair {
 /** Trusted verification keys by key id, so keys can be rotated without shipping a new app. */
 export type KeyRing = Record<string, Uint8Array>;
 
+/** Parses a key ring from JSON `{ "<kid>": "<base64url public key>" }`, as supplied in environment variables. */
+export function keyRingFromJson(raw: string | undefined): KeyRing {
+  if (!raw) throw new Error('A key ring is required: JSON object of key id to base64url Ed25519 public key');
+  const entries = Object.entries(JSON.parse(raw) as Record<string, string>);
+  return Object.fromEntries(entries.map(([kid, key]) => [kid, fromBase64Url(key)]));
+}
+
 export function generateKeyPair(): KeyPair {
   return ed25519.keygen();
 }

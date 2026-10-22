@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --parallel --filter @chillcall/app --filter @chillcall/signaling dev",
+    "dev": "pnpm --parallel --filter @chillcall/app --filter @chillcall/server dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run --passWithNoTests --changed",
@@ -20,7 +20,9 @@
     "test:app": "vitest run --project app",
     "test:e2e:smoke": "playwright test --project=smoke",
     "test:e2e:layout": "playwright test --project=layout",
-    "test:e2e:scale": "playwright test --project=scale"
+    "test:e2e:scale": "playwright test --project=scale",
+    "test:beacon": "vitest run --project beacon",
+    "test:e2e:resilience": "playwright test --project=resilience"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

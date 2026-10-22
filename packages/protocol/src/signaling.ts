@@ -31,7 +31,7 @@ export const ClientMessage = z.discriminatedUnion('type', [
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
 export const ServerMessage = z.discriminatedUnion('type', [
-  z.object({ v, type: z.literal('welcome'), peerId, peers: z.array(peer), status: RoomStatus }),
+  z.object({ v, type: z.literal('welcome'), peerId, peers: z.array(peer), status: RoomStatus, resumed: z.boolean() }),
   z.object({ v, type: z.literal('peer-joined'), peer }),
   z.object({ v, type: z.literal('peer-left'), id: peerId }),
   z.object({ v, type: z.literal('signal'), from: peerId, payload: z.unknown() }),
@@ -60,6 +60,9 @@ export const parseServerMessage = (raw: string | Uint8Array) => parseFrame(Serve
 
 type WithoutVersion<T> = T extends unknown ? Omit<T, 'v'> : never;
 
-export function encodeServerMessage(message: WithoutVersion<ServerMessage>): string {
+/** A server message as written by code, without the protocol version that `encodeServerMessage` adds. */
+export type ServerMessageBody = WithoutVersion<ServerMessage>;
+
+export function encodeServerMessage(message: ServerMessageBody): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, ...message });
 }

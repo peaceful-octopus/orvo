@@ -10,6 +10,7 @@ export interface Member {
   video: boolean;
   audio: boolean;
   self?: boolean;
+  unreachable?: boolean;
 }
 
 interface Props {
@@ -42,6 +43,7 @@ export function BubbleField({ members, mode }: Props) {
               stream={m.stream}
               videoOn={m.video}
               audioOn={m.audio}
+              unreachable={m.unreachable}
               mirrored={m.self}
               muteAudio={m.self}
             />

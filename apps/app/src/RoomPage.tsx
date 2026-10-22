@@ -1,4 +1,4 @@
-import { WARN_ROOM_SIZE, roomStatus } from '@chillcall/rtc';
+import { WARN_ROOM_SIZE, roomStatus } from '@chillcall/protocol';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bubble } from './Bubble';
@@ -12,7 +12,7 @@ import { useUi } from './uiStore';
 const MODE_LABELS = { row: 'Row', column: 'Column', campfire: 'Campfire' } as const;
 
 export function RoomPage({ room }: { room: string }) {
-  const { phase, error, local, audio, video, remotes, startPreview, join, toggleAudio, toggleVideo, leave } =
+  const { phase, error, local, audio, video, remotes, reconnecting, startPreview, join, toggleAudio, toggleVideo, leave } =
     useCall();
   const { mode, setMode } = useUi();
   const [name, setName] = useState(() => localStorage.getItem('chillcall:name') ?? '');
@@ -30,6 +30,7 @@ export function RoomPage({ room }: { room: string }) {
         stream: p.stream,
         video: p.video,
         audio: p.audio,
+        unreachable: p.state === 'unreachable',
       })),
     ],
     [name, local, video, audio, remotes],
@@ -79,6 +80,7 @@ export function RoomPage({ room }: { room: string }) {
 
   return (
     <main className="call">
+      {reconnecting && <p className="banner">Reconnecting to the server... your call continues.</p>}
       {status !== 'ok' && (
         <p className="banner">
           More than {WARN_ROOM_SIZE} people are here, so video quality may be degraded.

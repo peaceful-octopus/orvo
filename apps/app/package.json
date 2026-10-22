@@ -9,6 +9,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@chillcall/protocol": "workspace:*",
     "@chillcall/rtc": "workspace:*",
     "@tauri-apps/api": "^2.12.4",
     "motion": "^14.4.0",

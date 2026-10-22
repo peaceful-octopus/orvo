@@ -20,6 +20,7 @@ export default defineConfig({
       unit('testkit', './packages/testkit'),
       unit('rtc', './packages/rtc'),
       unit('signaling', './apps/signaling'),
+      unit('beacon', './apps/beacon'),
       unit('app', './apps/app'),
     ],
   },

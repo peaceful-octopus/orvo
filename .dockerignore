@@ -1,0 +1,8 @@
+.git
+**/node_modules
+**/dist
+apps/desktop/src-tauri
+data
+test-results
+playwright-report
+*.log

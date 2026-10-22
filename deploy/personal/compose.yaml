@@ -1,0 +1,45 @@
+# Personal ChillCall: one container, with optional HTTPS (Caddy) and optional self-hosted STUN (coturn).
+#
+#   docker compose up -d                                  # http://localhost:8080
+#   DOMAIN=chill.example.com BEHIND_PROXY=1 docker compose --profile https up -d
+#   docker compose --profile stun up -d                   # then set STUN_URLS=stun:<your-host>:3478
+services:
+  chillcall:
+    build: ../..
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      BEHIND_PROXY: ${BEHIND_PROXY:-}
+      STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
+    volumes:
+      - chillcall-data:/data
+
+  # Browsers only allow camera access over HTTPS (or on localhost), so friends connecting over the
+  # internet need this or your own reverse proxy. Certificates are issued automatically.
+  caddy:
+    profiles: ["https"]
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN to the public host name}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - chillcall
+
+  # STUN only (no relay), so it costs almost no bandwidth. Needs UDP 3478 reachable from the internet.
+  coturn:
+    profiles: ["stun"]
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: host
+    command: ["--stun-only", "--no-tls", "--no-dtls", "--no-cli", "--fingerprint", "--listening-port=3478"]
+
+volumes:
+  chillcall-data:
+  caddy-data:
