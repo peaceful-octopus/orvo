@@ -3,8 +3,9 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bubble } from './Bubble';
 import { useCall } from './callStore';
-import { giphyApiKey } from './config';
+import { getServerUrl, giphyApiKey } from './config';
 import { useConfig } from './configStore';
+import { copyText, roomLink } from './roomInput';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
 import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
@@ -15,10 +16,12 @@ import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
 import {
   CampfireIcon,
+  CheckIcon,
   ColumnIcon,
   DockIcon,
   FloatIcon,
   LeaveIcon,
+  LinkIcon,
   MicIcon,
   MicOffIcon,
   RowIcon,
@@ -63,6 +66,7 @@ export function RoomPage({ room }: { room: string }) {
   const limits = useConfig((s) => s.config.limits);
   const apiKey = useConfig((s) => giphyApiKey(s.config));
   const [gifOpen, setGifOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [name, setName] = useState(() => localStorage.getItem('chillcall:name') ?? '');
 
   useEffect(() => {
@@ -206,6 +210,19 @@ export function RoomPage({ room }: { room: string }) {
             {float.active ? <DockIcon /> : <FloatIcon />}
           </button>
         )}
+        <button
+          className="icon"
+          aria-label={copied ? 'Link copied' : 'Copy room link'}
+          title={copied ? 'Link copied' : 'Copy a link to this room'}
+          onClick={() =>
+            void copyText(roomLink(room, getServerUrl())).then((ok) => {
+              setCopied(ok);
+              setTimeout(() => setCopied(false), 2000);
+            })
+          }
+        >
+          {copied ? <CheckIcon /> : <LinkIcon />}
+        </button>
         <button
           className="icon leave"
           aria-label="Leave"

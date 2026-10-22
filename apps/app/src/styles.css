@@ -115,6 +115,10 @@ form,
   gap: 1rem;
 }
 
+.join-room input {
+  min-width: 14rem;
+}
+
 .error {
   color: #ff8a8a;
 }

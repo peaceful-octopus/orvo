@@ -5,12 +5,14 @@ import { updateRequired } from './configLogic';
 import { useConfig } from './configStore';
 import { AnnouncementBanner, UpdateRequired } from './Notices';
 import { RoomPage } from './RoomPage';
+import { parseRoomInput } from './roomInput';
 import { setTelemetryEnabled } from './telemetry';
 
 function Home() {
   const maxRoomSize = useConfig((s) => s.config.limits.maxRoomSize);
   const gifsOn = useConfig((s) => Boolean(giphyApiKey(s.config)));
   const [error, setError] = useState<string>();
+  const [roomName, setRoomName] = useState('');
   const [server, setServer] = useState(getServerUrl());
   const [saved, setSaved] = useState(false);
   const [shareStats, setShareStats] = useState(telemetryAllowed());
@@ -32,6 +34,26 @@ function Home() {
       <h1>ChillCall</h1>
       <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
       <button onClick={() => void startRoom()}>Start a room</button>
+      <form
+        className="join-room"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const room = parseRoomInput(roomName);
+          if (room) location.assign(`/r/${room}`);
+          else setError('Enter a room name (letters, numbers and hyphens) or paste a room link.');
+        }}
+      >
+        <input
+          value={roomName}
+          onChange={(e) => {
+            setRoomName(e.target.value);
+            setError(undefined);
+          }}
+          placeholder="Room name or link"
+          aria-label="Room name or link"
+        />
+        <button>Join a room</button>
+      </form>
       {error && <p className="error">{error}</p>}
 
       <details className="server">
