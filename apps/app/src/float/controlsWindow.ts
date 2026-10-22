@@ -10,6 +10,9 @@ import {
   type ControlsState,
 } from './bridge';
 
+const HOVER_POLL_MS = 60;
+const HOVER_MARGIN_PX = 8;
+
 export const CONTROLS_BAR = { w: 392, h: 64 };
 
 /** Window creation and closing are serialized so a quick Float/Expand toggle cannot race itself. */
@@ -75,19 +78,24 @@ export function useControlsWindow(
       if (cancelled) return subscriptions.forEach((u) => u());
       unlisten.push(...subscriptions);
 
-      const root = document.documentElement;
-      const tell = (hover: boolean) => {
-        setMainHover(hover);
-        void emit(EVT_MAIN_HOVER, hover);
-      };
-      const enter = () => tell(true);
-      const leave = () => tell(false);
-      root.addEventListener('mouseenter', enter);
-      root.addEventListener('mouseleave', leave);
-      unlisten.push(() => {
-        root.removeEventListener('mouseenter', enter);
-        root.removeEventListener('mouseleave', leave);
-      });
+      // The OS handles the resize border itself, so the page gets no mouse events there. Poll the cursor against
+      // the window's outer rectangle instead, with a margin that covers the border's grab zone.
+      const { getCurrentWindow, cursorPosition } = await import('@tauri-apps/api/window');
+      const me = getCurrentWindow();
+      let last = false;
+      const timer = setInterval(() => {
+        void Promise.all([cursorPosition(), me.outerPosition(), me.outerSize()])
+          .then(([c, p, s]) => {
+            const m = HOVER_MARGIN_PX;
+            const hover = c.x >= p.x - m && c.x < p.x + s.width + m && c.y >= p.y - m && c.y < p.y + s.height + m;
+            if (hover === last) return;
+            last = hover;
+            setMainHover(hover);
+            void emit(EVT_MAIN_HOVER, hover);
+          })
+          .catch(() => {});
+      }, HOVER_POLL_MS);
+      unlisten.push(() => clearInterval(timer));
       void enqueue(openControls);
     })();
 
