@@ -7,6 +7,8 @@ import { giphyApiKey } from './config';
 import { useConfig } from './configStore';
 import { ReactionBar } from './ReactionBar';
 import { BubbleField, type Member } from './float/BubbleField';
+import type { ControlAction } from './float/bridge';
+import { useControlsWindow } from './float/controlsWindow';
 import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
 import { LAYOUT_MODES } from './float/layouts';
@@ -63,6 +65,18 @@ export function RoomPage({ room }: { room: string }) {
   );
 
   const float = useFloat(mode, members.length);
+  const onControlAction = (a: ControlAction) => {
+    if (a.type === 'audio') toggleAudio();
+    else if (a.type === 'video') toggleVideo();
+    else if (a.type === 'react') void react(a.emoji);
+    else if (a.type === 'gif') sendGif(a.source, a.mode).catch(() => {}); // the store already shows a message
+    else void float.exit();
+  };
+  const controlsWindow = useControlsWindow(
+    float.active && float.kind === 'tauri',
+    { audio, video, giphyKey: apiKey },
+    onControlAction,
+  );
 
   if (phase !== 'in-call') {
     return (
@@ -86,17 +100,25 @@ export function RoomPage({ room }: { room: string }) {
     );
   }
 
-  const floatView = (draggable: boolean) => (
+  const floatView = (inWindow: boolean) => (
     <FloatView
       members={members}
       mode={mode}
-      audio={audio}
-      video={video}
-      draggable={draggable}
-      onToggleAudio={toggleAudio}
-      onToggleVideo={toggleVideo}
-      onReact={(emoji) => void react(emoji)}
-      onExpand={() => void float.exit()}
+      draggable={inWindow}
+      hot={inWindow ? controlsWindow.hot : undefined}
+      inlineControls={
+        inWindow
+          ? undefined
+          : {
+              audio,
+              video,
+              onToggleAudio: toggleAudio,
+              onToggleVideo: toggleVideo,
+              onReact: (emoji) => void react(emoji),
+              onExpand: () => void float.exit(),
+              onGif: apiKey ? () => setGifOpen(true) : undefined,
+            }
+      }
     />
   );
 

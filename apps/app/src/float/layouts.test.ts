@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LAYOUT_MODES, floatWindowSize, layout } from './layouts';
+import { LAYOUT_MODES, MAX_BUBBLE, UNCAPPED, floatWindowSize, layout } from './layouts';
 
 const bounds = { w: 800, h: 500 };
 const EPS = 1e-6;
@@ -52,6 +52,23 @@ describe('layout', () => {
   });
 });
 
+describe('bubble size cap', () => {
+  const big = { w: 2000, h: 1400 };
+
+  it('caps bubbles by default', () => {
+    for (const mode of LAYOUT_MODES) expect(layout(mode, 3, big).size).toBeLessThanOrEqual(MAX_BUBBLE);
+  });
+
+  it('lets bubbles keep growing with the window when uncapped', () => {
+    for (const mode of LAYOUT_MODES) {
+      const small = layout(mode, 3, { w: 900, h: 700 }, UNCAPPED).size;
+      const large = layout(mode, 3, big, UNCAPPED).size;
+      expect(large).toBeGreaterThan(MAX_BUBBLE);
+      expect(large).toBeGreaterThan(small);
+    }
+  });
+});
+
 describe('floatWindowSize', () => {
   it('is wide for row, tall for column, square for campfire', () => {
     const row = floatWindowSize('row', 4);
@@ -66,7 +83,7 @@ describe('floatWindowSize', () => {
     for (const mode of LAYOUT_MODES) {
       for (let n = 1; n <= 10; n++) {
         const { size } = layout(mode, n, floatWindowSize(mode, n));
-        expect(size).toBeGreaterThanOrEqual(96 - EPS);
+        expect(size).toBeGreaterThanOrEqual(128 - EPS);
       }
     }
   });

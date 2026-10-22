@@ -1,0 +1,42 @@
+import type { GifMode, GifSource } from '@chillcall/effects';
+
+/** Events exchanged between the floating bubble window and its separate controls window. */
+export const CONTROLS_LABEL = 'float-controls';
+export const EVT_STATE = 'float:state';
+export const EVT_READY = 'float:ready';
+export const EVT_ACTION = 'float:action';
+export const EVT_MAIN_HOVER = 'float:main-hover';
+export const EVT_CONTROLS_HOVER = 'float:controls-hover';
+
+export interface ControlsState {
+  audio: boolean;
+  video: boolean;
+  giphyKey?: string;
+}
+
+export type ControlAction =
+  | { type: 'audio' }
+  | { type: 'video' }
+  | { type: 'react'; emoji: string }
+  | { type: 'gif'; source: GifSource; mode: GifMode }
+  | { type: 'expand' };
+
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Where the controls window goes, in physical pixels: centered under the bubble window, or above it when there
+ * is no room below, and never off the monitor.
+ */
+export function placeControls(main: Rect, size: { w: number; h: number }, monitor: Rect, gap: number) {
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)));
+  const x = clamp(main.x + (main.w - size.w) / 2, monitor.x, monitor.x + monitor.w - size.w);
+  const below = main.y + main.h + gap;
+  const aboveY = main.y - gap - size.h;
+  const above = below + size.h > monitor.y + monitor.h && aboveY >= monitor.y;
+  return { x: Math.round(x), y: Math.round(above ? aboveY : below), above };
+}

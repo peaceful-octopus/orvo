@@ -1,43 +1,40 @@
 import { BubbleField, type Member } from './BubbleField';
+import { ControlButtons } from './ControlButtons';
 import { startWindowDrag } from './float';
-import type { LayoutMode } from './layouts';
+import { UNCAPPED, type LayoutMode } from './layouts';
 
 interface Props {
   members: Member[];
   mode: LayoutMode;
-  audio: boolean;
-  video: boolean;
   /** True when the window is an undecorated Tauri window that must be dragged by its content. */
   draggable: boolean;
-  onToggleAudio(): void;
-  onToggleVideo(): void;
-  onReact(emoji: string): void;
-  onExpand(): void;
+  /** The pointer is over the floating window or its controls: show the translucent backdrop. */
+  hot?: boolean;
+  /** Controls drawn inside this window. Omitted when they live in their own window. */
+  inlineControls?: {
+    audio: boolean;
+    video: boolean;
+    onToggleAudio(): void;
+    onToggleVideo(): void;
+    onReact(emoji: string): void;
+    onExpand(): void;
+    onGif?: () => void;
+  };
 }
 
-const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉'];
-
-/** Compact bubbles-only view with hover controls, shown in the floating window. */
-export function FloatView({ members, mode, audio, video, draggable, onToggleAudio, onToggleVideo, onReact, onExpand }: Props) {
+/** Bubbles-only view shown in the floating window; the bubbles grow with the window. */
+export function FloatView({ members, mode, draggable, hot, inlineControls }: Props) {
   return (
-    <div className="float-view" onMouseDown={draggable ? () => void startWindowDrag() : undefined}>
-      <BubbleField members={members} mode={mode} />
-      <div className="float-controls" onMouseDown={(e) => e.stopPropagation()}>
-        <button onClick={onToggleAudio} title={audio ? 'Mute' : 'Unmute'}>
-          {audio ? 'Mute' : 'Unmute'}
-        </button>
-        <button onClick={onToggleVideo} title={video ? 'Camera off' : 'Camera on'}>
-          {video ? 'Cam off' : 'Cam on'}
-        </button>
-        {QUICK_REACTIONS.map((emoji) => (
-          <button key={emoji} disabled={!video} aria-label={`React with ${emoji}`} onClick={() => onReact(emoji)}>
-            {emoji}
-          </button>
-        ))}
-        <button onClick={onExpand} title="Back to full window">
-          Expand
-        </button>
-      </div>
+    <div
+      className={`float-view${hot ? ' hot' : ''}${inlineControls ? ' inline-controls' : ''}`}
+      onMouseDown={draggable ? () => void startWindowDrag() : undefined}
+    >
+      <BubbleField members={members} mode={mode} maxSize={UNCAPPED} />
+      {inlineControls && (
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <ControlButtons {...inlineControls} />
+        </div>
+      )}
     </div>
   );
 }

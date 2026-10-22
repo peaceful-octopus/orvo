@@ -15,18 +15,20 @@ export interface Placement {
 }
 
 export const MAX_BUBBLE = 240;
+/** Pass as `maxSize` to let bubbles keep growing with their container. */
+export const UNCAPPED = Infinity;
 /** Gap between bubbles as a fraction of the bubble diameter. */
 const GAP = 0.12;
 
-export function layout(mode: LayoutMode, count: number, { w, h }: Bounds): Placement {
+export function layout(mode: LayoutMode, count: number, { w, h }: Bounds, maxSize = MAX_BUBBLE): Placement {
   if (count <= 0 || w <= 0 || h <= 0) return { size: 0, positions: [] };
 
-  if (mode === 'campfire' && count > 1) return campfire(count, w, h);
+  if (mode === 'campfire' && count > 1) return campfire(count, w, h, maxSize);
 
   // A single bubble is centered whatever the mode.
   const along = mode === 'column' ? h : w;
   const across = mode === 'column' ? w : h;
-  const size = Math.min(MAX_BUBBLE, across, along / (count + GAP * (count - 1)));
+  const size = Math.min(maxSize, across, along / (count + GAP * (count - 1)));
   const gap = size * GAP;
   const total = count * size + (count - 1) * gap;
   const start = (along - total) / 2;
@@ -41,11 +43,11 @@ export function layout(mode: LayoutMode, count: number, { w, h }: Bounds): Place
   };
 }
 
-function campfire(count: number, w: number, h: number): Placement {
+function campfire(count: number, w: number, h: number, maxSize: number): Placement {
   const m = Math.min(w, h);
   const s = Math.sin(Math.PI / count);
   // Neighbouring bubble centers are 2R*sin(pi/n) apart and the ring must fit inside m.
-  const size = Math.min(MAX_BUBBLE, (m * s) / (1 + GAP + s));
+  const size = Math.min(maxSize, (m * s) / (1 + GAP + s));
   const radius = (size * (1 + GAP)) / (2 * s);
   const cx = w / 2;
   const cy = h / 2;
@@ -59,8 +61,8 @@ function campfire(count: number, w: number, h: number): Placement {
   };
 }
 
-const FLOAT_BUBBLE = 96;
-const FLOAT_PAD = 16;
+const FLOAT_BUBBLE = 128;
+const FLOAT_PAD = 8;
 
 /** Window size that fits `count` bubbles at a compact fixed diameter, for the floating window. */
 export function floatWindowSize(mode: LayoutMode, count: number): Bounds {

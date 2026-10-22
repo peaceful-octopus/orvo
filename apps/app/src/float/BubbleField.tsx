@@ -17,14 +17,16 @@ export interface Member {
 interface Props {
   members: Member[];
   mode: LayoutMode;
+  /** Largest bubble diameter; omit for the default cap. */
+  maxSize?: number;
 }
 
 const spring = { type: 'spring', stiffness: 220, damping: 26 } as const;
 
 /** Lays out circular bubbles in a row, column or ring, animating between arrangements. */
-export function BubbleField({ members, mode }: Props) {
+export function BubbleField({ members, mode, maxSize }: Props) {
   const [ref, bounds] = useSize<HTMLDivElement>();
-  const { size, positions } = layout(mode, members.length, bounds);
+  const { size, positions } = layout(mode, members.length, bounds, maxSize);
 
   return (
     <div ref={ref} className="field">

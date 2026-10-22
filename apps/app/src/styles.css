@@ -158,6 +158,14 @@ form,
   position: relative;
   width: 100vw;
   height: 100vh;
+  border-radius: 14px;
+  background: rgba(20, 18, 31, 0);
+  transition: background 0.18s;
+}
+
+/* A faint backdrop while the pointer is over the window shows where its edges and resize corners are. */
+.float-view.hot {
+  background: rgba(20, 18, 31, 0.5);
 }
 
 .float-view .bubble,
@@ -166,23 +174,81 @@ form,
 }
 
 .float-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(27, 24, 48, 0.92);
+  border: 1px solid #5b5580;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.float-controls .sep {
+  width: 1px;
+  height: 1.4rem;
+  margin: 0 0.15rem;
+  background: #5b5580;
+}
+
+.float-controls button.icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* Pictures-in-picture has no second window, so its controls sit over the bubbles and fade in on hover. */
+.float-view.inline-controls > div {
   position: absolute;
-  top: 0;
+  top: 0.35rem;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  gap: 0.25rem;
   opacity: 0;
   transition: opacity 0.15s;
 }
 
-.float-view:hover .float-controls {
+.float-view.inline-controls:hover > div {
   opacity: 1;
 }
 
-.float-controls button {
-  padding: 0.15rem 0.6rem;
-  font-size: 0.75rem;
+/* The separate controls window: transparent, fades in while the pointer is over the bubbles or the controls. */
+.controls-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  padding: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+
+.controls-view.above {
+  flex-direction: column-reverse;
+}
+
+.controls-view.shown {
+  opacity: 1;
+}
+
+.controls-view .modal-backdrop {
+  position: static;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+}
+
+.controls-view .modal {
+  max-height: 100%;
 }
 
 .server {
