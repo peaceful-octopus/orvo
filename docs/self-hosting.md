@@ -43,6 +43,12 @@ Optional relay (TURN) for entitled rooms only: set `TURN_URLS` and `TURN_SECRET`
 
 Beacon environment: `REDIS_URL`, `SIGNING_KEY`, `STUN_URLS`, `TURN_URLS`, `TURN_SECRET`, `TURN_LITE_URLS`, `TURN_LITE_SECRET` (capped pool), `MAX_ROOM_SIZE`, `WARN_ROOM_SIZE`, `MIN_CLIENT_VERSION`, `ANNOUNCEMENT`, `ANNOUNCEMENT_ID`, `CONFIG_FILE` (a pre-signed config served as is), `WEB_DIR`, `CORS_ORIGIN`, `BEHIND_PROXY`. Node environment: `BEACON_URL` or `TRUSTED_KEYS`, `REDIS_URL`, `PUBLIC_WS_URL`, `NODE_ID`, `REGION`, `WEIGHT`, `DRAIN_MS`.
 
+### STUN and relay (TURN)
+- **STUN** lets two browsers find a direct path to each other and costs almost no bandwidth. Everyone gets it. The default is Google's public server; to use your own, run `docker compose --profile stun up -d` (both compose files have the profile) and set `STUN_URLS=stun:stun.your-domain:3478`.
+- **A relay (TURN)** carries the media itself for people whose networks block direct connections, so it costs real bandwidth. Rooms get one only with an entitlement; everyone else gets STUN only and the app tells them who it could not connect to. To run relays, use `deploy/turn/compose.yaml`: a `full` pool (uncapped) and a `relay-lite` pool (capped at about 64 kbit/s, so audio only). Put the same secrets and URLs into the beacon (`TURN_URLS`, `TURN_SECRET`, `TURN_LITE_URLS`, `TURN_LITE_SECRET`). The configs refuse to relay to private and loopback addresses; a test guards that, so keep those lines if you edit them.
+- **How the app behaves on a relay:** it detects relayed connections and lowers video quality on them (`limits.relayVideoTier` in the config, 200 kbit/s by default). In a `relay-lite` room it sends no video over the relay at all and the other person sees the camera as off.
+- **Checking a room:** open a room URL with `?ice=relay` to force relay-only connections. In a room without a relay, that person is shown as unreachable; in an entitled room it connects.
+
 ## 3. Platform scale
 Many signaling nodes behind the beacon fleet with a shared Redis, signed config on a CDN, regional TURN. Everything in profile 2 scales horizontally: more nodes, several beacons sharing one Redis and one `SIGNING_KEY`. For a CDN-hosted config, sign it with `tools/sign-config` (`sign config.json --key <kid>:<secret> --out signed.json`), upload it, point `CONFIG_FILE` at it or serve it directly, and build the app with `VITE_TRUSTED_KEYS='{"<kid>":"<publicKey>"}'` so clients pin the key. Still planned: multi-region pools and Redis clustering; see `docs/architecture.md`.
 

@@ -1,5 +1,5 @@
 import { encodeDataMessage, parseDataMessage, type DataMessage } from '@chillcall/protocol';
-import type { VideoTier } from '@chillcall/protocol';
+import { routeFromStats, type Route, type SendPolicy, type StatsLike } from './route';
 import type { PeerState } from './transport';
 
 export interface SignalPayload {
@@ -12,12 +12,14 @@ export interface PeerLinkHooks {
   stream(stream: MediaStream): void;
   message(message: DataMessage): void;
   state(state: PeerState): void;
+  route(route: Route): void;
   channelOpen(): void;
 }
 
 const CONNECT_TIMEOUT_MS = 25_000;
 const DISCONNECT_GRACE_MS = 4_000;
 const MAX_ICE_RESTARTS = 2;
+const ROUTE_POLL_MS = 10_000;
 
 /**
  * One RTCPeerConnection to one remote peer, carrying media plus a negotiated data channel.
@@ -34,6 +36,9 @@ export class PeerLink {
   private state: PeerState = 'connecting';
   private connectTimer?: ReturnType<typeof setTimeout>;
   private disconnectTimer?: ReturnType<typeof setTimeout>;
+  private routeTimer?: ReturnType<typeof setInterval>;
+  private currentRoute: Route = 'unknown';
+  private policy?: SendPolicy;
   private readonly polite: boolean;
 
   constructor(
@@ -59,6 +64,10 @@ export class PeerLink {
 
   get connected() {
     return this.state === 'connected';
+  }
+
+  get route() {
+    return this.currentRoute;
   }
 
   send(message: DataMessage) {
@@ -98,23 +107,40 @@ export class PeerLink {
     }
   }
 
-  async applyVideoTier(tier: VideoTier) {
+  /** Applies video limits to what we send this peer; `video: false` stops sending video to them altogether. */
+  async applySendPolicy(policy: SendPolicy) {
+    this.policy = policy;
     for (const sender of this.pc.getSenders()) {
       if (sender.track?.kind !== 'video') continue;
       const params = sender.getParameters();
       params.encodings = params.encodings?.length ? params.encodings : [{}];
       for (const encoding of params.encodings) {
-        encoding.maxBitrate = tier.maxBitrate;
-        encoding.scaleResolutionDownBy = tier.scaleResolutionDownBy;
-        encoding.maxFramerate = tier.maxFramerate;
+        encoding.active = policy.video;
+        encoding.maxBitrate = policy.tier.maxBitrate;
+        encoding.scaleResolutionDownBy = policy.tier.scaleResolutionDownBy;
+        encoding.maxFramerate = policy.tier.maxFramerate;
       }
       await sender.setParameters(params).catch(() => {});
+    }
+  }
+
+  /** Looks at the selected candidate pair to see whether this connection runs through a relay. */
+  async detectRoute() {
+    try {
+      const route = routeFromStats((await this.pc.getStats()) as unknown as StatsLike);
+      if (route !== this.currentRoute) {
+        this.currentRoute = route;
+        this.hooks.route(route);
+      }
+    } catch {
+      // The connection may have closed while asking.
     }
   }
 
   close() {
     clearTimeout(this.connectTimer);
     clearTimeout(this.disconnectTimer);
+    clearInterval(this.routeTimer);
     this.pc.onnegotiationneeded = null;
     this.pc.oniceconnectionstatechange = null;
     this.channel?.close();
@@ -152,6 +178,9 @@ export class PeerLink {
       clearTimeout(this.disconnectTimer);
       this.iceRestarts = 0;
       this.setState('connected');
+      void this.detectRoute();
+      clearInterval(this.routeTimer);
+      this.routeTimer = setInterval(() => void this.detectRoute(), ROUTE_POLL_MS);
     } else if (ice === 'disconnected') {
       clearTimeout(this.disconnectTimer);
       this.disconnectTimer = setTimeout(() => this.pc.restartIce(), DISCONNECT_GRACE_MS);

@@ -19,6 +19,9 @@ export const DEFAULT_VIDEO_TIERS: VideoTierRule[] = [
   { maxPeers: MAX_ROOM_SIZE, maxBitrate: 250_000, scaleResolutionDownBy: 2, maxFramerate: 15 },
 ];
 
+/** Video limits for a path through a relay, which costs bandwidth and usually has less of it. */
+export const DEFAULT_RELAY_VIDEO_TIER: VideoTier = { maxBitrate: 200_000, scaleResolutionDownBy: 2, maxFramerate: 15 };
+
 /** Per-sender video limits for a mesh room with `peerCount` participants (including self). */
 export function videoTierFor(peerCount: number, tiers: VideoTierRule[] = DEFAULT_VIDEO_TIERS): VideoTier {
   const sorted = [...tiers].sort((a, b) => a.maxPeers - b.maxPeers);

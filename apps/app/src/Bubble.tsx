@@ -9,10 +9,12 @@ interface Props {
   muteAudio?: boolean;
   /** The direct connection to this person failed, usually because their network blocks it. */
   unreachable?: boolean;
+  /** How the connection to this person is routed; exposed for tests and styling. */
+  route?: string;
 }
 
 /** A circular video that fills its parent; the parent sets the diameter. */
-export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, unreachable }: Props) {
+export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, unreachable, route }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, un
   }, [stream]);
 
   return (
-    <figure className="bubble">
+    <figure className="bubble" data-route={route}>
       <video
         ref={ref}
         autoPlay

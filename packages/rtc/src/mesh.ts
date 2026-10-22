@@ -2,7 +2,9 @@ import {
   JoinResponse,
   PROTOCOL_VERSION,
   parseServerMessage,
+  DEFAULT_RELAY_VIDEO_TIER,
   videoTierFor,
+  type VideoTier,
   type VideoTierRule,
   type DataMessage,
   type ServerMessage,
@@ -10,6 +12,7 @@ import {
 import { requestJoin } from './beacon-session';
 import { backoffDelay } from './backoff';
 import { PeerLink, type SignalPayload } from './peer-link';
+import { sendPolicy, type Route } from './route';
 import {
   JoinError,
   RoomFullError,
@@ -24,6 +27,10 @@ export interface MeshOptions {
   clientVersion?: string;
   /** Video quality by room size; defaults to the built-in tiers until a config supplies its own. */
   videoTiers?: VideoTierRule[];
+  /** Video limits for connections that go through a relay. */
+  relayVideoTier?: VideoTier;
+  /** `relay` makes every connection use a relay or fail; for testing that a room has (or lacks) one. */
+  iceTransportPolicy?: RTCIceTransportPolicy;
 }
 
 type Welcome = Extract<ServerMessage, { type: 'welcome' }>;
@@ -40,6 +47,8 @@ export class MeshTransport implements RoomTransport {
   private handlers = new Set<(event: RoomEvent) => void>();
   private links = new Map<string, PeerLink>();
   private names = new Map<string, string>();
+  private routes = new Map<string, Route>();
+  private pausedVideo = new Set<string>();
   private lastSent = new Map<string, DataMessage>();
   private outbox: string[] = [];
 
@@ -74,12 +83,17 @@ export class MeshTransport implements RoomTransport {
     for (const link of this.links.values()) link.close();
     this.links.clear();
     this.names.clear();
+    this.routes.clear();
+    this.pausedVideo.clear();
     this.outbox = [];
   }
 
   send(message: DataMessage): void {
     this.lastSent.set(message.kind, message);
-    for (const link of this.links.values()) link.send(message);
+    for (const [id, link] of this.links) {
+      // A peer we send no video to keeps seeing our camera as off, whatever we toggle.
+      link.send(message.kind === 'state' && this.pausedVideo.has(id) ? { ...message, video: false } : message);
+    }
   }
 
   async replaceLocalStream(local: MediaStream): Promise<void> {
@@ -235,7 +249,7 @@ export class MeshTransport implements RoomTransport {
     const link: PeerLink = new PeerLink(
       id,
       this.session.peerId,
-      { iceServers: this.session.iceServers },
+      { iceServers: this.session.iceServers, iceTransportPolicy: this.opts.iceTransportPolicy },
       this.local,
       {
         signal: (payload) => this.sendRaw({ v: PROTOCOL_VERSION, type: 'signal', to: id, payload }),
@@ -244,6 +258,11 @@ export class MeshTransport implements RoomTransport {
         state: (state) => {
           this.emit({ type: 'peer-state', id, state });
           if (state === 'connected') void this.applyVideoTiers();
+        },
+        route: (route) => {
+          this.routes.set(id, route);
+          this.emit({ type: 'peer-route', id, route });
+          void this.applyVideoTiers();
         },
         // Replay the latest state (mute, camera) to a peer whose channel just opened.
         channelOpen: () => {
@@ -259,6 +278,8 @@ export class MeshTransport implements RoomTransport {
   private closeLink(id: string) {
     this.links.get(id)?.close();
     this.links.delete(id);
+    this.routes.delete(id);
+    this.pausedVideo.delete(id);
   }
 
   private dropPeer(id: string) {
@@ -267,9 +288,38 @@ export class MeshTransport implements RoomTransport {
     void this.applyVideoTiers();
   }
 
-  /** Lower per-sender video quality as the room grows, since every peer gets its own encode. */
+  /**
+   * Sets what we send each peer: lower quality as the room grows, since every peer gets its own encode, and
+   * lower again on relayed paths. Where video cannot be sent at all, that peer is told our camera is off.
+   */
   private async applyVideoTiers() {
-    const tier = videoTierFor(this.names.size + 1, this.opts.videoTiers);
-    for (const link of this.links.values()) if (link.connected) await link.applyVideoTier(tier);
+    const normal = videoTierFor(this.names.size + 1, this.opts.videoTiers);
+    const relayed = this.opts.relayVideoTier ?? DEFAULT_RELAY_VIDEO_TIER;
+    const roomTier = this.session?.tier ?? 'free';
+
+    for (const [id, link] of this.links) {
+      if (!link.connected) continue;
+      const policy = sendPolicy(this.routes.get(id) ?? 'unknown', roomTier, normal, relayed);
+      await link.applySendPolicy(policy);
+      this.announceVideoTo(id, link, policy.video);
+    }
+  }
+
+  /** Tells a peer whose path carries no video from us that our camera appears off, and restores it later. */
+  private announceVideoTo(id: string, link: PeerLink, sending: boolean) {
+    const wasPaused = this.pausedVideo.has(id);
+    if (!sending && !wasPaused) {
+      this.pausedVideo.add(id);
+      link.send({ kind: 'state', audio: this.lastAudio(), video: false });
+    } else if (sending && wasPaused) {
+      this.pausedVideo.delete(id);
+      const last = this.lastSent.get('state');
+      if (last) link.send(last);
+    }
+  }
+
+  private lastAudio(): boolean {
+    const last = this.lastSent.get('state');
+    return last?.kind === 'state' ? last.audio : true;
   }
 }

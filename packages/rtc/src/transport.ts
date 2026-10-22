@@ -7,6 +7,8 @@ export interface Participant {
 
 export type PeerState = 'connecting' | 'connected' | 'unreachable';
 
+export type PeerRoute = 'direct' | 'relay' | 'unknown';
+
 export type ConnectionState = 'connected' | 'reconnecting' | 'closed';
 
 export type RoomEvent =
@@ -16,6 +18,8 @@ export type RoomEvent =
   | { type: 'message'; id: string; data: DataMessage }
   /** Direct connection to one peer: `unreachable` when their network blocks it and no relay is available. */
   | { type: 'peer-state'; id: string; state: PeerState }
+  /** How the connection to a peer is routed: straight to them, or through a relay. */
+  | { type: 'peer-route'; id: string; route: PeerRoute }
   /** Health of the signaling connection; calls between connected peers continue while it reconnects. */
   | { type: 'connection'; state: ConnectionState; reason?: string };
 

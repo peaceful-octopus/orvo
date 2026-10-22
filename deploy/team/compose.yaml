@@ -61,6 +61,15 @@ services:
       - redis
       - beacon
 
+  # Optional own STUN server (no relay, almost no bandwidth), instead of Google's public one.
+  # Needs UDP 3478 open; then set STUN_URLS=stun:stun.<your domain>:3478 for the beacon.
+  stun:
+    profiles: ["stun"]
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    command: ["--stun-only", "--no-tls", "--no-dtls", "--no-cli", "--fingerprint", "--listening-port=3478"]
+
   caddy:
     image: caddy:2
     restart: unless-stopped

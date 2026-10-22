@@ -53,6 +53,7 @@ export default defineConfig({
     { name: 'smoke', testDir: 'e2e/smoke', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'layout', testDir: 'e2e/layout', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'resilience', testDir: 'e2e/resilience', timeout: 90_000, expect: { timeout: 30_000 } },
+    { name: 'tiers', testDir: 'e2e/tiers', timeout: 90_000, expect: { timeout: 45_000 } },
     { name: 'fleet', testDir: 'e2e/fleet', timeout: 90_000, expect: { timeout: 30_000 } },
     // Ten software-encoding tabs on one machine take about a minute to converge.
     { name: 'scale', testDir: 'e2e/scale', timeout: 240_000, expect: { timeout: 90_000 } },

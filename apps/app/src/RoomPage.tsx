@@ -8,6 +8,7 @@ import { BubbleField, type Member } from './float/BubbleField';
 import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
 import { LAYOUT_MODES } from './float/layouts';
+import { unreachableNotice } from './unreachable';
 import { useUi } from './uiStore';
 
 const MODE_LABELS = { row: 'Row', column: 'Column', campfire: 'Campfire' } as const;
@@ -33,6 +34,7 @@ export function RoomPage({ room }: { room: string }) {
         video: p.video,
         audio: p.audio,
         unreachable: p.state === 'unreachable',
+        route: p.route,
       })),
     ],
     [name, local, video, audio, remotes],
@@ -79,10 +81,16 @@ export function RoomPage({ room }: { room: string }) {
   if (float.active && float.kind === 'tauri') return floatView(true);
 
   const status = roomStatus(members.length, limits);
+  const notice = unreachableNotice(members.filter((m) => m.unreachable).map((m) => m.name));
 
   return (
     <main className="call">
       {reconnecting && <p className="banner">Reconnecting to the server... your call continues.</p>}
+      {notice && (
+        <p className="banner" role="alert">
+          {notice}
+        </p>
+      )}
       {status !== 'ok' && (
         <p className="banner">
           More than {limits.warnRoomSize} people are here, so video quality may be degraded.

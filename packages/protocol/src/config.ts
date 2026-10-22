@@ -23,6 +23,8 @@ export const ClientConfig = z.object({
     maxRoomSize: z.number().int().positive(),
     warnRoomSize: z.number().int().positive(),
     videoTiers: z.array(VideoTierConfig).min(1),
+    /** Limits for connections that go through a relay; clients use a built-in default when absent. */
+    relayVideoTier: VideoTierConfig.omit({ maxPeers: true }).optional(),
   }),
   features: z.record(z.string(), z.boolean()),
   ice: z.object({ stunUrls: z.array(z.string()) }),

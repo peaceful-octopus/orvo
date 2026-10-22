@@ -6,6 +6,7 @@ Open-source casual video calls with floating face bubbles, GIF reactions and moo
 - `apps/app`: React + Vite UI (browser and Tauri)
 - `apps/desktop`: Tauri v2 shell (needs Rust and, on Windows, WebView2)
 - `apps/server`: all-in-one server (web app + beacon + signaling), the Docker image
+- `deploy/`: compose files for personal, small-team and relay (coturn) setups
 - `apps/beacon`: room creation, placement, join tokens, signed config, TURN credentials by tier
 - `apps/signaling`: WebSocket signaling node
 - `packages/protocol`: wire contracts, tokens, signed config (see `docs/architecture.md`)
@@ -28,7 +29,7 @@ pnpm dev        # app (5173) + all-in-one server (8080)
 pnpm test            # unit tests related to uncommitted changes only
 pnpm test:rtc        # one package (also test:protocol, test:signaling, test:app)
 pnpm test:all        # every unit test
-pnpm test:e2e        # smoke + layout, about 20 s; also test:e2e:resilience, test:e2e:fleet, test:e2e:scale
+pnpm test:e2e        # smoke + layout, about 20 s; also test:e2e:resilience, test:e2e:tiers, test:e2e:fleet, test:e2e:scale
 pnpm test:integration   # multi-node fleet scenarios (set REDIS_URL to use a real Redis)
 pnpm --filter @chillcall/desktop dev   # desktop app; run `pnpm dev` first
 pnpm typecheck

@@ -1,0 +1,34 @@
+# Relay pools for rooms with an entitlement. Needs a Linux host with a public IP; host networking is used
+# because a relay allocates thousands of UDP ports.
+#
+#   export TURN_SECRET=<long random string>        # the same value goes into the beacon's TURN_SECRET
+#   export TURN_LITE_SECRET=<another one>          # and TURN_LITE_SECRET
+#   export EXTERNAL_IP=203.0.113.10
+#   docker compose up -d
+#
+# Beacon settings:  TURN_URLS=turn:<host>:3478  TURN_SECRET=...  TURN_LITE_URLS=turn:<host>:3479  TURN_LITE_SECRET=...
+# Open UDP/TCP 3478 and 3479 and UDP 49152-51199 in the firewall.
+services:
+  turn-full:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./turnserver.full.conf:/etc/coturn/turnserver.conf:ro
+    command:
+      - "-c"
+      - "/etc/coturn/turnserver.conf"
+      - "--static-auth-secret=${TURN_SECRET:?set TURN_SECRET}"
+      - "--external-ip=${EXTERNAL_IP:?set EXTERNAL_IP}"
+
+  turn-lite:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./turnserver.lite.conf:/etc/coturn/turnserver.conf:ro
+    command:
+      - "-c"
+      - "/etc/coturn/turnserver.conf"
+      - "--static-auth-secret=${TURN_LITE_SECRET:?set TURN_LITE_SECRET}"
+      - "--external-ip=${EXTERNAL_IP:?set EXTERNAL_IP}"

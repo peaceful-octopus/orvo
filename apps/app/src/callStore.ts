@@ -3,6 +3,7 @@ import {
   MeshTransport,
   RoomFullError,
   UpgradeRequiredError,
+  type PeerRoute,
   type PeerState,
   type RoomEvent,
 } from '@chillcall/rtc';
@@ -16,6 +17,7 @@ export interface Remote {
   audio: boolean;
   video: boolean;
   state: PeerState;
+  route: PeerRoute;
 }
 
 type Phase = 'lobby' | 'joining' | 'in-call';
@@ -49,7 +51,7 @@ export const useCall = create<CallState>((set, get) => {
     set((s) => ({
       remotes: {
         ...s.remotes,
-        [id]: { id, name: '', audio: true, video: true, state: 'connecting', ...s.remotes[id], ...patch },
+        [id]: { id, name: '', audio: true, video: true, state: 'connecting', route: 'unknown', ...s.remotes[id], ...patch },
       },
     }));
 
@@ -63,6 +65,9 @@ export const useCall = create<CallState>((set, get) => {
         break;
       case 'peer-state':
         upsert(event.id, { state: event.state });
+        break;
+      case 'peer-route':
+        upsert(event.id, { route: event.route });
         break;
       case 'message':
         if (event.data.kind === 'state') upsert(event.id, { audio: event.data.audio, video: event.data.video });
@@ -111,6 +116,9 @@ export const useCall = create<CallState>((set, get) => {
         beaconUrls: config.beaconUrls,
         clientVersion: CLIENT_VERSION,
         videoTiers: config.limits.videoTiers,
+        relayVideoTier: config.limits.relayVideoTier,
+        // `?ice=relay` forces every connection through a relay, to check whether a room has one.
+        iceTransportPolicy: new URLSearchParams(location.search).get('ice') === 'relay' ? 'relay' : undefined,
       });
       unsubscribe = transport.on(onEvent);
       try {
