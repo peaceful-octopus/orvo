@@ -1,0 +1,60 @@
+{
+  "users": 10000,
+  "rooms": 2913,
+  "durationSeconds": 92,
+  "peakActive": 10000,
+  "joinsOk": 10000,
+  "joinFailures": {},
+  "joinMs": {
+    "count": 10000,
+    "p50": 10,
+    "p95": 24,
+    "p99": 150,
+    "max": 466
+  },
+  "signalRttMs": {
+    "count": 16444,
+    "p50": 1,
+    "p95": 5,
+    "p99": 12,
+    "max": 35
+  },
+  "signalsSent": 460432,
+  "signalsReceived": 460432,
+  "reconnects": 0,
+  "reconnectMs": {
+    "count": 0,
+    "p50": null,
+    "p95": null,
+    "p99": null,
+    "max": null
+  },
+  "nodes": [
+    {
+      "url": "http://localhost:8281/metrics",
+      "maxConnections": 3369,
+      "maxRooms": 982,
+      "maxRssMb": 201,
+      "maxEventLoopLagP99Ms": 25,
+      "avgCpuPercent": 17
+    },
+    {
+      "url": "http://localhost:8282/metrics",
+      "maxConnections": 3351,
+      "maxRooms": 958,
+      "maxRssMb": 216,
+      "maxEventLoopLagP99Ms": 25.1,
+      "avgCpuPercent": 16.9
+    },
+    {
+      "url": "http://localhost:8283/metrics",
+      "maxConnections": 3280,
+      "maxRooms": 973,
+      "maxRssMb": 152,
+      "maxEventLoopLagP99Ms": 25.2,
+      "avgCpuPercent": 17.1
+    }
+  ],
+  "passed": true,
+  "problems": []
+}

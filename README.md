@@ -10,6 +10,8 @@ Open-source casual video calls with floating face bubbles, GIF reactions and moo
 - `apps/beacon`: room creation, placement, join tokens, signed config, TURN credentials by tier
 - `apps/signaling`: WebSocket signaling node
 - `packages/protocol`: wire contracts, tokens, signed config (see `docs/architecture.md`)
+- `packages/metrics`: Prometheus metrics wrapper shared by the services
+- `tools/loadgen`: simulated-user load generator and failure drills (see `docs/capacity.md`)
 - `packages/placement`: node registry, room leases and rendezvous placement (memory and Redis)
 - `packages/testkit`: test factories
 - `tools/sign-config`: key generation and config signing CLI
@@ -30,7 +32,8 @@ pnpm test            # unit tests related to uncommitted changes only
 pnpm test:rtc        # one package (also test:protocol, test:signaling, test:app)
 pnpm test:all        # every unit test
 pnpm test:e2e        # smoke + layout, about 20 s; also test:e2e:resilience, test:e2e:tiers, test:e2e:fleet, test:e2e:scale
-pnpm test:integration   # multi-node fleet scenarios (set REDIS_URL to use a real Redis)
+pnpm test:integration   # multi-node fleet scenarios and failure drills (set REDIS_URL to use a real Redis)
+pnpm load:fleet         # local beacon + 3 nodes under simulated load (see docs/runbook.md)
 pnpm --filter @chillcall/desktop dev   # desktop app; run `pnpm dev` first
 pnpm typecheck
 pnpm lint

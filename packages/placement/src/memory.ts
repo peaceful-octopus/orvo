@@ -49,6 +49,11 @@ export class MemoryPlacementStore implements PlacementStore {
     return owner ?? nodeId;
   }
 
+  /** Records a lease decided elsewhere, so this store can stand in if that source becomes unavailable. */
+  setLease(room: string, nodeId: string, ttlMs: number) {
+    this.leases.set(room, { value: nodeId, expires: this.now() + ttlMs });
+  }
+
   async getRoomTier(room: string) {
     return this.live(this.tiers, room);
   }

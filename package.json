@@ -27,7 +27,11 @@
     "test:integration": "vitest run --project \"int:*\"",
     "test:sign-config": "vitest run --project sign-config",
     "test:e2e:fleet": "pnpm --filter @chillcall/app build && cross-env-shell E2E_FLEET=1 playwright test --project=fleet",
-    "test:e2e:tiers": "playwright test --project=tiers"
+    "test:e2e:tiers": "playwright test --project=tiers",
+    "test:loadgen": "vitest run --project loadgen",
+    "load": "pnpm --filter @chillcall/loadgen start",
+    "load:fleet": "pnpm --filter @chillcall/loadgen start --fleet 3",
+    "test:server": "vitest run --project server"
   },
   "devDependencies": {
     "@chillcall/protocol": "workspace:*",

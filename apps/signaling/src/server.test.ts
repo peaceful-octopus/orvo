@@ -114,7 +114,7 @@ describe('joining', () => {
     const late = connect();
     late.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: 'late' }, clock.now), name: 'late' });
     expect(await late.next('error')).toMatchObject({ code: 'room-full' });
-    expect(signaling.metrics.get('chillcall_signaling_join_failures_total', { code: 'room-full' })).toBe(1);
+    expect(await signaling.metrics.value('chillcall_signaling_join_failures_total', { code: 'room-full' })).toBe(1);
   });
 
   it('enforces the room cap carried in the join token, but never above the hard limit', async () => {
@@ -175,7 +175,7 @@ describe('relay and limits', () => {
 
     a.client.send({ type: 'signal', to: 'nobody', payload: {} });
     await new Promise((r) => setTimeout(r, 50));
-    expect(signaling.metrics.get('chillcall_signaling_signals_dropped_total')).toBe(1);
+    expect(await signaling.metrics.value('chillcall_signaling_signals_dropped_total')).toBe(1);
   });
 
   it('closes connections that send oversize frames', async () => {
@@ -227,30 +227,52 @@ describe('leaving, resuming and draining', () => {
     expect(again.welcome.resumed).toBe(true);
     await new Promise((r) => setTimeout(r, 100));
     expect(a.client.messages.filter((m) => m.type === 'peer-left' || m.type === 'peer-joined')).toEqual([]);
-    expect(signaling.metrics.get('chillcall_signaling_resumes_total')).toBe(1);
+    expect(await signaling.metrics.value('chillcall_signaling_resumes_total')).toBe(1);
   });
 
-  it('refuses new members while draining but keeps existing rooms working', async () => {
+  it('while draining refuses new rooms but keeps serving existing ones, including new and returning members', async () => {
     await start();
     const a = await join('a');
     const b = await join('b');
     await a.client.next('peer-joined');
     signaling.drain();
 
-    const late = connect();
-    late.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: 'c' }, clock.now), name: 'c' });
-    expect(await late.next('error')).toMatchObject({ code: 'draining' });
+    // A new room is refused...
+    const fresh = connect();
+    fresh.send({ type: 'join', token: makeJoinToken(keys, { room: 'brand-new-room-abc', peerId: 'x' }, clock.now), name: 'x' });
+    expect(await fresh.next('error')).toMatchObject({ code: 'draining' });
+
+    // ...but a newcomer to a room that already exists is admitted, and calls carry on.
+    const c = connect();
+    c.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: 'c' }, clock.now), name: 'c' });
+    expect(await c.next('welcome')).toMatchObject({ peerId: 'c' });
+    expect(await a.client.next('peer-joined')).toMatchObject({ peer: { id: 'c' } });
 
     a.client.send({ type: 'signal', to: 'b', payload: { ok: true } });
     expect(await b.client.next('signal')).toMatchObject({ from: 'a' });
   });
 
+  it('lets a member who dropped reconnect while the node is draining', async () => {
+    await start({ resumeGraceMs: 1000 });
+    const a = await join('a');
+    await join('b');
+    await a.client.next('peer-joined');
+    signaling.drain();
+
+    a.client.ws.terminate();
+    const again = connect();
+    again.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: 'a' }, clock.now), name: 'a' });
+    expect(await again.next('welcome')).toMatchObject({ peerId: 'a', resumed: true });
+  });
+
   it('exposes metrics in Prometheus text format', async () => {
     await start();
     await join('a');
-    const text = signaling.renderMetrics();
+    const text = await signaling.renderMetrics();
     expect(text).toContain('chillcall_signaling_connections 1');
     expect(text).toContain('chillcall_signaling_rooms 1');
     expect(text).toContain('chillcall_signaling_joins_total 1');
+    expect(text).toContain('chillcall_signaling_members 1');
+    expect(text).toContain('# TYPE chillcall_signaling_joins_total counter');
   });
 });

@@ -3,6 +3,7 @@ import {
   MAX_ROOM_SIZE,
   WARN_ROOM_SIZE,
   JoinRequest,
+  TelemetryBatch,
   generateRoomId,
   isClientSupported,
   isValidRoomSlug,
@@ -18,6 +19,7 @@ import {
   type Tier,
   type VideoTierRule,
 } from '@chillcall/protocol';
+import { LATENCY_BUCKETS, Metrics } from '@chillcall/metrics';
 import { NoNodesError, placeRoom, type NodeInfo, type PlacementStore } from '@chillcall/placement';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
@@ -33,6 +35,8 @@ export type EntitlementVerifier = (token: string, room: string) => Promise<Exclu
 
 export interface BeaconOptions {
   signingKey: SigningKey;
+  /** Public keys (key id to base64url) of earlier signing keys, still published so key rotation needs no downtime. */
+  previousPublicKeys?: Record<string, string>;
   store: PlacementStore;
   stunUrls: string[];
   /** TURN pools by tier. Only entitled rooms receive credentials for them; `free` rooms get STUN only. */
@@ -47,6 +51,8 @@ export interface BeaconOptions {
   announcement?: { id: string; text: string };
   /** A pre-signed config (for example produced by `tools/sign-config`) served as is instead of a generated one. */
   staticConfig?: unknown;
+  /** Share a metrics registry with other components in the process; one is created when omitted. */
+  metrics?: Metrics;
   now?: () => number;
   corsOrigin?: string | boolean;
   /** Requests per minute per client IP; `false` disables limiting. */
@@ -72,6 +78,49 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   const maxRoomSize = opts.limits?.maxRoomSize ?? MAX_ROOM_SIZE;
   const warnRoomSize = opts.limits?.warnRoomSize ?? WARN_ROOM_SIZE;
 
+  // sendBeacon with a text/plain body avoids a CORS preflight, which a closing page cannot wait for.
+  app.addContentTypeParser('text/plain', { parseAs: 'string' }, (_req, body, done) => {
+    try {
+      done(null, JSON.parse(body as string));
+    } catch {
+      done(Object.assign(new Error('Body is not JSON.'), { statusCode: 400 }), undefined);
+    }
+  });
+
+  const metrics = opts.metrics ?? new Metrics();
+  const m = {
+    joins: metrics.counter('chillcall_beacon_join_requests_total', 'Join requests, by outcome.', ['result'] as const),
+    joinSeconds: metrics.histogram('chillcall_beacon_join_duration_seconds', 'Time to answer a join request.', LATENCY_BUCKETS),
+    tiers: metrics.counter('chillcall_beacon_joins_by_tier_total', 'Successful joins, by room tier.', ['tier'] as const),
+    rooms: metrics.counter('chillcall_beacon_rooms_created_total', 'Rooms created.'),
+    versions: metrics.counter('chillcall_beacon_joins_by_client_version_total', 'Successful joins, by client version (bounded; extras are "other").', ['version'] as const),
+    configs: metrics.counter('chillcall_beacon_config_requests_total', 'Config requests served.'),
+  };
+  // What clients report about their own connections, aggregated here and never stored per user.
+  const client = {
+    joins: metrics.counter('chillcall_client_joins_total', 'Client-reported room joins, by result.', ['result'] as const),
+    joinSeconds: metrics.histogram('chillcall_client_join_seconds', 'Client-measured time to join a room.', LATENCY_BUCKETS),
+    peers: metrics.counter('chillcall_client_peer_connections_total', 'Client-reported peer connections, by result and route.', ['result', 'route'] as const),
+    peerSeconds: metrics.histogram('chillcall_client_peer_connect_seconds', 'Client-measured time to connect to a peer.', LATENCY_BUCKETS, ['route'] as const),
+    reconnects: metrics.counter('chillcall_client_signaling_reconnects_total', 'Signaling reconnections, by outcome.', ['ok'] as const),
+  };
+  metrics.gauge('chillcall_beacon_nodes', 'Signaling nodes currently registered.', async () => (await opts.store.listNodes()).length);
+  metrics.gauge('chillcall_beacon_placement_degraded', '1 while the shared placement store is unreachable and answers come from memory.', () =>
+    (opts.store as { degraded?: boolean }).degraded ? 1 : 0,
+  );
+  metrics.gauge('chillcall_beacon_nodes_draining', 'Registered signaling nodes that are draining.', async () =>
+    (await opts.store.listNodes()).filter((n) => n.draining).length,
+  );
+
+  // Client versions come from untrusted input, so only a limited number of well-formed ones become label values.
+  const seenVersions = new Set<string>();
+  const versionLabel = (version: string) => {
+    if (!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(version)) return 'other';
+    if (!seenVersions.has(version) && seenVersions.size >= 50) return 'other';
+    seenVersions.add(version);
+    return version;
+  };
+
   await app.register(cors, { origin: opts.corsOrigin ?? true });
   // Limits apply only to the API routes below, not to static files served by the all-in-one server.
   await app.register(rateLimit, { global: false });
@@ -82,9 +131,12 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
 
   app.get('/healthz', async () => 'ok');
 
-  app.get('/v1/keys', async () => ({ [kid]: toBase64Url(publicKey) }));
+  app.get('/metrics', async (_req, reply) => reply.type(metrics.contentType).send(await metrics.render()));
+
+  app.get('/v1/keys', async () => ({ ...opts.previousPublicKeys, [kid]: toBase64Url(publicKey) }));
 
   app.get('/v1/config', limited, async (req, reply) => {
+    m.configs.inc();
     if (opts.staticConfig) return reply.header('cache-control', 'max-age=60').send(opts.staticConfig);
     const t = now();
     const config: ClientConfig = {
@@ -107,7 +159,27 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     return reply.header('cache-control', 'max-age=60').send(signConfig(config, kid, secretKey));
   });
 
-  app.post('/v1/rooms', limited, async () => ({ room: generateRoomId() }));
+  app.post('/v1/telemetry', { ...limited, bodyLimit: 8 * 1024 }, async (req, reply) => {
+    const parsed = TelemetryBatch.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid telemetry.', code: 'bad-request' });
+    for (const event of parsed.data.events) {
+      if (event.type === 'join') {
+        client.joins.inc({ result: event.result });
+        client.joinSeconds.observe(event.ms / 1000);
+      } else if (event.type === 'peer') {
+        client.peers.inc({ result: event.result, route: event.route });
+        if (event.result === 'connected') client.peerSeconds.observe({ route: event.route }, event.ms / 1000);
+      } else {
+        client.reconnects.inc({ ok: String(event.ok) });
+      }
+    }
+    return reply.code(204).send();
+  });
+
+  app.post('/v1/rooms', limited, async () => {
+    m.rooms.inc();
+    return { room: generateRoomId() };
+  });
 
   /** The room's tier: the best of what it already has and what this joiner's entitlement grants. */
   async function tierFor(room: string, entitlement: string | undefined): Promise<Tier> {
@@ -122,8 +194,14 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   }
 
   app.post('/v1/rooms/join', limited, async (req, reply) => {
+    const stop = m.joinSeconds.startTimer();
+    const done = (result: string) => {
+      m.joins.inc({ result });
+      stop();
+    };
     const parsed = JoinRequest.safeParse(req.body);
     if (!parsed.success || !isValidRoomSlug(parsed.data.room)) {
+      done('bad-request');
       return reply.code(400).send({ error: 'Invalid join request.', code: 'bad-request' });
     }
     const body = parsed.data;
@@ -131,13 +209,20 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       { version: body.clientVersion, protocol: body.protocol },
       { minClientVersion: opts.minClientVersion ?? '0.0.0', minProtocol: 1 },
     );
-    if (!supported) return reply.code(426).send({ error: 'Please update ChillCall.', code: 'upgrade-required' });
+    if (!supported) {
+      done('upgrade-required');
+      return reply.code(426).send({ error: 'Please update ChillCall.', code: 'upgrade-required' });
+    }
 
     let node: NodeInfo;
     try {
       node = await placeRoom(opts.store, body.room);
     } catch (err) {
-      if (err instanceof NoNodesError) return reply.code(503).send({ error: err.message, code: 'no-nodes' });
+      if (err instanceof NoNodesError) {
+        done('no-nodes');
+        return reply.code(503).send({ error: err.message, code: 'no-nodes' });
+      }
+      done('error');
       throw err;
     }
 
@@ -166,6 +251,9 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       transport: 'mesh',
       tier,
     };
+    done('ok');
+    m.tiers.inc({ tier });
+    m.versions.inc({ version: versionLabel(body.clientVersion) });
     return response;
   });
 

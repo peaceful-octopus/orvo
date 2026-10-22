@@ -9,6 +9,7 @@ import {
 } from '@chillcall/rtc';
 import { create } from 'zustand';
 import { CLIENT_VERSION, loadClientConfig } from './config';
+import { telemetry } from './telemetry';
 
 export interface Remote {
   id: string;
@@ -118,6 +119,7 @@ export const useCall = create<CallState>((set, get) => {
         videoTiers: config.limits.videoTiers,
         relayVideoTier: config.limits.relayVideoTier,
         // `?ice=relay` forces every connection through a relay, to check whether a room has one.
+        telemetry: (event) => telemetry.record(event),
         iceTransportPolicy: new URLSearchParams(location.search).get('ice') === 'relay' ? 'relay' : undefined,
       });
       unsubscribe = transport.on(onEvent);

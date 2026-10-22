@@ -38,6 +38,12 @@ export class NodeAgent {
     await this.beat();
   }
 
+  /** Stops heartbeating without deregistering, which is what a crashed process looks like to the store. */
+  halt() {
+    clearInterval(this.heartbeat);
+    clearInterval(this.renewal);
+  }
+
   async stop() {
     clearInterval(this.heartbeat);
     clearInterval(this.renewal);

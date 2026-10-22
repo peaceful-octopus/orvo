@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@chillcall/beacon": "workspace:*",
+    "@chillcall/metrics": "workspace:*",
     "@chillcall/placement": "workspace:*",
     "@chillcall/protocol": "workspace:*",
     "@chillcall/signaling": "workspace:*",
@@ -23,6 +24,7 @@
     "@types/ws": "^8.18.2",
     "ioredis-mock": "^8.13.1",
     "tsx": "^4.23.15",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "yaml": "^2.9.1"
   }
 }

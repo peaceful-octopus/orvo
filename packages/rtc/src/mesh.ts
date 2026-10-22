@@ -4,6 +4,7 @@ import {
   parseServerMessage,
   DEFAULT_RELAY_VIDEO_TIER,
   videoTierFor,
+  type TelemetryEvent,
   type VideoTier,
   type VideoTierRule,
   type DataMessage,
@@ -31,6 +32,8 @@ export interface MeshOptions {
   relayVideoTier?: VideoTier;
   /** `relay` makes every connection use a relay or fail; for testing that a room has (or lacks) one. */
   iceTransportPolicy?: RTCIceTransportPolicy;
+  /** Receives anonymous connection statistics (see `TelemetryClient`); omitted when the user opted out. */
+  telemetry?: (event: TelemetryEvent) => void;
 }
 
 type Welcome = Extract<ServerMessage, { type: 'welcome' }>;
@@ -49,6 +52,8 @@ export class MeshTransport implements RoomTransport {
   private names = new Map<string, string>();
   private routes = new Map<string, Route>();
   private pausedVideo = new Set<string>();
+  private connectStarted = new Map<string, number>();
+  private reportedPeers = new Set<string>();
   private lastSent = new Map<string, DataMessage>();
   private outbox: string[] = [];
 
@@ -71,8 +76,17 @@ export class MeshTransport implements RoomTransport {
     this.local = local;
     this.closing = false;
 
-    const welcome = await this.connect();
-    this.applyWelcome(welcome);
+    const started = Date.now();
+    try {
+      const welcome = await this.connect();
+      this.applyWelcome(welcome);
+      this.opts.telemetry?.({ type: 'join', result: 'ok', ms: Date.now() - started });
+    } catch (err) {
+      const result =
+        err instanceof RoomFullError ? 'room-full' : err instanceof UpgradeRequiredError ? 'upgrade-required' : err instanceof JoinError ? 'unreachable' : 'error';
+      this.opts.telemetry?.({ type: 'join', result, ms: Date.now() - started });
+      throw err;
+    }
   }
 
   leave(): void {
@@ -85,6 +99,8 @@ export class MeshTransport implements RoomTransport {
     this.names.clear();
     this.routes.clear();
     this.pausedVideo.clear();
+    this.connectStarted.clear();
+    this.reportedPeers.clear();
     this.outbox = [];
   }
 
@@ -199,11 +215,13 @@ export class MeshTransport implements RoomTransport {
       try {
         const welcome = await this.connect();
         this.applyWelcome(welcome);
+        this.opts.telemetry?.({ type: 'reconnect', ok: true, attempts: attempt + 1 });
         this.emit({ type: 'connection', state: 'connected' });
         this.flushOutbox();
         return;
       } catch (err) {
         if (err instanceof RoomFullError || err instanceof UpgradeRequiredError) {
+          this.opts.telemetry?.({ type: 'reconnect', ok: false, attempts: attempt + 1 });
           this.emit({ type: 'connection', state: 'closed', reason: err.message });
           return;
         }
@@ -257,10 +275,12 @@ export class MeshTransport implements RoomTransport {
         message: (data) => this.emit({ type: 'message', id, data }),
         state: (state) => {
           this.emit({ type: 'peer-state', id, state });
+          if (state === 'unreachable') this.reportPeer(id, 'unreachable', 'unknown');
           if (state === 'connected') void this.applyVideoTiers();
         },
         route: (route) => {
           this.routes.set(id, route);
+          if (route !== 'unknown') this.reportPeer(id, 'connected', route);
           this.emit({ type: 'peer-route', id, route });
           void this.applyVideoTiers();
         },
@@ -272,6 +292,7 @@ export class MeshTransport implements RoomTransport {
       initiator,
     );
     this.links.set(id, link);
+    this.connectStarted.set(id, Date.now());
     return link;
   }
 
@@ -280,6 +301,16 @@ export class MeshTransport implements RoomTransport {
     this.links.delete(id);
     this.routes.delete(id);
     this.pausedVideo.delete(id);
+    this.connectStarted.delete(id);
+    this.reportedPeers.delete(id);
+  }
+
+  /** Reports how a peer connection settled, once per connection. */
+  private reportPeer(id: string, result: 'connected' | 'unreachable', route: Route) {
+    if (this.reportedPeers.has(id)) return;
+    this.reportedPeers.add(id);
+    const started = this.connectStarted.get(id) ?? Date.now();
+    this.opts.telemetry?.({ type: 'peer', result, route, ms: Date.now() - started });
   }
 
   private dropPeer(id: string) {

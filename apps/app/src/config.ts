@@ -36,6 +36,25 @@ export function setServerUrl(input: string): boolean {
   return true;
 }
 
+const TELEMETRY_KEY = 'chillcall:telemetry';
+
+/** Whether the user allows anonymous connection statistics (on unless they turned it off). */
+export function telemetryAllowed(): boolean {
+  try {
+    return localStorage.getItem(TELEMETRY_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+export function setTelemetryAllowed(allowed: boolean) {
+  try {
+    localStorage.setItem(TELEMETRY_KEY, allowed ? 'on' : 'off');
+  } catch {
+    // Without storage the choice cannot be remembered; reports still stop for this session via the caller.
+  }
+}
+
 let loading: Promise<LoadedConfig> | undefined;
 let loadedFor: string | undefined;
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Status: contracts (`packages/protocol`), the signaling node (`apps/signaling`), a first beacon with in-memory placement (`apps/beacon`), the all-in-one server (`apps/server`) and the raw-WebRTC mesh transport (`packages/rtc`) are implemented. Redis placement (`packages/placement`), node-refreshed leases, tier-based TURN credentials, the signed-config client and `tools/sign-config` are implemented (H2). The app applies the signed config (H3): room size and warning thresholds, video tiers, an "update required" screen when the build is older than `minClientVersion` or `minProtocol`, and dismissible announcements. Telemetry, STUN self-hosting and relay-aware quality (H4, done), observability and load tests (H5) are planned. See `docs/self-hosting.md` for running it.
+Status: contracts (`packages/protocol`), the signaling node (`apps/signaling`), a first beacon with in-memory placement (`apps/beacon`), the all-in-one server (`apps/server`) and the raw-WebRTC mesh transport (`packages/rtc`) are implemented. Redis placement (`packages/placement`), node-refreshed leases, tier-based TURN credentials, the signed-config client and `tools/sign-config` are implemented (H2). The app applies the signed config (H3): room size and warning thresholds, video tiers, an "update required" screen when the build is older than `minClientVersion` or `minProtocol`, and dismissible announcements. Telemetry, STUN self-hosting and relay-aware quality (H4, done), observability, load tests and runbooks (H5) are implemented: see `docs/runbook.md` and `docs/capacity.md`. See `docs/self-hosting.md` for running it.
 
 ## Components
 - **Client** (`apps/app`, Tauri shell in `apps/desktop`): fetches signed config, asks the beacon where to join, connects to a signaling node, then talks to peers over WebRTC.
@@ -36,6 +36,12 @@ The beacon publishes `limits` (room size, warning size, video tiers), `minClient
 
 ## Routes and relays
 Each peer connection reports whether it runs `direct` or through a `relay`, read from the selected candidate pair (`packages/rtc/src/route.ts`, re-checked every 10 s). `sendPolicy` then lowers video on relayed paths, and sends none over the capped pool of a `relay-lite` room, telling that peer our camera appears off. A connection that never establishes becomes `unreachable` (after ICE restarts or a 25 s timeout) and the room shows who could not be reached. `deploy/turn/` holds the coturn pools; a test checks that they deny private ranges and stay credentialed.
+
+## Observability
+Every service exposes Prometheus metrics (`prom-client` through `packages/metrics`): nodes report connections, rooms, members, joins and refusals by reason, signals relayed and dropped; the beacon reports joins by outcome and tier, join latency, nodes seen, draining nodes and whether placement is degraded. Clients send anonymous statistics (`POST /v1/telemetry`: join result and time, how each peer connection settled and whether it was direct or relayed, signaling reconnects) which the beacon folds into metrics and does not store; users can turn this off. `deploy/observability/` holds the Prometheus rules, a Grafana dashboard and a compose file, and a test fails if an alert or panel names a metric that does not exist or an alert is missing from the runbook.
+
+## Failure behavior
+A beacon wraps its Redis store in `ResilientPlacementStore`: if Redis is unreachable it keeps routing existing rooms to their nodes and places new rooms on the last known nodes from memory. A draining node refuses only new rooms; people joining or returning to rooms it hosts are still admitted. Signing keys rotate without downtime (`PREVIOUS_PUBLIC_KEYS` on beacons; nodes learn new keys from the beacon every five minutes). These behaviors are covered by `tools/loadgen/src/chaos.int.test.ts`.
 
 ## Room placement
 Rendezvous hashing over live nodes picks a room's owner; the first resolve writes a lease so later resolves agree even if the node set changes. A room lives wholly on one node, so the room cap is a local counter and nodes never talk to each other.

@@ -1,0 +1,50 @@
+{
+  "users": 15000,
+  "rooms": 4349,
+  "durationSeconds": 122,
+  "peakActive": 13481,
+  "joinsOk": 13481,
+  "joinFailures": {
+    "beacon-unreachable": 970,
+    "socket-error": 549
+  },
+  "joinMs": {
+    "count": 13481,
+    "p50": 14,
+    "p95": 260,
+    "p99": 624,
+    "max": 900
+  },
+  "signalRttMs": {
+    "count": 22171,
+    "p50": 3,
+    "p95": 90,
+    "p99": 187,
+    "max": 655
+  },
+  "signalsSent": 620788,
+  "signalsReceived": 620788,
+  "reconnects": 0,
+  "reconnectMs": {
+    "count": 0,
+    "p50": null,
+    "p95": null,
+    "p99": null,
+    "max": null
+  },
+  "nodes": [
+    {
+      "url": "http://localhost:8281/metrics",
+      "maxConnections": 13400,
+      "maxRooms": 3922,
+      "maxRssMb": 314,
+      "maxEventLoopLagP99Ms": 133.8,
+      "avgCpuPercent": 68.5
+    }
+  ],
+  "passed": false,
+  "problems": [
+    "1519 joins failed: {\"beacon-unreachable\":970,\"socket-error\":549}",
+    "only 13481 of 15000 users joined"
+  ]
+}

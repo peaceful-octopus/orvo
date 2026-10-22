@@ -12,7 +12,7 @@ import {
 } from '@chillcall/protocol';
 import type http from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
-import { Metrics } from './metrics';
+import { Metrics, type MetricsOptions } from '@chillcall/metrics';
 
 export interface SignalingOptions {
   nodeId: string;
@@ -28,6 +28,8 @@ export interface SignalingOptions {
   /** Token bucket per connection: `burst` messages, refilled at `perSecond`. */
   rate?: { burst: number; perSecond: number };
   now?: () => number;
+  /** Metrics registry settings; share a registry when the node runs inside another service. */
+  metrics?: MetricsOptions;
 }
 
 interface Conn {
@@ -51,7 +53,8 @@ const INTENTIONAL_CLOSE = new Set([1000, 1001]);
 
 /** Owns whole rooms: verifies join tokens, enforces the room cap and relays opaque signals between members. */
 export class SignalingServer {
-  readonly metrics = new Metrics();
+  readonly metrics: Metrics;
+  private m!: ReturnType<SignalingServer['declareMetrics']>;
   private rooms = new Map<string, Map<string, Member>>();
   private conns = new Set<Conn>();
   private nonces = new NonceCache();
@@ -73,6 +76,8 @@ export class SignalingServer {
     this.joinTimeoutMs = opts.joinTimeoutMs ?? 10_000;
     this.rate = opts.rate ?? { burst: 400, perSecond: 100 };
     this.now = opts.now ?? Date.now;
+    this.metrics = new Metrics(opts.metrics);
+    this.m = this.declareMetrics();
     this.wss.on('connection', (ws) => this.onConnection(ws));
     const heartbeatMs = opts.heartbeatMs ?? 30_000;
     this.heartbeat = setInterval(() => this.sweep(), heartbeatMs);
@@ -105,13 +110,28 @@ export class SignalingServer {
     return [...this.rooms.keys()];
   }
 
-  renderMetrics(): string {
-    const { connections, rooms } = this.stats();
-    return this.metrics.render({
-      chillcall_signaling_connections: connections,
-      chillcall_signaling_rooms: rooms,
-      chillcall_signaling_draining: this.isDraining ? 1 : 0,
-    });
+  renderMetrics(): Promise<string> {
+    return this.metrics.render();
+  }
+
+  private declareMetrics() {
+    const m = this.metrics;
+    m.gauge('chillcall_signaling_connections', 'Open signaling WebSocket connections.', () => this.conns.size);
+    m.gauge('chillcall_signaling_rooms', 'Rooms hosted on this node.', () => this.rooms.size);
+    m.gauge('chillcall_signaling_members', 'Participants in hosted rooms, including dropped ones in their grace period.', () =>
+      [...this.rooms.values()].reduce((n, room) => n + room.size, 0),
+    );
+    m.gauge('chillcall_signaling_draining', '1 while the node is draining and refusing new rooms.', () => (this.isDraining ? 1 : 0));
+    return {
+      connections: m.counter('chillcall_signaling_connections_total', 'WebSocket connections accepted.'),
+      rateLimited: m.counter('chillcall_signaling_rate_limited_total', 'Connections closed for sending too fast.'),
+      framesRejected: m.counter('chillcall_signaling_frames_rejected_total', 'Frames rejected as malformed or oversize.'),
+      signalsRelayed: m.counter('chillcall_signaling_signals_relayed_total', 'Offers, answers and candidates relayed.'),
+      signalsDropped: m.counter('chillcall_signaling_signals_dropped_total', 'Signals for peers that are not connected.'),
+      resumes: m.counter('chillcall_signaling_resumes_total', 'Members that reconnected within the grace period.'),
+      joins: m.counter('chillcall_signaling_joins_total', 'Members admitted to rooms.'),
+      joinFailures: m.counter('chillcall_signaling_join_failures_total', 'Joins refused, by reason.', ['code'] as const),
+    };
   }
 
   /** Closes all connections with 1012 (service restart) so clients reconnect through the beacon. */
@@ -125,7 +145,7 @@ export class SignalingServer {
   private onConnection(ws: WebSocket) {
     const conn: Conn = { ws, alive: true, tokens: this.rate.burst, lastRefill: this.now() };
     this.conns.add(conn);
-    this.metrics.inc('chillcall_signaling_connections_total');
+    this.m.connections.inc();
     conn.joinTimer = setTimeout(() => this.reject(conn, 'bad-request', 'join-timeout'), this.joinTimeoutMs);
 
     ws.on('pong', () => (conn.alive = true));
@@ -137,14 +157,14 @@ export class SignalingServer {
   private onMessage(conn: Conn, data: unknown, isBinary: boolean) {
     conn.alive = true;
     if (!this.takeToken(conn)) {
-      this.metrics.inc('chillcall_signaling_rate_limited_total');
+      this.m.rateLimited.inc();
       return this.reject(conn, 'rate-limited');
     }
     if (isBinary) return this.reject(conn, 'bad-request');
 
     const parsed = parseClientMessage(String(data));
     if (!parsed.ok) {
-      this.metrics.inc('chillcall_signaling_frames_rejected_total');
+      this.m.framesRejected.inc();
       return this.reject(conn, parsed.code);
     }
     const msg = parsed.message;
@@ -155,9 +175,9 @@ export class SignalingServer {
 
     // signal
     const target = this.rooms.get(conn.room)?.get(msg.to);
-    if (!target?.conn) return void this.metrics.inc('chillcall_signaling_signals_dropped_total');
+    if (!target?.conn) return void this.m.signalsDropped.inc();
     this.send(target.conn, { type: 'signal', from: conn.peerId, payload: msg.payload });
-    this.metrics.inc('chillcall_signaling_signals_relayed_total');
+    this.m.signalsRelayed.inc();
   }
 
   private onJoin(conn: Conn, token: string, name: string) {
@@ -165,9 +185,10 @@ export class SignalingServer {
     if (!result.ok) return this.joinFailed(conn, result.reason === 'wrong-node' ? 'not-owner' : 'bad-token');
     const { payload } = result;
     if (!this.nonces.checkAndAdd(payload.nonce, payload.exp, this.now())) return this.joinFailed(conn, 'bad-token');
-    if (this.isDraining) return this.joinFailed(conn, 'draining');
-
+    // A draining node keeps serving the rooms it has, including people reconnecting or joining them, so calls
+    // in progress are undisturbed. It only refuses to start new rooms; the beacon stops sending those anyway.
     let room = this.rooms.get(payload.room);
+    if (!room && this.isDraining) return this.joinFailed(conn, 'draining');
     if (!room) this.rooms.set(payload.room, (room = new Map()));
     const existing = room.get(payload.peerId);
 
@@ -179,7 +200,7 @@ export class SignalingServer {
       if (existing.conn) existing.conn.peerId = undefined;
       existing.conn = conn;
       existing.name = name;
-      this.metrics.inc('chillcall_signaling_resumes_total');
+      this.m.resumes.inc();
     } else {
       const cap = Math.min(payload.maxRoomSize ?? this.maxRoomSize, this.hardMaxRoomSize);
       if (room.size >= cap) {
@@ -192,7 +213,7 @@ export class SignalingServer {
     clearTimeout(conn.joinTimer);
     conn.room = payload.room;
     conn.peerId = payload.peerId;
-    this.metrics.inc('chillcall_signaling_joins_total');
+    this.m.joins.inc();
 
     const others = [...room.values()].filter((m) => m.peerId !== payload.peerId);
     this.send(conn, {
@@ -208,7 +229,7 @@ export class SignalingServer {
   }
 
   private joinFailed(conn: Conn, code: ErrorCode) {
-    this.metrics.inc('chillcall_signaling_join_failures_total', { code });
+    this.m.joinFailures.inc({ code });
     this.reject(conn, code);
   }
 

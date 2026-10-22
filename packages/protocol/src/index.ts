@@ -5,5 +5,6 @@ export * from './limits';
 export * from './room';
 export * from './signaling';
 export * from './signing';
+export * from './telemetry';
 export * from './token';
 export * from './version';

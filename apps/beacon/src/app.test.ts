@@ -1,9 +1,10 @@
-import { JoinResponse, fromBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@chillcall/protocol';
+import { JoinResponse, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@chillcall/protocol';
 import { FakeClock, testKeys } from '@chillcall/testkit';
 import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBeaconApp, type BeaconOptions } from './app';
-import { MemoryPlacementStore } from '@chillcall/placement';
+import { Metrics } from '@chillcall/metrics';
+import { MemoryPlacementStore, ResilientPlacementStore, type PlacementStore } from '@chillcall/placement';
 
 const key = testKeys('beacon-1');
 const clock = new FakeClock();
@@ -97,6 +98,15 @@ describe('config and keys', () => {
       ok: true,
       config: { beaconUrls: ['http://chill.example.com'], ice: { stunUrls: ['stun:stun.example.com:3478'] } },
     });
+  });
+
+  it('keeps publishing earlier public keys so rotation needs no downtime', async () => {
+    const old = testKeys('old-1');
+    await start({ previousPublicKeys: { [old.kid]: toBase64Url(old.publicKey) } });
+    const keys = (await app.inject({ method: 'GET', url: '/v1/keys' })).json();
+    expect(Object.keys(keys).sort()).toEqual([key.kid, old.kid].sort());
+    expect(fromBase64Url(keys[old.kid])).toEqual(old.publicKey);
+    expect(fromBase64Url(keys[key.kid])).toEqual(key.publicKey);
   });
 
   it('publishes its public key', async () => {
@@ -213,6 +223,154 @@ describe('limits and announcements', () => {
     const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
     expect(result).toMatchObject({ ok: true, config: { limits: { maxRoomSize: 10, warnRoomSize: 6 } } });
     expect((result as { config: { announcement?: unknown } }).config.announcement).toBeUndefined();
+  });
+});
+
+describe('metrics', () => {
+  it('counts joins by outcome and tier, and times them', async () => {
+    const metrics = new Metrics();
+    await start({ metrics, minClientVersion: '1.0.0' });
+    await join({ room: 'cozy-room-abc123', clientVersion: '1.0.0' });
+    await join({ room: 'cozy-room-abc123', clientVersion: '1.0.0' });
+    await join({ room: 'BAD ROOM' });
+    await join({ room: 'cozy-room-abc123', clientVersion: '0.1.0' });
+
+    expect(await metrics.value('chillcall_beacon_join_requests_total', { result: 'ok' })).toBe(2);
+    expect(await metrics.value('chillcall_beacon_join_requests_total', { result: 'bad-request' })).toBe(1);
+    expect(await metrics.value('chillcall_beacon_join_requests_total', { result: 'upgrade-required' })).toBe(1);
+    expect(await metrics.value('chillcall_beacon_joins_by_tier_total', { tier: 'free' })).toBe(2);
+    expect(await metrics.value('chillcall_beacon_join_duration_seconds_count')).toBe(4);
+  });
+
+  it('counts joins by client version, keeping the label set bounded', async () => {
+    const metrics = new Metrics();
+    await start({ metrics });
+    await join({ room: 'cozy-room-abc123', clientVersion: '1.2.0' });
+    await join({ room: 'cozy-room-abc123', clientVersion: '1.2.0' });
+    await join({ room: 'cozy-room-abc123', clientVersion: '1.3.1' });
+    expect(await metrics.value('chillcall_beacon_joins_by_client_version_total', { version: '1.2.0' })).toBe(2);
+    expect(await metrics.value('chillcall_beacon_joins_by_client_version_total', { version: '1.3.1' })).toBe(1);
+
+    // Versions are client-supplied, so only a limited number of distinct ones become labels; the rest share one.
+    for (let i = 0; i < 60; i++) await join({ room: 'cozy-room-abc123', clientVersion: `9.${i}.0` });
+    const text = await metrics.render();
+    expect(text.match(/chillcall_beacon_joins_by_client_version_total\{/g)!.length).toBeLessThanOrEqual(51);
+    expect(await metrics.value('chillcall_beacon_joins_by_client_version_total', { version: 'other' })).toBeGreaterThanOrEqual(10);
+  });
+
+  it('counts no-nodes failures and reports node gauges', async () => {
+    const metrics = new Metrics();
+    const store = new MemoryPlacementStore([nodes[0]!, { ...nodes[0]!, id: 'node-2', draining: true }]);
+    await start({ metrics, store });
+    expect(await metrics.value('chillcall_beacon_nodes')).toBe(2);
+    expect(await metrics.value('chillcall_beacon_nodes_draining')).toBe(1);
+
+    await app.close();
+    const empty = new Metrics();
+    await start({ metrics: empty, store: new MemoryPlacementStore([{ ...nodes[0]!, draining: true }]) });
+    await join({ room: 'cozy-room-abc123' });
+    expect(await empty.value('chillcall_beacon_join_requests_total', { result: 'no-nodes' })).toBe(1);
+  });
+
+  it('reports when joins are being served without the shared store', async () => {
+    const metrics = new Metrics();
+    const inner = new MemoryPlacementStore(nodes);
+    let down = false;
+    const flaky = new Proxy(inner, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        if (typeof value !== 'function') return value;
+        return async (...args: unknown[]) => {
+          if (down) throw new Error('connection refused');
+          return value.apply(target, args);
+        };
+      },
+    }) as PlacementStore;
+    await start({ metrics, store: new ResilientPlacementStore(flaky) });
+
+    expect((await join({ room: 'cozy-room-abc123' })).statusCode).toBe(200);
+    expect(await metrics.value('chillcall_beacon_placement_degraded')).toBe(0);
+
+    down = true;
+    expect((await join({ room: 'cozy-room-abc123' })).statusCode).toBe(200); // still served, from memory
+    expect(await metrics.value('chillcall_beacon_placement_degraded')).toBe(1);
+  });
+
+  it('serves Prometheus text at /metrics, including rooms created', async () => {
+    await start();
+    await app.inject({ method: 'POST', url: '/v1/rooms' });
+    const res = await app.inject({ method: 'GET', url: '/metrics' });
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(res.body).toContain('chillcall_beacon_rooms_created_total 1');
+    expect(res.body).toContain('# TYPE chillcall_beacon_join_duration_seconds histogram');
+  });
+});
+
+describe('telemetry', () => {
+  const post = (payload: unknown) => app.inject({ method: 'POST', url: '/v1/telemetry', payload: payload as object });
+  const batch = (events: object[]) => ({ v: 1, events });
+
+  it('aggregates client reports into metrics without keeping anything per user', async () => {
+    const metrics = new Metrics();
+    await start({ metrics });
+    const res = await post(
+      batch([
+        { type: 'join', result: 'ok', ms: 1500 },
+        { type: 'peer', result: 'connected', route: 'direct', ms: 400 },
+        { type: 'peer', result: 'connected', route: 'direct', ms: 600 },
+        { type: 'peer', result: 'connected', route: 'relay', ms: 2000 },
+        { type: 'peer', result: 'unreachable', route: 'unknown', ms: 25_000 },
+        { type: 'reconnect', ok: true, attempts: 2 },
+      ]),
+    );
+    expect(res.statusCode).toBe(204);
+
+    expect(await metrics.value('chillcall_client_joins_total', { result: 'ok' })).toBe(1);
+    expect(await metrics.value('chillcall_client_peer_connections_total', { result: 'connected', route: 'direct' })).toBe(2);
+    expect(await metrics.value('chillcall_client_peer_connections_total', { result: 'connected', route: 'relay' })).toBe(1);
+    expect(await metrics.value('chillcall_client_peer_connections_total', { result: 'unreachable' })).toBe(1);
+    expect(await metrics.value('chillcall_client_peer_connect_seconds_count', { route: 'direct' })).toBe(2);
+    expect(await metrics.value('chillcall_client_peer_connect_seconds_sum', { route: 'direct' })).toBeCloseTo(1.0);
+    expect(await metrics.value('chillcall_client_signaling_reconnects_total', { ok: 'true' })).toBe(1);
+  });
+
+  it('rejects malformed, oversize and too-large batches', async () => {
+    await start();
+    expect((await post({ v: 1, events: [{ type: 'mystery' }] })).statusCode).toBe(400);
+    expect((await post('nonsense')).statusCode).toBe(415); // neither JSON nor text/plain
+    const plain = (body: string) => app.inject({ method: 'POST', url: '/v1/telemetry', payload: body, headers: { 'content-type': 'text/plain;charset=UTF-8' } });
+    expect((await plain('not json')).statusCode).toBe(400);
+    expect((await post(batch(Array(51).fill({ type: 'reconnect', ok: true, attempts: 1 })))).statusCode).toBe(400);
+    expect((await post({ v: 1, events: [], padding: 'x'.repeat(9000) })).statusCode).toBe(413);
+  });
+
+  it('accepts the same batch as text/plain, which is how a closing page sends it', async () => {
+    const metrics = new Metrics();
+    await start({ metrics });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/telemetry',
+      payload: JSON.stringify(batch([{ type: 'join', result: 'ok', ms: 10 }])),
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(await metrics.value('chillcall_client_joins_total', { result: 'ok' })).toBe(1);
+  });
+
+  it('ignores identifying fields rather than recording them', async () => {
+    const metrics = new Metrics();
+    await start({ metrics });
+    await post(batch([{ type: 'peer', result: 'connected', route: 'direct', ms: 1, room: 'secret-room', name: 'Ann' }]));
+    const text = await metrics.render();
+    expect(text).not.toContain('secret-room');
+    expect(text).not.toContain('Ann');
+  });
+
+  it('is rate limited like the other endpoints', async () => {
+    await start({ rateLimitPerMinute: 2 });
+    const codes = [];
+    for (let i = 0; i < 4; i++) codes.push((await post(batch([]))).statusCode);
+    expect(codes).toEqual([204, 204, 429, 429]);
   });
 });
 

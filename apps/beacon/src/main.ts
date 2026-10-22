@@ -1,4 +1,10 @@
-import { MemoryPlacementStore, RedisPlacementStore, type NodeInfo, type PlacementStore } from '@chillcall/placement';
+import {
+  MemoryPlacementStore,
+  RedisPlacementStore,
+  ResilientPlacementStore,
+  type NodeInfo,
+  type PlacementStore,
+} from '@chillcall/placement';
 import { Redis } from 'ioredis';
 import fs from 'node:fs';
 import { createBeaconApp } from './app';
@@ -10,10 +16,12 @@ import { serveWebApp } from './web';
 //   REDIS_URL        nodes register themselves in Redis (several beacons can share it)
 //   NODES            without Redis, a static JSON list such as [{"id":"n1","url":"wss://n1.example.com/ws"}]
 //   SIGNING_KEY      <kid>:<base64url secret>, shared by every beacon in a fleet
+//   PREVIOUS_PUBLIC_KEYS   JSON { "<old kid>": "<base64url public key>" } kept published while rotating keys
 //   TURN_URLS / TURN_SECRET            credentialed relay pool for entitled rooms
 //   TURN_LITE_URLS / TURN_LITE_SECRET  capped relay pool for the relay-lite tier
 //   CONFIG_FILE      a pre-signed config served as is (see tools/sign-config)
 //   MIN_CLIENT_VERSION, MAX_ROOM_SIZE, WARN_ROOM_SIZE, ANNOUNCEMENT(_ID)   published in the signed config
+//   RATE_LIMIT_PER_MINUTE   per client address (default 120; 0 disables)
 //   WEB_DIR          also serve the built web app from this directory
 function pool(urls: string | undefined, secret: string | undefined): TurnPool | undefined {
   return urls && secret ? { urls: urls.split(',').filter(Boolean), secret } : undefined;
@@ -21,7 +29,10 @@ function pool(urls: string | undefined, secret: string | undefined): TurnPool | 
 
 let store: PlacementStore;
 if (process.env.REDIS_URL) {
-  store = new RedisPlacementStore(new Redis(process.env.REDIS_URL));
+  // Keep placing rooms from memory if Redis becomes unreachable, instead of failing every join.
+  store = new ResilientPlacementStore(new RedisPlacementStore(new Redis(process.env.REDIS_URL)), {
+    onDegraded: (degraded, err) => console.warn(degraded ? 'placement store unreachable, using last known nodes' : 'placement store recovered', err ?? ''),
+  });
 } else {
   const nodes = (JSON.parse(process.env.NODES ?? '[]') as Partial<NodeInfo>[]).map((n) => ({
     id: n.id!,
@@ -36,6 +47,7 @@ if (process.env.REDIS_URL) {
 
 const app = await createBeaconApp({
   signingKey: loadOrCreateSigningKey(process.env.DATA_DIR ?? './data'),
+  previousPublicKeys: process.env.PREVIOUS_PUBLIC_KEYS ? JSON.parse(process.env.PREVIOUS_PUBLIC_KEYS) : undefined,
   store,
   stunUrls: (process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302').split(',').filter(Boolean),
   turn: {
@@ -48,6 +60,8 @@ const app = await createBeaconApp({
     : undefined,
   announcement: process.env.ANNOUNCEMENT ? { id: process.env.ANNOUNCEMENT_ID ?? 'notice', text: process.env.ANNOUNCEMENT } : undefined,
   staticConfig: process.env.CONFIG_FILE ? JSON.parse(fs.readFileSync(process.env.CONFIG_FILE, 'utf8')) : undefined,
+  // 0 turns limiting off, which load tests need because every simulated user shares one address.
+  rateLimitPerMinute: process.env.RATE_LIMIT_PER_MINUTE ? Number(process.env.RATE_LIMIT_PER_MINUTE) || false : undefined,
   corsOrigin: process.env.CORS_ORIGIN ?? true,
   trustProxy: Boolean(process.env.BEHIND_PROXY),
 });

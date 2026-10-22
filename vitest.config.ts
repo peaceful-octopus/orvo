@@ -23,6 +23,7 @@ export default defineConfig({
     projects: [
       integration('placement', './packages/placement'),
       integration('fleet', './apps/server'),
+      integration('loadgen', './tools/loadgen'),
       unit('protocol', './packages/protocol'),
       unit('testkit', './packages/testkit'),
       unit('placement', './packages/placement'),
@@ -30,6 +31,8 @@ export default defineConfig({
       unit('signaling', './apps/signaling'),
       unit('beacon', './apps/beacon'),
       unit('sign-config', './tools/sign-config'),
+      unit('loadgen', './tools/loadgen'),
+      unit('server', './apps/server'),
       unit('app', './apps/app'),
     ],
   },

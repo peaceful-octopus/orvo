@@ -1,0 +1,106 @@
+# Alert rules for ChillCall. Every alert is explained, with what to do, in docs/runbook.md under its own name.
+groups:
+  - name: chillcall-availability
+    rules:
+      - alert: BeaconDown
+        expr: up{job="chillcall-beacon"} == 0
+        for: 1m
+        labels: { severity: page }
+        annotations:
+          summary: A beacon instance is not answering scrapes.
+
+      - alert: SignalingNodeDown
+        expr: up{job="chillcall-signaling"} == 0
+        for: 1m
+        labels: { severity: page }
+        annotations:
+          summary: A signaling node is not answering scrapes; its rooms will move once its registration expires.
+
+      - alert: NoSignalingNodes
+        expr: chillcall_beacon_nodes == 0
+        for: 1m
+        labels: { severity: page }
+        annotations:
+          summary: The beacon sees no live signaling nodes, so nobody can join a new room.
+
+      - alert: JoinFailuresHigh
+        expr: |
+          sum(rate(chillcall_beacon_join_requests_total{result=~"no-nodes|error"}[5m]))
+            / sum(rate(chillcall_beacon_join_requests_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: More than 5% of join requests are failing on the server side.
+
+      - alert: JoinLatencyHigh
+        expr: histogram_quantile(0.99, sum by (le) (rate(chillcall_beacon_join_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: The 99th percentile time to answer a join request is over one second.
+
+  - name: chillcall-capacity
+    rules:
+      - alert: SignalingEventLoopLagging
+        expr: chillcall_nodejs_eventloop_lag_p99_seconds{job="chillcall-signaling"} > 0.2
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: A signaling node's event loop is lagging; it is saturated or starved of CPU.
+
+      - alert: SignalingConnectionsHigh
+        expr: chillcall_signaling_connections > 8000
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: A signaling node holds more than 8,000 connections; add nodes before it saturates (see docs/capacity.md).
+
+      - alert: SignalingMemoryHigh
+        expr: chillcall_process_resident_memory_bytes{job="chillcall-signaling"} > 1.5e9
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: A signaling node is using more than 1.5 GB of memory.
+
+      - alert: SignalingRateLimiting
+        expr: sum(rate(chillcall_signaling_rate_limited_total[5m])) > 1
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: Clients are being disconnected for sending signals too fast, which suggests abuse or a client bug.
+
+  - name: chillcall-dependencies
+    rules:
+      - alert: PlacementStoreDegraded
+        expr: chillcall_beacon_placement_degraded == 1
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: A beacon cannot reach Redis and is placing rooms from memory; split rooms are possible.
+
+  - name: chillcall-connection-quality
+    rules:
+      - alert: DirectConnectionRateLow
+        expr: |
+          sum(rate(chillcall_client_peer_connections_total{result="connected",route="direct"}[1h]))
+            / sum(rate(chillcall_client_peer_connections_total{result="connected"}[1h])) < 0.8
+        for: 1h
+        labels: { severity: ticket }
+        annotations:
+          summary: Under 80% of connections are direct, so relay demand (and cost) is higher than planned.
+
+      - alert: PeersUnreachableHigh
+        expr: |
+          sum(rate(chillcall_client_peer_connections_total{result="unreachable"}[1h]))
+            / sum(rate(chillcall_client_peer_connections_total[1h])) > 0.15
+        for: 1h
+        labels: { severity: ticket }
+        annotations:
+          summary: More than 15% of peer connections fail; users on strict networks cannot reach each other without a relay.
+
+      - alert: SignalingReconnectStorm
+        expr: sum(rate(chillcall_client_signaling_reconnects_total[5m])) > 50
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: Many clients are reconnecting at once, which usually follows a node or network failure.
