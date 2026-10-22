@@ -5,6 +5,7 @@ import { updateRequired } from './configLogic';
 import { useConfig } from './configStore';
 import { AnnouncementBanner, UpdateRequired } from './Notices';
 import { RoomPage } from './RoomPage';
+import { SettingsButton } from './SettingsPane';
 import { parseRoomInput } from './roomInput';
 import { setTelemetryEnabled } from './telemetry';
 
@@ -31,6 +32,7 @@ function Home() {
 
   return (
     <main>
+      <SettingsButton />
       <h1>ChillCall</h1>
       <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
       <button onClick={() => void startRoom()}>Start a room</button>

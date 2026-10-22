@@ -21,6 +21,8 @@ import {
   type DeviceLists,
   type DeviceSelection,
 } from './devices';
+import { createNoiseFilter, noiseSupported, type NoiseFilter } from './noise';
+import { useSettings } from './settingsStore';
 import { telemetry } from './telemetry';
 
 export interface Remote {
@@ -48,6 +50,8 @@ interface CallState {
   /** The cameras, microphones and speakers the system offers, and which of them are chosen. */
   devices: DeviceLists;
   selected: DeviceSelection;
+  /** Whether background noise suppression is running on your microphone. */
+  noiseStatus: 'off' | 'loading' | 'on' | 'error';
   /** Whether the connection to the signaling server is up; calls continue while it reconnects. */
   reconnecting: boolean;
   remotes: Record<string, Remote>;
@@ -55,6 +59,7 @@ interface CallState {
   join(room: string, name: string): Promise<void>;
   toggleAudio(): void;
   toggleVideo(): void;
+  applyNoise(): Promise<void>;
   refreshDevices(): Promise<void>;
   selectDevice(kind: DeviceKind, id: string): Promise<void>;
   react(emoji: string): Promise<void>;
@@ -65,6 +70,10 @@ interface CallState {
 let transport: MeshTransport | undefined;
 let unsubscribe: (() => void) | undefined;
 let effects: EffectsController | undefined;
+/** The microphone as the browser gives it; what is sent is this, or its noise-filtered version. */
+let micRaw: MediaStreamTrack | undefined;
+let noiseFilter: NoiseFilter | undefined;
+let noiseQueue: Promise<void> = Promise.resolve();
 let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** One new track from the chosen device; if that device is gone, from the system default instead. */
@@ -119,6 +128,7 @@ export const useCall = create<CallState>((set, get) => {
         break;
       case 'message':
         if (event.data.kind === 'state') upsert(event.id, { audio: event.data.audio, video: event.data.video });
+        else if (event.data.kind === 'name') upsert(event.id, { name: event.data.name });
         break;
       case 'participant-left':
         set((s) => {
@@ -138,11 +148,52 @@ export const useCall = create<CallState>((set, get) => {
     }
   };
 
+  /** One change to the microphone path at a time, so rapid setting changes cannot start two filters. */
+  const applyNoiseNow = async () => {
+    const { local } = get();
+    if (!local || !micRaw) return;
+    const { noise } = useSettings.getState();
+    const wanted = noise.enabled && noiseSupported();
+    let output = micRaw;
+    if (wanted) {
+      try {
+        if (!noiseFilter || noiseFilter.source !== micRaw) {
+          set({ noiseStatus: 'loading' });
+          noiseFilter?.dispose();
+          noiseFilter = undefined;
+          noiseFilter = await createNoiseFilter(micRaw, noise.strength);
+        } else {
+          noiseFilter.setLevel(noise.strength);
+        }
+        output = noiseFilter.track;
+        set({ noiseStatus: 'on' });
+      } catch {
+        noiseFilter = undefined;
+        set({ noiseStatus: 'error' });
+        showEffectsMessage('Noise suppression could not start, so your microphone is sent as it is.');
+      }
+    } else {
+      noiseFilter?.dispose();
+      noiseFilter = undefined;
+      set({ noiseStatus: 'off' });
+    }
+    // The browser's own suppression is skipped while ours runs, so audio is not cleaned twice.
+    void micRaw.applyConstraints({ noiseSuppression: output === micRaw }).catch(() => {});
+
+    const current = get().local;
+    if (!current || current.getAudioTracks()[0] === output) return;
+    output.enabled = get().audio;
+    const stream = new MediaStream([output, ...current.getVideoTracks()]);
+    set({ local: stream });
+    await transport?.replaceLocalStream(stream);
+  };
+
   return {
     phase: 'lobby',
     audio: true,
     video: true,
     reconnecting: false,
+    noiseStatus: 'off',
     remotes: {},
     devices: noDevices(),
     selected: loadSelection(),
@@ -154,11 +205,17 @@ export const useCall = create<CallState>((set, get) => {
         const [audio, video] = await Promise.all([acquireTrack('audioinput', selected.audioinput), acquireTrack('videoinput', selected.videoinput)]);
         const next = { ...selected, audioinput: audio.id, videoinput: video.id };
         saveSelection(next);
+        micRaw = audio.track;
         set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
       } catch {
         set({ error: 'Camera or microphone access was denied.' });
       }
       await get().refreshDevices(); // device names are only available once access is granted
+    },
+
+    applyNoise() {
+      noiseQueue = noiseQueue.then(applyNoiseNow, applyNoiseNow);
+      return noiseQueue;
     },
 
     async refreshDevices() {
@@ -194,9 +251,16 @@ export const useCall = create<CallState>((set, get) => {
         const stream = new MediaStream([...kept, next.track]);
         selected[kind] = next.id;
         saveSelection(selected);
+        if (!isVideo) {
+          noiseFilter?.dispose(); // it was reading the old microphone
+          noiseFilter = undefined;
+          micRaw?.stop();
+          micRaw = next.track;
+        }
         set({ local: stream, selected, localDisplay: undefined });
         old.forEach((t) => t.stop());
         await transport?.replaceLocalStream(stream);
+        if (!isVideo) await get().applyNoise();
       } catch {
         showEffectsMessage(`Could not switch to that ${kind === 'videoinput' ? 'camera' : 'microphone'}.`);
       }
@@ -206,6 +270,7 @@ export const useCall = create<CallState>((set, get) => {
       const { local } = get();
       if (!local) return;
       set({ phase: 'joining', error: undefined });
+      await get().applyNoise(); // the call starts with the cleaned-up microphone
       const { config } = await loadClientConfig();
       transport = new MeshTransport({
         beaconUrls: config.beaconUrls,
@@ -218,7 +283,7 @@ export const useCall = create<CallState>((set, get) => {
       });
       unsubscribe = transport.on(onEvent);
       try {
-        await transport.join(room, name, local);
+        await transport.join(room, name, get().local ?? local);
         // Effects are drawn into the outgoing video only while one is showing; between them the camera is sent as is.
         effects = new EffectsController({
           camera: () => get().local,
@@ -278,7 +343,11 @@ export const useCall = create<CallState>((set, get) => {
       unsubscribe?.();
       transport = undefined;
       get().local?.getTracks().forEach((t) => t.stop());
-      set({ phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
+      noiseFilter?.dispose();
+      noiseFilter = undefined;
+      micRaw?.stop();
+      micRaw = undefined;
+      set({ noiseStatus: 'off', phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
     },
   };
 });
@@ -287,3 +356,21 @@ export const useCall = create<CallState>((set, get) => {
 if (typeof navigator !== 'undefined') {
   navigator.mediaDevices?.addEventListener?.('devicechange', () => void useCall.getState().refreshDevices());
 }
+
+// Settings that take effect during a call: the noise filter follows its toggle and strength, and a new name
+// is announced to everyone.
+let nameTimer: ReturnType<typeof setTimeout> | undefined;
+let noiseTimer: ReturnType<typeof setTimeout> | undefined;
+useSettings.subscribe((now, before) => {
+  if (now.noise !== before.noise) {
+    clearTimeout(noiseTimer);
+    noiseTimer = setTimeout(() => void useCall.getState().applyNoise(), 150);
+  }
+  if (now.name !== before.name) {
+    clearTimeout(nameTimer);
+    nameTimer = setTimeout(() => {
+      const name = now.name.trim();
+      if (name && useCall.getState().phase === 'in-call') transport?.send({ kind: 'name', name });
+    }, 400);
+  }
+});

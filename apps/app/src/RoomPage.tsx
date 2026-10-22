@@ -1,5 +1,5 @@
 import { roomStatus } from '@chillcall/protocol';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bubble } from './Bubble';
 import { useCall } from './callStore';
@@ -9,6 +9,8 @@ import { copyText, roomLink } from './roomInput';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
 import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
+import { SettingsButton } from './SettingsPane';
+import { useSettings } from './settingsStore';
 import { BubbleField, type Member } from './float/BubbleField';
 import type { ControlAction } from './float/bridge';
 import { useControlsWindow } from './float/controlsWindow';
@@ -67,7 +69,9 @@ export function RoomPage({ room }: { room: string }) {
   const apiKey = useConfig((s) => giphyApiKey(s.config));
   const [gifOpen, setGifOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [name, setName] = useState(() => localStorage.getItem('chillcall:name') ?? '');
+  const name = useSettings((s) => s.name);
+  const setName = useSettings((s) => s.setName);
+  const startView = useSettings((s) => s.startView);
 
   useEffect(() => {
     void startPreview();
@@ -90,6 +94,17 @@ export function RoomPage({ room }: { room: string }) {
   );
 
   const float = useFloat(mode, members.length);
+
+  // Calls open as floating bubbles when that is the chosen start view.
+  const autoFloated = useRef(false);
+  useEffect(() => {
+    if (phase !== 'in-call') {
+      autoFloated.current = false;
+    } else if (!autoFloated.current && startView === 'floating' && float.kind) {
+      autoFloated.current = true;
+      void float.enter().catch(() => {}); // Picture-in-Picture can refuse without a fresh click
+    }
+  }, [phase, startView, float]);
   const onControlAction = (a: ControlAction) => {
     if (a.type === 'audio') toggleAudio();
     else if (a.type === 'video') toggleVideo();
@@ -113,6 +128,7 @@ export function RoomPage({ room }: { room: string }) {
   if (phase !== 'in-call') {
     return (
       <main>
+        <SettingsButton />
         <h1>Join {room}</h1>
         <div className="preview">
           <Bubble name={name} stream={local} videoOn={video} audioOn={audio} mirrored muteAudio />
@@ -121,7 +137,6 @@ export function RoomPage({ room }: { room: string }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            localStorage.setItem('chillcall:name', name);
             void join(room, name.trim());
           }}
         >
@@ -164,6 +179,7 @@ export function RoomPage({ room }: { room: string }) {
 
   return (
     <main className="call">
+      <SettingsButton />
       {effectsMessage && (
         <p className="banner" role="status">
           {effectsMessage}

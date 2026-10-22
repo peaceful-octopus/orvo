@@ -5,9 +5,13 @@ export const DATA_VERSION = 1;
 
 const envelope = z.object({ v: z.number().int(), kind: z.string() }).loose();
 
-const stateMessage = z.object({ kind: z.literal('state'), audio: z.boolean(), video: z.boolean() });
+import { MAX_NAME_LENGTH } from './signaling';
 
-export type DataMessage = { kind: 'state'; audio: boolean; video: boolean };
+const stateMessage = z.object({ kind: z.literal('state'), audio: z.boolean(), video: z.boolean() });
+/** A participant changed their display name during the call. */
+const nameMessage = z.object({ kind: z.literal('name'), name: z.string().trim().min(1).max(MAX_NAME_LENGTH) });
+
+export type DataMessage = { kind: 'state'; audio: boolean; video: boolean } | { kind: 'name'; name: string };
 
 export function encodeDataMessage(message: DataMessage): string {
   return JSON.stringify({ v: DATA_VERSION, ...message });
@@ -28,6 +32,6 @@ export function parseDataMessage(raw: unknown): DataMessage | null {
   }
   const head = envelope.safeParse(value);
   if (!head.success || head.data.v > DATA_VERSION) return null;
-  const state = stateMessage.safeParse(value);
-  return state.success ? state.data : null;
+  const message = z.union([stateMessage, nameMessage]).safeParse(value);
+  return message.success ? message.data : null;
 }
