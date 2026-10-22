@@ -26,6 +26,12 @@ function copyStyles(from: Document, to: Document) {
   }
 }
 
+/** Hides or restores the Windows 11 border that otherwise outlines the transparent floating window. */
+async function setWindowBorder(visible: boolean) {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('set_window_border', { visible }).catch(() => {}); // Windows 10 and other systems have no such border
+}
+
 async function tauriWindow() {
   return (await import('@tauri-apps/api/window')).getCurrentWindow();
 }
@@ -56,7 +62,8 @@ export function useFloat(mode: LayoutMode, count: number) {
       const inner = (await win.innerSize()).toLogical(scale);
       setSaved({ w: inner.width, h: inner.height, decorated: await win.isDecorated() });
       await win.setDecorations(false);
-      await win.setShadow(false); // the shadow draws a visible border around the transparent window
+      await win.setShadow(false); // the shadow draws a dark frame around the transparent window
+      await setWindowBorder(false); // and Windows 11 adds a one-pixel outline even without it
       await win.setAlwaysOnTop(true);
       await win.setSize(new LogicalSize(size.w, size.h));
       document.documentElement.classList.add('floating');
@@ -81,6 +88,7 @@ export function useFloat(mode: LayoutMode, count: number) {
       document.documentElement.classList.remove('floating');
       await win.setAlwaysOnTop(false);
       await win.setShadow(true);
+      await setWindowBorder(true);
       await win.setDecorations(saved.decorated);
       await win.setSize(new LogicalSize(saved.w, saved.h));
       setSaved(null);
