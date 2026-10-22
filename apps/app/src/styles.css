@@ -50,6 +50,7 @@ html.pip body {
 
 main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   gap: 1rem;
   min-height: 100vh;
@@ -264,7 +265,7 @@ a {
 }
 
 .ring {
-  width: min(22rem, 70vw);
+  width: min(22rem, 70vw, 34vh);
   justify-self: center;
 }
 
@@ -274,7 +275,7 @@ a {
 }
 
 .lobby .preview {
-  width: min(16rem, 60vw);
+  width: min(16rem, 60vw, 40vh);
   aspect-ratio: 1;
   justify-self: center;
 }
@@ -290,8 +291,14 @@ a {
   min-width: 10rem;
 }
 
+.home > *,
+.lobby > * {
+  min-width: 0;
+}
+
 .lobby-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
   align-content: center;
 }
@@ -303,6 +310,7 @@ details.devices {
 
 details.devices summary {
   cursor: pointer;
+  min-width: 0;
   display: flex;
   gap: 0.75rem;
   align-items: baseline;
@@ -330,6 +338,8 @@ details.devices[open] summary::before {
 }
 
 details.devices .hint {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
