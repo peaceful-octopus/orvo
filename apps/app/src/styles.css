@@ -12,6 +12,88 @@ body {
 main {
   display: grid;
   place-items: center;
+  gap: 1rem;
   min-height: 100vh;
   align-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+button,
+input {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #5b5580;
+  background: #231f38;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+form,
+.controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.error {
+  color: #ff8a8a;
+}
+
+.banner {
+  background: #4a3b12;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  margin: 0;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.bubble {
+  position: relative;
+  width: 180px;
+  margin: 0;
+}
+
+.bubble video {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #231f38;
+  display: block;
+}
+
+.bubble video.mirrored {
+  transform: scaleX(-1);
+}
+
+.bubble .initial {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 180px;
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+  border-radius: 50%;
+  background: #3b3560;
+}
+
+.bubble figcaption {
+  text-align: center;
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
 }
