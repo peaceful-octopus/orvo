@@ -117,6 +117,28 @@ describe('joining', () => {
     expect(signaling.metrics.get('chillcall_signaling_join_failures_total', { code: 'room-full' })).toBe(1);
   });
 
+  it('enforces the room cap carried in the join token, but never above the hard limit', async () => {
+    await start({ hardMaxRoomSize: 5 });
+    for (let n = 0; n < 2; n++) {
+      const c = connect();
+      c.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: `p${n}`, maxRoomSize: 2 }, clock.now), name: 'x' });
+      await c.next('welcome');
+    }
+    const third = connect();
+    third.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: 'p2', maxRoomSize: 2 }, clock.now), name: 'x' });
+    expect(await third.next('error')).toMatchObject({ code: 'room-full' });
+
+    // A token asking for more than the node's hard limit is clamped to it.
+    for (let n = 0; n < 5; n++) {
+      const c = connect();
+      c.send({ type: 'join', token: makeJoinToken(keys, { room: 'big-room-abc123', peerId: `b${n}`, maxRoomSize: 50 }, clock.now), name: 'x' });
+      await c.next('welcome');
+    }
+    const sixth = connect();
+    sixth.send({ type: 'join', token: makeJoinToken(keys, { room: 'big-room-abc123', peerId: 'b5', maxRoomSize: 50 }, clock.now), name: 'x' });
+    expect(await sixth.next('error')).toMatchObject({ code: 'room-full' });
+  });
+
   it('reports degraded status above six members', async () => {
     await start();
     for (let n = 0; n < 6; n++) await join(`p${n}`);

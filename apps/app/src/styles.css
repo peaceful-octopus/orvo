@@ -203,3 +203,23 @@ form,
   opacity: 0.6;
   margin: 0.5rem 0 0;
 }
+
+.announcement {
+  position: fixed;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  max-width: min(90vw, 40rem);
+}
+
+button.link {
+  padding: 0;
+  border: none;
+  background: none;
+  text-decoration: underline;
+}
+
+main a {
+  color: #b5a8ff;
+}

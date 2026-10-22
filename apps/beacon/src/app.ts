@@ -1,5 +1,7 @@
 import {
   DEFAULT_VIDEO_TIERS,
+  MAX_ROOM_SIZE,
+  WARN_ROOM_SIZE,
   JoinRequest,
   generateRoomId,
   isClientSupported,
@@ -14,6 +16,7 @@ import {
   type IceServer,
   type JoinResponse,
   type Tier,
+  type VideoTierRule,
 } from '@chillcall/protocol';
 import { NoNodesError, placeRoom, type NodeInfo, type PlacementStore } from '@chillcall/placement';
 import cors from '@fastify/cors';
@@ -38,6 +41,10 @@ export interface BeaconOptions {
   /** Public WebSocket URL for a node. Defaults to the node's own `url`, else the request's host (single container). */
   nodeUrl?: (node: NodeInfo, req: FastifyRequest) => string;
   minClientVersion?: string;
+  /** Room limits published in the signed config and enforced by nodes through the join token. */
+  limits?: { maxRoomSize?: number; warnRoomSize?: number; videoTiers?: VideoTierRule[] };
+  /** A notice shown to every client, for example about maintenance. */
+  announcement?: { id: string; text: string };
   /** A pre-signed config (for example produced by `tools/sign-config`) served as is instead of a generated one. */
   staticConfig?: unknown;
   now?: () => number;
@@ -62,6 +69,8 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   const now = opts.now ?? Date.now;
   const { kid, secretKey, publicKey } = opts.signingKey;
   const app = Fastify({ trustProxy: opts.trustProxy ?? false });
+  const maxRoomSize = opts.limits?.maxRoomSize ?? MAX_ROOM_SIZE;
+  const warnRoomSize = opts.limits?.warnRoomSize ?? WARN_ROOM_SIZE;
 
   await app.register(cors, { origin: opts.corsOrigin ?? true });
   // Limits apply only to the API routes below, not to static files served by the all-in-one server.
@@ -86,13 +95,14 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       minProtocol: 1,
       beaconUrls: [requestOrigin(req)],
       limits: {
-        maxRoomSize: 10,
-        warnRoomSize: 6,
-        videoTiers: DEFAULT_VIDEO_TIERS,
+        maxRoomSize,
+        warnRoomSize,
+        videoTiers: opts.limits?.videoTiers ?? DEFAULT_VIDEO_TIERS,
       },
       features: {},
       ice: { stunUrls: opts.stunUrls },
       regions: [{ id: 'default', name: 'Default' }],
+      announcement: opts.announcement,
     };
     return reply.header('cache-control', 'max-age=60').send(signConfig(config, kid, secretKey));
   });
@@ -146,7 +156,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     const response: JoinResponse = {
       signalingUrl: url,
       joinToken: signJoinToken(
-        { room: body.room, nodeId: node.id, peerId, exp: t + JOIN_TOKEN_TTL_MS, nonce: randomId(12) },
+        { room: body.room, nodeId: node.id, peerId, exp: t + JOIN_TOKEN_TTL_MS, nonce: randomId(12), maxRoomSize },
         kid,
         secretKey,
       ),

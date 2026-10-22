@@ -13,6 +13,7 @@ import { serveWebApp } from './web';
 //   TURN_URLS / TURN_SECRET            credentialed relay pool for entitled rooms
 //   TURN_LITE_URLS / TURN_LITE_SECRET  capped relay pool for the relay-lite tier
 //   CONFIG_FILE      a pre-signed config served as is (see tools/sign-config)
+//   MIN_CLIENT_VERSION, MAX_ROOM_SIZE, WARN_ROOM_SIZE, ANNOUNCEMENT(_ID)   published in the signed config
 //   WEB_DIR          also serve the built web app from this directory
 function pool(urls: string | undefined, secret: string | undefined): TurnPool | undefined {
   return urls && secret ? { urls: urls.split(',').filter(Boolean), secret } : undefined;
@@ -41,6 +42,11 @@ const app = await createBeaconApp({
     full: pool(process.env.TURN_URLS, process.env.TURN_SECRET),
     'relay-lite': pool(process.env.TURN_LITE_URLS, process.env.TURN_LITE_SECRET),
   },
+  minClientVersion: process.env.MIN_CLIENT_VERSION,
+  limits: process.env.MAX_ROOM_SIZE
+    ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) }
+    : undefined,
+  announcement: process.env.ANNOUNCEMENT ? { id: process.env.ANNOUNCEMENT_ID ?? 'notice', text: process.env.ANNOUNCEMENT } : undefined,
   staticConfig: process.env.CONFIG_FILE ? JSON.parse(fs.readFileSync(process.env.CONFIG_FILE, 'utf8')) : undefined,
   corsOrigin: process.env.CORS_ORIGIN ?? true,
   trustProxy: Boolean(process.env.BEHIND_PROXY),

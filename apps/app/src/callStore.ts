@@ -107,7 +107,11 @@ export const useCall = create<CallState>((set, get) => {
       if (!local) return;
       set({ phase: 'joining', error: undefined });
       const { config } = await loadClientConfig();
-      transport = new MeshTransport({ beaconUrls: config.beaconUrls, clientVersion: CLIENT_VERSION });
+      transport = new MeshTransport({
+        beaconUrls: config.beaconUrls,
+        clientVersion: CLIENT_VERSION,
+        videoTiers: config.limits.videoTiers,
+      });
       unsubscribe = transport.on(onEvent);
       try {
         await transport.join(room, name, local);

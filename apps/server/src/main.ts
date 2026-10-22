@@ -16,6 +16,11 @@ const app = await createBeaconApp({
   signingKey,
   store: new MemoryPlacementStore([{ id: nodeId, region: 'default', weight: 1, draining: false }]),
   stunUrls: (process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302').split(',').filter(Boolean),
+  minClientVersion: process.env.MIN_CLIENT_VERSION,
+  limits: process.env.MAX_ROOM_SIZE
+    ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) }
+    : undefined,
+  announcement: process.env.ANNOUNCEMENT ? { id: process.env.ANNOUNCEMENT_ID ?? 'notice', text: process.env.ANNOUNCEMENT } : undefined,
   corsOrigin: process.env.CORS_ORIGIN ?? true,
   trustProxy: Boolean(process.env.BEHIND_PROXY),
 });

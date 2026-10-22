@@ -1,9 +1,13 @@
-import { MAX_ROOM_SIZE, isValidRoomSlug } from '@chillcall/protocol';
+import { isValidRoomSlug } from '@chillcall/protocol';
 import { useState } from 'react';
-import { defaultServerUrl, getServerUrl, setServerUrl } from './config';
+import { CLIENT_VERSION, defaultServerUrl, getServerUrl, setServerUrl } from './config';
+import { updateRequired } from './configLogic';
+import { useConfig } from './configStore';
+import { AnnouncementBanner, UpdateRequired } from './Notices';
 import { RoomPage } from './RoomPage';
 
 function Home() {
+  const maxRoomSize = useConfig((s) => s.config.limits.maxRoomSize);
   const [error, setError] = useState<string>();
   const [server, setServer] = useState(getServerUrl());
   const [saved, setSaved] = useState(false);
@@ -23,7 +27,7 @@ function Home() {
   return (
     <main>
       <h1>ChillCall</h1>
-      <p>Casual video calls. Rooms hold up to {MAX_ROOM_SIZE} people.</p>
+      <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
       <button onClick={() => void startRoom()}>Start a room</button>
       {error && <p className="error">{error}</p>}
 
@@ -35,7 +39,10 @@ function Home() {
             const ok = setServerUrl(server);
             setSaved(ok);
             setError(ok ? undefined : 'That is not a valid server address.');
-            if (ok) setServer(getServerUrl());
+            if (ok) {
+              setServer(getServerUrl());
+              void useConfig.getState().refresh();
+            }
           }}
         >
           <input
@@ -56,7 +63,14 @@ function Home() {
 }
 
 export function App() {
+  const config = useConfig((s) => s.config);
+  if (updateRequired(config, CLIENT_VERSION)) return <UpdateRequired />;
+
   const room = location.pathname.match(/^\/r\/([^/]+)$/)?.[1];
-  if (room && isValidRoomSlug(room)) return <RoomPage room={room} />;
-  return <Home />;
+  return (
+    <>
+      <AnnouncementBanner />
+      {room && isValidRoomSlug(room) ? <RoomPage room={room} /> : <Home />}
+    </>
+  );
 }

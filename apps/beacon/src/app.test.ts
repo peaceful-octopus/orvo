@@ -187,6 +187,35 @@ describe('tiers and TURN', () => {
   });
 });
 
+describe('limits and announcements', () => {
+  it('publishes configured limits, tiers and announcement in the signed config', async () => {
+    const announcement = { id: 'maint-1', text: 'Maintenance on Friday.' };
+    const videoTiers = [{ maxPeers: 3, maxBitrate: 800_000, scaleResolutionDownBy: 1, maxFramerate: 30 }];
+    await start({ limits: { maxRoomSize: 4, warnRoomSize: 3, videoTiers }, announcement, minClientVersion: '1.2.0' });
+    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'chill.example.com' } });
+    const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
+    expect(result).toMatchObject({
+      ok: true,
+      config: { limits: { maxRoomSize: 4, warnRoomSize: 3, videoTiers }, announcement, minClientVersion: '1.2.0' },
+    });
+  });
+
+  it('puts the room cap in the join token so nodes enforce what clients are told', async () => {
+    await start({ limits: { maxRoomSize: 4 } });
+    const body = (await join({ room: 'cozy-room-abc123' })).json() as JoinResponse;
+    const checked = verifyJoinToken(body.joinToken, { keys: { [key.kid]: key.publicKey }, nodeId: 'node-1', now: clock.now });
+    expect(checked).toMatchObject({ ok: true, payload: { maxRoomSize: 4 } });
+  });
+
+  it('defaults to ten people and no announcement', async () => {
+    await start();
+    const res = await app.inject({ method: 'GET', url: '/v1/config' });
+    const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
+    expect(result).toMatchObject({ ok: true, config: { limits: { maxRoomSize: 10, warnRoomSize: 6 } } });
+    expect((result as { config: { announcement?: unknown } }).config.announcement).toBeUndefined();
+  });
+});
+
 describe('static config', () => {
   it('serves a pre-signed config unchanged', async () => {
     const signed = { kid: 'x', payload: { hello: 'world' }, sig: 'abc' };

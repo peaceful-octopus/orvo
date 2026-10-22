@@ -3,6 +3,7 @@ import {
   PROTOCOL_VERSION,
   parseServerMessage,
   videoTierFor,
+  type VideoTierRule,
   type DataMessage,
   type ServerMessage,
 } from '@chillcall/protocol';
@@ -21,6 +22,8 @@ export interface MeshOptions {
   /** Beacon base URLs in preference order, for example `['https://chill.example.com']`; later ones are fallbacks. */
   beaconUrls: string[];
   clientVersion?: string;
+  /** Video quality by room size; defaults to the built-in tiers until a config supplies its own. */
+  videoTiers?: VideoTierRule[];
 }
 
 type Welcome = Extract<ServerMessage, { type: 'welcome' }>;
@@ -266,7 +269,7 @@ export class MeshTransport implements RoomTransport {
 
   /** Lower per-sender video quality as the room grows, since every peer gets its own encode. */
   private async applyVideoTiers() {
-    const tier = videoTierFor(this.names.size + 1);
+    const tier = videoTierFor(this.names.size + 1, this.opts.videoTiers);
     for (const link of this.links.values()) if (link.connected) await link.applyVideoTier(tier);
   }
 }

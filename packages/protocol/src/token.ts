@@ -8,6 +8,8 @@ export const JoinTokenPayload = z.object({
   /** Expiry in epoch milliseconds. */
   exp: z.number().int(),
   nonce: z.string().min(8),
+  /** Room size limit set by the beacon, so nodes enforce what the signed config tells clients. */
+  maxRoomSize: z.number().int().positive().optional(),
 });
 export type JoinTokenPayload = z.infer<typeof JoinTokenPayload>;
 

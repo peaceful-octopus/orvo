@@ -1,15 +1,13 @@
 import { defineConfig } from '@playwright/test';
 import path from 'node:path';
+import { FLEET_KID, FLEET_PUBLIC, FLEET_SECRET } from './e2e/fleet/keys';
 
 // Set E2E_BASE_URL to run against an already running server (for example the Docker image) instead of dev servers.
 const external = process.env.E2E_BASE_URL;
 
 // E2E_FLEET=1 runs the fleet suite: a beacon (which also serves the built web app) in front of two separate
-// signaling nodes. These keys are for this test only and protect nothing.
+// signaling nodes. The keys (e2e/fleet/keys.ts) are for this test only and protect nothing.
 const fleet = Boolean(process.env.E2E_FLEET);
-const FLEET_KID = 'fleet-test';
-const FLEET_SECRET = 'SJmrU9JkvRFSIa6XvlmOag-x--X52x3OWgUWlaakrJA';
-const FLEET_PUBLIC = 'azMuVN4ruiHP6AquoItaA-KToLzAb-iSu9DlYKKJB3k';
 const FLEET_PORT = 8180;
 
 const fleetServers = [

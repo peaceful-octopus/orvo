@@ -17,7 +17,10 @@ import { Metrics } from './metrics';
 export interface SignalingOptions {
   nodeId: string;
   keys: KeyRing;
+  /** Default room cap when a join token does not carry one. */
   maxRoomSize?: number;
+  /** Upper bound no token can raise the cap above. */
+  hardMaxRoomSize?: number;
   /** How long a dropped member keeps its slot so a reconnect does not disturb the other peers. */
   resumeGraceMs?: number;
   joinTimeoutMs?: number;
@@ -57,6 +60,7 @@ export class SignalingServer {
   private isDraining = false;
 
   private maxRoomSize: number;
+  private hardMaxRoomSize: number;
   private resumeGraceMs: number;
   private joinTimeoutMs: number;
   private rate: { burst: number; perSecond: number };
@@ -64,6 +68,7 @@ export class SignalingServer {
 
   constructor(private opts: SignalingOptions) {
     this.maxRoomSize = opts.maxRoomSize ?? MAX_ROOM_SIZE;
+    this.hardMaxRoomSize = opts.hardMaxRoomSize ?? 100;
     this.resumeGraceMs = opts.resumeGraceMs ?? 10_000;
     this.joinTimeoutMs = opts.joinTimeoutMs ?? 10_000;
     this.rate = opts.rate ?? { burst: 400, perSecond: 100 };
@@ -176,7 +181,8 @@ export class SignalingServer {
       existing.name = name;
       this.metrics.inc('chillcall_signaling_resumes_total');
     } else {
-      if (room.size >= this.maxRoomSize) {
+      const cap = Math.min(payload.maxRoomSize ?? this.maxRoomSize, this.hardMaxRoomSize);
+      if (room.size >= cap) {
         if (room.size === 0) this.rooms.delete(payload.room);
         return this.joinFailed(conn, 'room-full');
       }

@@ -1,6 +1,6 @@
 # Architecture
 
-Status: contracts (`packages/protocol`), the signaling node (`apps/signaling`), a first beacon with in-memory placement (`apps/beacon`), the all-in-one server (`apps/server`) and the raw-WebRTC mesh transport (`packages/rtc`) are implemented. Redis placement (`packages/placement`), node-refreshed leases, tier-based TURN credentials, the signed-config client and `tools/sign-config` are implemented (H2). Telemetry, remote limits in the UI and the minimum-version screen (H3), STUN self-hosting and the relay-aware bitrate tier (H4), observability and load tests (H5) are planned. See `docs/self-hosting.md` for running it.
+Status: contracts (`packages/protocol`), the signaling node (`apps/signaling`), a first beacon with in-memory placement (`apps/beacon`), the all-in-one server (`apps/server`) and the raw-WebRTC mesh transport (`packages/rtc`) are implemented. Redis placement (`packages/placement`), node-refreshed leases, tier-based TURN credentials, the signed-config client and `tools/sign-config` are implemented (H2). The app applies the signed config (H3): room size and warning thresholds, video tiers, an "update required" screen when the build is older than `minClientVersion` or `minProtocol`, and dismissible announcements. Telemetry, STUN self-hosting and the relay-aware bitrate tier (H4), observability and load tests (H5) are planned. See `docs/self-hosting.md` for running it.
 
 ## Components
 - **Client** (`apps/app`, Tauri shell in `apps/desktop`): fetches signed config, asks the beacon where to join, connects to a signaling node, then talks to peers over WebRTC.
@@ -30,6 +30,8 @@ Status: contracts (`packages/protocol`), the signaling node (`apps/signaling`), 
 The join request may carry an `entitlement` token. A pluggable `EntitlementVerifier` (none by default, so every room is `free`) decides what it grants. A granted tier sticks to the room for an hour (refreshed on each join), so everyone in an entitled room receives credentials. `relay-lite` and `full` map to separate TURN pools; credentials are coturn REST-style (`<expiry>:<peerId>` plus HMAC-SHA1) and expire on their own.
 
 ## Client config
+The beacon publishes `limits` (room size, warning size, video tiers), `minClientVersion`, `minProtocol` and an optional `announcement` through environment variables (`MAX_ROOM_SIZE`, `WARN_ROOM_SIZE`, `MIN_CLIENT_VERSION`, `ANNOUNCEMENT`, `ANNOUNCEMENT_ID`) or a pre-signed config file. It also puts the room cap into each join token, so signaling nodes enforce the limit clients were told (a node's own `hardMaxRoomSize`, 100 by default, is a ceiling no token can exceed).
+
 `ConfigClient` (`packages/rtc`) loads `/v1/config`, verifies the signature (against keys embedded at build time via `VITE_TRUSTED_KEYS`, or else the keys the beacon serves over HTTPS), refuses rollbacks, caches the last good config, and tries the beacons it lists in order. The mesh transport fails over across those beacons. Unreachable everywhere: cached config, then built-in defaults.
 
 ## Room placement
