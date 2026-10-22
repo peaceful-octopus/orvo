@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest';
+import { LAYOUT_MODES, floatWindowSize, layout } from './layouts';
+
+const bounds = { w: 800, h: 500 };
+const EPS = 1e-6;
+
+describe('layout', () => {
+  for (const mode of LAYOUT_MODES) {
+    describe(mode, () => {
+      for (let count = 1; count <= 10; count++) {
+        it(`fits ${count} bubbles inside bounds without overlap`, () => {
+          const { size, positions } = layout(mode, count, bounds);
+          expect(positions).toHaveLength(count);
+          for (const p of positions) {
+            expect(p.x).toBeGreaterThanOrEqual(-EPS);
+            expect(p.y).toBeGreaterThanOrEqual(-EPS);
+            expect(p.x + size).toBeLessThanOrEqual(bounds.w + EPS);
+            expect(p.y + size).toBeLessThanOrEqual(bounds.h + EPS);
+          }
+          for (let i = 0; i < count; i++) {
+            for (let j = i + 1; j < count; j++) {
+              const d = Math.hypot(positions[i]!.x - positions[j]!.x, positions[i]!.y - positions[j]!.y);
+              expect(d).toBeGreaterThanOrEqual(size - EPS);
+            }
+          }
+        });
+      }
+    });
+  }
+
+  it('places campfire bubbles at equal angles around the center', () => {
+    const { size, positions } = layout('campfire', 6, bounds);
+    const center = { x: bounds.w / 2, y: bounds.h / 2 };
+    const angles = positions.map((p) => Math.atan2(p.y + size / 2 - center.y, p.x + size / 2 - center.x));
+    for (let i = 1; i < angles.length; i++) {
+      const step = (angles[i]! - angles[i - 1]! + 2 * Math.PI) % (2 * Math.PI);
+      expect(step).toBeCloseTo((2 * Math.PI) / 6, 6);
+    }
+  });
+
+  it('centers a single bubble in every mode', () => {
+    for (const mode of LAYOUT_MODES) {
+      const { size, positions } = layout(mode, 1, bounds);
+      expect(positions[0]!.x + size / 2).toBeCloseTo(bounds.w / 2);
+      expect(positions[0]!.y + size / 2).toBeCloseTo(bounds.h / 2);
+    }
+  });
+
+  it('returns nothing for empty or zero-size input', () => {
+    expect(layout('row', 0, bounds).positions).toEqual([]);
+    expect(layout('row', 3, { w: 0, h: 0 }).positions).toEqual([]);
+  });
+});
+
+describe('floatWindowSize', () => {
+  it('is wide for row, tall for column, square for campfire', () => {
+    const row = floatWindowSize('row', 4);
+    const column = floatWindowSize('column', 4);
+    const fire = floatWindowSize('campfire', 4);
+    expect(row.w).toBeGreaterThan(row.h);
+    expect(column.h).toBeGreaterThan(column.w);
+    expect(fire.w).toBe(fire.h);
+  });
+
+  it('gives a layout the room to draw bubbles at the compact size', () => {
+    for (const mode of LAYOUT_MODES) {
+      for (let n = 1; n <= 10; n++) {
+        const { size } = layout(mode, n, floatWindowSize(mode, n));
+        expect(size).toBeGreaterThanOrEqual(96 - EPS);
+      }
+    }
+  });
+});

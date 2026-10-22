@@ -9,11 +9,13 @@ interface Props {
   muteAudio?: boolean;
 }
 
+/** A circular video that fills its parent; the parent sets the diameter. */
 export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (ref.current && ref.current.srcObject !== stream) ref.current.srcObject = stream ?? null;
+    const video = ref.current;
+    if (video && video.srcObject !== (stream ?? null)) video.srcObject = stream ?? null;
   }, [stream]);
 
   return (

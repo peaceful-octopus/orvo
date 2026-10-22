@@ -9,6 +9,17 @@ body {
   color: #f4f1ff;
 }
 
+/* The Tauri window and the Picture-in-Picture window show bubbles over whatever is behind them. */
+html.floating,
+html.floating body {
+  background: transparent;
+  overflow: hidden;
+}
+
+html.pip body {
+  background: #14121f;
+}
+
 main {
   display: grid;
   place-items: center;
@@ -17,6 +28,13 @@ main {
   align-content: center;
   padding: 1rem;
   box-sizing: border-box;
+}
+
+main.call {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100vh;
 }
 
 button,
@@ -38,10 +56,22 @@ button:disabled {
   cursor: default;
 }
 
+button[aria-pressed='true'] {
+  background: #6a5cff;
+  border-color: #6a5cff;
+}
+
 form,
-.controls {
+.controls,
+.modes {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
+}
+
+.controls {
+  gap: 1rem;
 }
 
 .error {
@@ -55,22 +85,39 @@ form,
   margin: 0;
 }
 
-.grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1.5rem;
+.preview {
+  width: 180px;
+  height: 180px;
+}
+
+.field {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.float-view .field {
+  position: absolute;
+  inset: 0;
+}
+
+.slot {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .bubble {
   position: relative;
-  width: 180px;
+  width: 100%;
+  height: 100%;
   margin: 0;
 }
 
 .bubble video {
-  width: 180px;
-  height: 180px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
   background: #231f38;
@@ -83,8 +130,7 @@ form,
 
 .bubble .initial {
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 180px;
+  inset: 0;
   display: grid;
   place-items: center;
   font-size: 3rem;
@@ -93,7 +139,47 @@ form,
 }
 
 .bubble figcaption {
-  text-align: center;
-  margin-top: 0.4rem;
-  font-size: 0.9rem;
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(20, 18, 31, 0.75);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.float-view {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+.float-view .bubble,
+.float-view .bubble video {
+  pointer-events: none;
+}
+
+.float-controls {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.float-view:hover .float-controls {
+  opacity: 1;
+}
+
+.float-controls button {
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
 }

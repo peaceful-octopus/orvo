@@ -1,0 +1,16 @@
+[package]
+name = "chillcall"
+version = "0.0.0"
+description = "Casual video calls with floating bubbles"
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "chillcall_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

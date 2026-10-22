@@ -6,3 +6,4 @@ target
 .DS_Store
 test-results
 playwright-report
+apps/desktop/src-tauri/gen
