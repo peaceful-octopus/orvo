@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronIcon } from './float/icons';
 import { type DeviceKind, type DeviceLists, type DeviceSelection } from './devices';
 
 export type MenuKind = 'mic' | 'cam';
@@ -87,7 +88,7 @@ export function DeviceButton({ menu, children, ...panel }: ButtonProps) {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        ▾
+        <ChevronIcon />
       </button>
       {open && (
         <div className="popover">

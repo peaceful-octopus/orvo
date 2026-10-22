@@ -1,4 +1,4 @@
-import { ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, VideoIcon, VideoOffIcon } from './icons';
+import { ChevronIcon, ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, VideoIcon, VideoOffIcon } from './icons';
 
 import type { MenuKind } from '../DeviceMenu';
 
@@ -23,7 +23,7 @@ interface Props {
 export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif, onDeviceMenu, openMenu }: Props) {
   const chevron = (menu: MenuKind, label: string) => (
     <button className="chevron" aria-label={label} aria-haspopup="menu" aria-expanded={openMenu === menu} title={label} onClick={() => onDeviceMenu?.(menu)}>
-      ▾
+      <ChevronIcon />
     </button>
   );
   const needsCamera = video ? undefined : 'Turn your camera on to use reactions';

@@ -13,6 +13,18 @@ import type { ControlAction } from './float/bridge';
 import { useControlsWindow } from './float/controlsWindow';
 import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
+import {
+  CampfireIcon,
+  ColumnIcon,
+  DockIcon,
+  FloatIcon,
+  LeaveIcon,
+  MicIcon,
+  MicOffIcon,
+  RowIcon,
+  VideoIcon,
+  VideoOffIcon,
+} from './float/icons';
 import { LAYOUT_MODES } from './float/layouts';
 import { unreachableNotice } from './unreachable';
 import { useUi } from './uiStore';
@@ -21,6 +33,7 @@ import type { DeviceKind } from './devices';
 const GifPicker = lazy(() => import('./GifPicker'));
 
 const MODE_LABELS = { row: 'Row', column: 'Column', campfire: 'Campfire' } as const;
+const MODE_ICONS = { row: <RowIcon />, column: <ColumnIcon />, campfire: <CampfireIcon /> } as const;
 
 export function RoomPage({ room }: { room: string }) {
   const {
@@ -168,29 +181,41 @@ export function RoomPage({ room }: { room: string }) {
       <nav className="controls">
         <div className="modes" role="group" aria-label="Layout">
           {LAYOUT_MODES.map((m) => (
-            <button key={m} aria-pressed={m === mode} onClick={() => setMode(m)}>
-              {MODE_LABELS[m]}
+            <button key={m} className="icon" aria-pressed={m === mode} aria-label={MODE_LABELS[m]} title={MODE_LABELS[m]} onClick={() => setMode(m)}>
+              {MODE_ICONS[m]}
             </button>
           ))}
         </div>
         <DeviceButton menu="mic" {...deviceProps}>
-          <button onClick={toggleAudio}>{audio ? 'Mute' : 'Unmute'}</button>
+          <button className={`icon${audio ? '' : ' off'}`} onClick={toggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
+            {audio ? <MicIcon /> : <MicOffIcon />}
+          </button>
         </DeviceButton>
         <DeviceButton menu="cam" {...deviceProps}>
-          <button onClick={toggleVideo}>{video ? 'Camera off' : 'Camera on'}</button>
+          <button className={`icon${video ? '' : ' off'}`} onClick={toggleVideo} aria-label={video ? 'Camera off' : 'Camera on'} title={video ? 'Camera off' : 'Camera on'}>
+            {video ? <VideoIcon /> : <VideoOffIcon />}
+          </button>
         </DeviceButton>
         {float.kind && (
-          <button onClick={() => void (float.active ? float.exit() : float.enter())}>
-            {float.active ? 'Dock' : 'Float'}
+          <button
+            className="icon"
+            onClick={() => void (float.active ? float.exit() : float.enter())}
+            aria-label={float.active ? 'Dock' : 'Float'}
+            title={float.active ? 'Back to the full window' : 'Float the bubbles over other apps'}
+          >
+            {float.active ? <DockIcon /> : <FloatIcon />}
           </button>
         )}
         <button
+          className="icon leave"
+          aria-label="Leave"
+          title="Leave the call"
           onClick={() => {
             leave();
             location.assign('/');
           }}
         >
-          Leave
+          <LeaveIcon />
         </button>
       </nav>
       {gifOpen && apiKey && (

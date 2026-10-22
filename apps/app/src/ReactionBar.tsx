@@ -1,3 +1,5 @@
+import { GifIcon } from './float/icons';
+
 export const REACTION_EMOJI = ['👍', '❤️', '😂', '😮', '🎉', '👏'] as const;
 
 interface Props {
@@ -13,13 +15,13 @@ export function ReactionBar({ disabled, onReact, onGif }: Props) {
   return (
     <div className="reactions" role="group" aria-label="Reactions">
       {REACTION_EMOJI.map((emoji) => (
-        <button key={emoji} className="emoji" disabled={disabled} title={hint} aria-label={`React with ${emoji}`} onClick={() => onReact(emoji)}>
+        <button key={emoji} className="icon emoji" disabled={disabled} title={hint} aria-label={`React with ${emoji}`} onClick={() => onReact(emoji)}>
           {emoji}
         </button>
       ))}
       {onGif && (
-        <button disabled={disabled} title={hint ?? 'Show a GIF on your video'} onClick={onGif}>
-          GIF
+        <button className="icon" disabled={disabled} title={hint ?? 'Show a GIF on your video'} aria-label="GIF" onClick={onGif}>
+          <GifIcon />
         </button>
       )}
     </div>

@@ -64,3 +64,48 @@ export const LeaveIcon = () => (
     <path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5M15 8l4 4-4 4M19 12H9" />
   </Icon>
 );
+
+export const ChevronIcon = () => (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+export const RowIcon = () => (
+  <Icon>
+    <circle cx="5" cy="12" r="3" />
+    <circle cx="12" cy="12" r="3" />
+    <circle cx="19" cy="12" r="3" />
+  </Icon>
+);
+
+export const ColumnIcon = () => (
+  <Icon>
+    <circle cx="12" cy="5" r="3" />
+    <circle cx="12" cy="12" r="3" />
+    <circle cx="12" cy="19" r="3" />
+  </Icon>
+);
+
+export const CampfireIcon = () => (
+  <Icon>
+    <circle cx="12" cy="5" r="2.5" />
+    <circle cx="19" cy="12" r="2.5" />
+    <circle cx="12" cy="19" r="2.5" />
+    <circle cx="5" cy="12" r="2.5" />
+  </Icon>
+);
+
+export const FloatIcon = () => (
+  <Icon>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <circle cx="15" cy="14" r="3" />
+  </Icon>
+);
+
+export const DockIcon = () => (
+  <Icon>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 9h18" />
+  </Icon>
+);
