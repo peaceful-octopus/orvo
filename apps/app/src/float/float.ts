@@ -56,6 +56,7 @@ export function useFloat(mode: LayoutMode, count: number) {
       const inner = (await win.innerSize()).toLogical(scale);
       setSaved({ w: inner.width, h: inner.height, decorated: await win.isDecorated() });
       await win.setDecorations(false);
+      await win.setShadow(false); // the shadow draws a visible border around the transparent window
       await win.setAlwaysOnTop(true);
       await win.setSize(new LogicalSize(size.w, size.h));
       document.documentElement.classList.add('floating');
@@ -79,6 +80,7 @@ export function useFloat(mode: LayoutMode, count: number) {
       const win = await tauriWindow();
       document.documentElement.classList.remove('floating');
       await win.setAlwaysOnTop(false);
+      await win.setShadow(true);
       await win.setDecorations(saved.decorated);
       await win.setSize(new LogicalSize(saved.w, saved.h));
       setSaved(null);
