@@ -73,6 +73,12 @@ export default defineConfig({
             // A made-up key: the effects tests answer the Giphy API themselves, so no real key or network is used.
             env: { GIPHY_API_KEY: 'e2e-giphy-key' },
           },
-          { command: 'pnpm --filter @chillcall/app dev', url: 'http://localhost:5173', reuseExistingServer: true },
+          {
+            command: 'pnpm --filter @chillcall/app dev',
+            url: 'http://localhost:5173',
+            reuseExistingServer: true,
+            // Keep a developer's own Giphy key (apps/app/.env.local) out of the tests; they use the server's made-up one.
+            env: { VITE_GIPHY_API_KEY: '' },
+          },
         ],
 });
