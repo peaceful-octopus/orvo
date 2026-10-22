@@ -45,3 +45,6 @@ export class UpgradeRequiredError extends Error {
 }
 
 export class JoinError extends Error {}
+
+/** No beacon answered usefully (all unreachable or failing), as opposed to a node refusing or being unreachable. */
+export class BeaconUnavailableError extends JoinError {}

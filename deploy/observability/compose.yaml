@@ -1,6 +1,7 @@
 # Prometheus and Grafana for a ChillCall deployment, with the alert rules and dashboard preloaded.
 # Put it on the same Docker network as the beacon and nodes (edit `networks` below to match your compose project),
-# adjust the targets in prometheus.yml, then:  docker compose up -d   (Grafana on :3000, Prometheus on :9090)
+# adjust the targets in prometheus.yml, then:  docker compose up -d   (Grafana on :3000, Prometheus on :9090;
+# set GRAFANA_PORT or PROMETHEUS_PORT if those ports are taken)
 services:
   prometheus:
     image: prom/prometheus:v2.55.1
@@ -10,7 +11,7 @@ services:
       - ./alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
 
   grafana:
     image: grafana/grafana:11.3.0
@@ -23,7 +24,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     depends_on:
       - prometheus
 

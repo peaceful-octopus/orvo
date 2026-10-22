@@ -43,7 +43,7 @@ export class SimClient {
   private stopped = false;
   private pairs = new Set<string>();
   private pingTimer?: ReturnType<typeof setInterval>;
-  private connectedOnce = false;
+  private reconnecting = false;
 
   state: 'idle' | 'connected' | 'reconnecting' | 'closed' = 'idle';
   /** How many people were already in the room when this client was last admitted. */
@@ -108,6 +108,8 @@ export class SimClient {
     const socket = new WebSocket(session.signalingUrl, { handshakeTimeout: this.opts.joinTimeoutMs ?? 10_000 });
     this.socket = socket;
 
+    // As in the real transport: a socket that never got a welcome has already failed through this promise.
+    let established = false;
     const welcome = await new Promise<Welcome>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('welcome-timeout')), this.opts.joinTimeoutMs ?? 10_000);
       const fail = (reason: string) => (clearTimeout(timer), reject(new Error(reason)));
@@ -119,20 +121,20 @@ export class SimClient {
         const msg = parsed.message;
         if (msg.type === 'welcome') {
           clearTimeout(timer);
+          established = true;
           resolve(msg);
-        } else if (msg.type === 'error' && !this.connectedOnce) {
+        } else if (msg.type === 'error' && !established) {
           fail(msg.code);
         } else {
           this.onMessage(msg);
         }
       });
       socket.on('close', () => {
-        if (!this.connectedOnce) fail('closed-before-welcome');
+        if (!established) return fail('closed-before-welcome');
         this.onClosed(socket);
       });
     });
 
-    this.connectedOnce = true;
     this.state = 'connected';
     clearInterval(this.pingTimer);
     this.pingTimer = setInterval(() => this.send({ type: 'ping' }), 25_000);
@@ -179,23 +181,32 @@ export class SimClient {
   }
 
   private async reconnect() {
-    const lost = Date.now();
-    const backoff = this.opts.backoff ?? ((attempt) => backoffDelay(attempt));
-    for (let attempt = 0; !this.stopped; attempt++) {
-      await new Promise((r) => setTimeout(r, backoff(attempt)));
-      if (this.stopped) return;
-      try {
-        await this.connect();
-        this.opts.reporter.reconnected(Date.now() - lost, attempt + 1);
-        return;
-      } catch (err) {
-        // A full room or an upgrade requirement will not fix itself; anything else is worth retrying.
-        if (err instanceof Error && ['room-full', 'upgrade-required', 'bad-token'].includes(err.message)) {
-          this.state = 'closed';
-          this.opts.reporter.joinFailed(err.message);
+    if (this.reconnecting) return;
+    this.reconnecting = true;
+    try {
+      const lost = Date.now();
+      let capMs = 4_000;
+      for (let attempt = 0; !this.stopped; attempt++) {
+        const delay = this.opts.backoff ? this.opts.backoff(attempt) : backoffDelay(attempt, Math.random, 500, capMs);
+        await new Promise((r) => setTimeout(r, delay));
+        if (this.stopped) return;
+        try {
+          await this.connect();
+          this.opts.reporter.reconnected(Date.now() - lost, attempt + 1);
           return;
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : '';
+          // A full room or an upgrade requirement will not fix itself; anything else is worth retrying.
+          if (['room-full', 'upgrade-required', 'bad-token'].includes(reason)) {
+            this.state = 'closed';
+            this.opts.reporter.joinFailed(reason);
+            return;
+          }
+          capMs = reason.startsWith('beacon-') ? 30_000 : 4_000;
         }
       }
+    } finally {
+      this.reconnecting = false;
     }
   }
 }

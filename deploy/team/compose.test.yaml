@@ -1,0 +1,28 @@
+# Test override: run the small-team stack on one machine without HTTPS or DNS names, for checking it end to end.
+#
+#   export SIGNING_KEY=test-1:<secret>   DOMAIN=localhost
+#   docker compose -f compose.yaml -f compose.test.yaml up -d --build
+#
+# The beacon is on http://localhost:8080 (it also serves the web app), nodes on :9101 and :9102.
+services:
+  beacon:
+    ports:
+      - "8080:8080"
+    environment:
+      BEHIND_PROXY: ""
+      RATE_LIMIT_PER_MINUTE: "0"
+
+  node-1:
+    ports:
+      - "9101:9000"
+    environment:
+      PUBLIC_WS_URL: ws://localhost:9101/ws
+
+  node-2:
+    ports:
+      - "9102:9000"
+    environment:
+      PUBLIC_WS_URL: ws://localhost:9102/ws
+
+  caddy:
+    profiles: ["https"]

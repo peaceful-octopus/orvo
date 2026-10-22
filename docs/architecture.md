@@ -6,7 +6,7 @@ Status: contracts (`packages/protocol`), the signaling node (`apps/signaling`), 
 - **Client** (`apps/app`, Tauri shell in `apps/desktop`): fetches signed config, asks the beacon where to join, connects to a signaling node, then talks to peers over WebRTC.
 - **Beacon** (`apps/beacon`): stateless HTTP service. Serves signed config, creates rooms, places rooms on signaling nodes, issues join tokens and ICE servers, collects telemetry.
 - **Signaling node** (`apps/signaling`): owns whole rooms. Verifies join tokens, enforces the room cap, relays opaque SDP/ICE messages. Holds no media.
-- **Placement store** (`packages/placement`, `PlacementStore` interface): live nodes (15 s TTL, heartbeat), room leases (60 s TTL, renewed by the owning node) and room tiers. `MemoryPlacementStore` for one process, `RedisPlacementStore` for a fleet; both pass the same contract tests.
+- **Placement store** (`packages/placement`, `PlacementStore` interface): live nodes (6 s TTL, 2 s heartbeat), room leases (60 s TTL, renewed by the owning node) and room tiers. `MemoryPlacementStore` for one process, `RedisPlacementStore` for a fleet; both pass the same contract tests.
 - **STUN/TURN** (coturn): STUN for everyone; TURN credentials only for entitled rooms.
 
 ## Flow

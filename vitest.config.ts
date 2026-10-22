@@ -15,7 +15,8 @@ const unit = (name: string, path: string) => ({
 
 /** Integration tests (`*.int.test.ts`) need external services such as Redis and are run on demand. */
 const integration = (name: string, path: string) => ({
-  test: { name: `int:${name}`, root: dir(path), include: ['src/**/*.int.test.ts'], passWithNoTests: true },
+  // Against a real Redis the contract tests wait out real TTLs, so allow more than the 5 s default.
+  test: { name: `int:${name}`, root: dir(path), include: ['src/**/*.int.test.ts'], passWithNoTests: true, testTimeout: 30_000 },
 });
 
 export default defineConfig({

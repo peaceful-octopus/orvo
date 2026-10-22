@@ -39,4 +39,6 @@ export class NoNodesError extends Error {
 }
 
 export const LEASE_TTL_MS = 60_000;
-export const NODE_TTL_MS = 15_000;
+/** A node is considered gone this long after its last heartbeat; how fast rooms move after a crash. */
+export const NODE_TTL_MS = 6_000;
+export const NODE_HEARTBEAT_MS = 2_000;

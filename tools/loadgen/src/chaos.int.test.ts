@@ -129,7 +129,9 @@ describe('node failure', () => {
       () => connectedCount(harness) === total && clients.every((c) => c.state === 'connected'),
       30_000,
     );
-    expect(log.reconnects.length).toBeGreaterThanOrEqual(affected);
+    // Exactly one successful reconnect per stranded client: failed attempts against the dead node must not spawn
+    // extra reconnect loops (they once did, and each loop resumed and replaced the others' connections).
+    expect(log.reconnects).toHaveLength(affected);
     expect(log.reconnects.every((r) => r.ms < 15_000)).toBe(true);
     expect(log.joinFailures).toEqual([]);
 

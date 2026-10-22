@@ -5,7 +5,7 @@ For operators of a ChillCall deployment (the small-team or platform profiles in 
 ## What you are running
 - **Beacon** (stateless, run several): answers `join` requests, signs tokens and config, keeps room-to-node placement.
 - **Signaling nodes**: each owns whole rooms and relays offers, answers and candidates. They hold no media. Calls that are already connected keep working if signaling disappears.
-- **Redis**: node registrations (15 s TTL) and room leases (60 s TTL, renewed by the owning node). Optional for one beacon.
+- **Redis**: node registrations (6 s TTL, refreshed every 2 s) and room leases (60 s TTL, renewed by the owning node). Optional for one beacon.
 - **STUN/TURN**: STUN for everyone; relays only for entitled rooms.
 
 Dashboards: `deploy/observability/` has Prometheus rules, a Grafana dashboard and a compose file. Every service exposes `/metrics`; nodes also have `/healthz` and `/readyz` (503 while draining).
@@ -14,7 +14,7 @@ Dashboards: `deploy/observability/` has Prometheus rules, a Grafana dashboard an
 
 ### Deploy a new version (rolling)
 1. Beacons first, one at a time: they are stateless. Clients retry and fail over between beacon addresses.
-2. Then nodes, one at a time. Send `SIGTERM`: the node stops accepting new rooms, keeps serving its rooms for `DRAIN_MS` (30 s by default), then disconnects clients. They reconnect through the beacon with a short random delay and keep their identity, so a call sees a brief signaling gap and no media interruption between peers who stay connected.
+2. Then nodes, one at a time. Send `SIGTERM`: the node stops accepting new rooms, keeps serving its rooms for `DRAIN_MS` (30 s by default), then disconnects clients. Whatever stops the container must wait longer than `DRAIN_MS` (compose `stop_grace_period`, Docker `--stop-timeout`, Kubernetes `terminationGracePeriodSeconds`); Docker installs that default to a one-second stop timeout kill the node mid-drain and everyone reconnects at once. They reconnect through the beacon with a short random delay and keep their identity, so a call sees a brief signaling gap and no media interruption between peers who stay connected.
 3. Wait until the node count and connection graph recover before the next one. Raise `DRAIN_MS` if you want people to finish calls first; rooms that are still occupied when it ends are moved.
 
 ### Add capacity
@@ -43,7 +43,7 @@ Each heading is an alert name from `deploy/observability/alerts.yml`.
 A beacon instance is not answering scrapes. Clients fail over to other beacon addresses, so one instance down is degraded, not an outage; all down means nobody can join or reconnect (connected calls continue). Check the process and its logs; check the load balancer health. A stuck process is safe to kill.
 
 ### SignalingNodeDown
-A node stopped answering scrapes. If it crashed, its rooms move once its registration expires (up to 15 s), then clients reconnect on their own. Check why it died (`docker logs`, out of memory is the usual cause: see `SignalingMemoryHigh`). Restart it; it will receive new rooms again.
+A node stopped answering scrapes. If it crashed, its rooms move once its registration expires (up to 6 s), then clients reconnect on their own. Check why it died (`docker logs`, out of memory is the usual cause: see `SignalingMemoryHigh`). Restart it; it will receive new rooms again.
 
 ### NoSignalingNodes
 The beacon lists no live nodes, so every join gets a 503. Either all nodes are down, or they cannot reach Redis to register (`docker logs node-1`, look for "placement store error"), or `REDIS_URL` differs between beacon and nodes. Fix Redis connectivity first; nodes re-register on their next heartbeat (5 s).
@@ -85,7 +85,7 @@ These are exercised by `pnpm exec vitest run --project "int:loadgen"` (`tools/lo
 Its rooms move to other nodes. Clients reconnect within seconds (the drill asserts under 10 s for every client), keep their identities, and see no joins fail.
 
 ### A node crashes
-Nothing deregisters it, so for up to the registration TTL (15 s) the beacon may still hand out its address and clients fail to connect and back off. Once it expires, the next attempt succeeds elsewhere and rooms are consistently on one surviving node. Lower `nodeTtlMs` for faster recovery at the cost of more heartbeat traffic.
+Nothing deregisters it, so for up to the registration TTL (6 s) the beacon may still hand out its address and clients fail to connect. They retry with delays capped at 4 s (an unreachable beacon backs off up to 30 s instead), so once the registration lapses the next attempt succeeds elsewhere and rooms are consistently on one surviving node. Each client makes exactly one reconnect loop, however many attempts fail. A longer TTL tolerates a Redis blip without nodes dropping out; a shorter one recovers faster.
 
 ### Redis is unreachable
 Connected calls are untouched. Beacons answer from memory (`PlacementStoreDegraded` fires): existing rooms still resolve to their nodes and new rooms can still be created. Nodes log store errors and keep serving. When Redis returns, leases are renewed and rooms have not moved.
@@ -98,3 +98,6 @@ Clients use their cached signed config (valid up to a week past its expiry, neve
 
 ## Load testing
 `pnpm load:fleet` starts a beacon and three nodes locally and simulates people (default 1,000, 30 s ramp). For a deployment: `pnpm load --target https://chill.example.com --scrape https://n1.example.com/metrics,https://n2.example.com/metrics --users 10000 --ramp 120 --hold 60`. It simulates signaling only (join, offers, answers, candidates, reconnects), not media. Do it against a staging deployment, and set `RATE_LIMIT_PER_MINUTE=0` on its beacon because every simulated user shares one address. Measured results and how to read them are in `docs/capacity.md`.
+
+### Checking a deployment
+`node deploy/observability/check.mjs http://prometheus:9090` verifies that every scrape target is up, every alert rule loaded and evaluates, and every Grafana panel query is valid. `deploy/team/compose.test.yaml` and `deploy/observability/compose.test.yaml` run the small-team and monitoring stacks on one machine (no DNS or HTTPS) so you can rehearse a node crash (`docker kill`) and watch `SignalingNodeDown` fire.

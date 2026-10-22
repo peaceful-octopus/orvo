@@ -1,4 +1,4 @@
-import { LEASE_TTL_MS, NODE_TTL_MS, type NodeInfo, type PlacementStore } from './types';
+import { LEASE_TTL_MS, NODE_HEARTBEAT_MS, NODE_TTL_MS, type NodeInfo, type PlacementStore } from './types';
 
 export interface NodeAgentOptions {
   heartbeatMs?: number;
@@ -26,7 +26,7 @@ export class NodeAgent {
 
   async start() {
     await this.beat();
-    this.heartbeat = setInterval(() => void this.beat(), this.opts.heartbeatMs ?? 5_000);
+    this.heartbeat = setInterval(() => void this.beat(), this.opts.heartbeatMs ?? NODE_HEARTBEAT_MS);
     this.renewal = setInterval(() => void this.renewLeases(), this.opts.leaseRenewMs ?? 20_000);
     this.heartbeat.unref();
     this.renewal.unref();

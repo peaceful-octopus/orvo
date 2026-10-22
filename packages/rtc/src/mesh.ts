@@ -15,6 +15,7 @@ import { backoffDelay } from './backoff';
 import { PeerLink, type SignalPayload } from './peer-link';
 import { sendPolicy, type Route } from './route';
 import {
+  BeaconUnavailableError,
   JoinError,
   RoomFullError,
   UpgradeRequiredError,
@@ -41,6 +42,8 @@ type Welcome = Extract<ServerMessage, { type: 'welcome' }>;
 const JOIN_TIMEOUT_MS = 10_000;
 const PING_INTERVAL_MS = 25_000;
 const OUTBOX_LIMIT = 200;
+const NODE_RETRY_CAP_MS = 4_000;
+const BEACON_RETRY_CAP_MS = 30_000;
 
 /**
  * Full-mesh WebRTC. The beacon says which signaling node owns the room; the node relays offers, answers
@@ -62,6 +65,7 @@ export class MeshTransport implements RoomTransport {
   private pingTimer?: ReturnType<typeof setInterval>;
   private pendingJoin?: { resolve(welcome: Welcome): void; reject(error: Error): void };
   private closing = false;
+  private reconnecting = false;
 
   private room = '';
   private name = '';
@@ -146,10 +150,14 @@ export class MeshTransport implements RoomTransport {
     const socket = new WebSocket(session.signalingUrl);
     this.socket = socket;
 
+    // Only a connection that was admitted counts as lost when it closes. An attempt that never got a welcome has
+    // already failed through the join promise, and treating its close as a new loss would start a second
+    // reconnect loop for every failed attempt.
+    let established = false;
     const welcome = await new Promise<Welcome>((resolve, reject) => {
       const timer = setTimeout(() => reject(new JoinError('The server took too long to respond.')), JOIN_TIMEOUT_MS);
       this.pendingJoin = {
-        resolve: (w) => (clearTimeout(timer), resolve(w)),
+        resolve: (w) => (clearTimeout(timer), (established = true), resolve(w)),
         reject: (e) => (clearTimeout(timer), reject(e)),
       };
       socket.onopen = () =>
@@ -158,7 +166,7 @@ export class MeshTransport implements RoomTransport {
       socket.onclose = () => {
         this.pendingJoin?.reject(new JoinError('The server closed the connection.'));
         this.pendingJoin = undefined;
-        if (this.socket === socket) this.onSocketClosed();
+        if (this.socket === socket && established) this.onSocketClosed();
       };
     });
 
@@ -207,25 +215,37 @@ export class MeshTransport implements RoomTransport {
     void this.reconnect();
   }
 
-  /** Rejoins through the beacon with jittered backoff; established calls keep running meanwhile. */
+  /**
+   * Rejoins through the beacon with jittered backoff; established calls keep running meanwhile. Only one loop runs
+   * at a time. A node that cannot be reached is retried quickly (the beacon will point elsewhere once its
+   * registration lapses); an unreachable beacon backs off longer, so a recovering beacon is not flooded.
+   */
   private async reconnect() {
-    for (let attempt = 0; !this.closing; attempt++) {
-      await new Promise((r) => setTimeout(r, backoffDelay(attempt)));
-      if (this.closing) return;
-      try {
-        const welcome = await this.connect();
-        this.applyWelcome(welcome);
-        this.opts.telemetry?.({ type: 'reconnect', ok: true, attempts: attempt + 1 });
-        this.emit({ type: 'connection', state: 'connected' });
-        this.flushOutbox();
-        return;
-      } catch (err) {
-        if (err instanceof RoomFullError || err instanceof UpgradeRequiredError) {
-          this.opts.telemetry?.({ type: 'reconnect', ok: false, attempts: attempt + 1 });
-          this.emit({ type: 'connection', state: 'closed', reason: err.message });
+    if (this.reconnecting) return;
+    this.reconnecting = true;
+    try {
+      let capMs = NODE_RETRY_CAP_MS;
+      for (let attempt = 0; !this.closing; attempt++) {
+        await new Promise((r) => setTimeout(r, backoffDelay(attempt, Math.random, 500, capMs)));
+        if (this.closing) return;
+        try {
+          const welcome = await this.connect();
+          this.applyWelcome(welcome);
+          this.opts.telemetry?.({ type: 'reconnect', ok: true, attempts: attempt + 1 });
+          this.emit({ type: 'connection', state: 'connected' });
+          this.flushOutbox();
           return;
+        } catch (err) {
+          if (err instanceof RoomFullError || err instanceof UpgradeRequiredError) {
+            this.opts.telemetry?.({ type: 'reconnect', ok: false, attempts: attempt + 1 });
+            this.emit({ type: 'connection', state: 'closed', reason: err.message });
+            return;
+          }
+          capMs = err instanceof BeaconUnavailableError ? BEACON_RETRY_CAP_MS : NODE_RETRY_CAP_MS;
         }
       }
+    } finally {
+      this.reconnecting = false;
     }
   }
 

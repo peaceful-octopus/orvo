@@ -1,0 +1,6 @@
+# Test override: attach Prometheus and Grafana to the network of the small-team test stack (deploy/team), whose
+# containers the scrape targets in prometheus.yml name (beacon, node-1, node-2).
+networks:
+  default:
+    name: team_default
+    external: true

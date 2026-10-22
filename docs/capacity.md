@@ -41,5 +41,18 @@ Peak join rates are within what one beacon process handled in the 10,000-user ru
 - **Beacon CPU and memory** were not scraped separately.
 - **Longer runs.** Each run lasted two minutes. Slow leaks and churn effects need an hour-long run with `--churn`; do it on staging before relying on the planning numbers.
 
+## Failure drill on real containers
+The same simulated users ran against the small-team stack in Docker (`deploy/team`: beacon, two node containers, a real Redis) while a node container was killed outright with `docker kill` (a hard crash, no goodbye) 40 seconds in:
+
+| | Result |
+|---|---|
+| Users | 800 in 232 rooms, all admitted (join p99 175 ms) |
+| Stranded by the crash | 403 clients, each reconnected exactly once |
+| Reconnect time | p99 10.4 s (the registration lapses after 6 s, then clients retry with delays up to 4 s) |
+| Left stranded at the end | 0 of 800 |
+| Signals lost | 0 of 58,996 (nothing was sent while a peer was unreachable) |
+
+The first run of this drill took 33.6 s at the 99th percentile and counted 1,094 reconnects for 403 clients: a failed attempt against the dead node's address started a second reconnect loop, and the loops multiplied. That bug was in the real app transport as well as the simulator, and is fixed; the in-process drill now asserts exactly one reconnect per stranded client.
+
 ## Failure drills
-`tools/loadgen/src/chaos.int.test.ts` (run with `pnpm exec vitest run --project "int:loadgen"`) checks behavior under load-like conditions: a node shutting down cleanly (clients back within 10 s), a crash (rooms move after the 15 s registration expiry), a rolling restart, a Redis outage and a beacon outage. What to expect and what to do is in `docs/runbook.md`.
+`tools/loadgen/src/chaos.int.test.ts` (run with `pnpm exec vitest run --project "int:loadgen"`) checks behavior under load-like conditions: a node shutting down cleanly (clients back within 10 s), a crash (rooms move after the 6 s registration expiry), a rolling restart, a Redis outage and a beacon outage. What to expect and what to do is in `docs/runbook.md`.

@@ -1,5 +1,5 @@
 import { JoinResponse, PROTOCOL_VERSION } from '@chillcall/protocol';
-import { JoinError, UpgradeRequiredError } from './transport';
+import { BeaconUnavailableError, JoinError, UpgradeRequiredError } from './transport';
 
 export interface JoinParams {
   room: string;
@@ -42,5 +42,5 @@ export async function requestJoin(
     if (!res.ok) throw new JoinError('Could not join the room.');
     return JoinResponse.parse(await res.json());
   }
-  throw new JoinError(failure);
+  throw new BeaconUnavailableError(failure);
 }

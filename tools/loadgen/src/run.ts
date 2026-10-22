@@ -41,6 +41,8 @@ export interface LoadReport {
   rooms: number;
   durationSeconds: number;
   peakActive: number;
+  /** Clients still connected when the run ended; fewer than `peakActive` means some were left stranded. */
+  connectedAtEnd: number;
   joinsOk: number;
   joinFailures: Record<string, number>;
   joinMs: ReturnType<Samples['summary']>;
@@ -170,6 +172,7 @@ export async function runLoad(config: LoadConfig): Promise<LoadReport> {
   }
   await scrapeOnce();
 
+  const connectedAtEnd = [...clients].filter((c) => c.state === 'connected').length;
   stopping = true;
   for (const t of timers) clearTimeout(t);
   for (const c of clients) c.stop();
@@ -190,12 +193,14 @@ export async function runLoad(config: LoadConfig): Promise<LoadReport> {
   const limit = config.maxJoinP99Ms ?? 1500;
   if (joinMs.count > 0 && joinMs.percentile(99) > limit) problems.push(`join p99 ${Math.round(joinMs.percentile(99))}ms exceeds ${limit}ms`);
   if (joinsOk < config.users * (config.churnSeconds ? 1 : 0.999)) problems.push(`only ${joinsOk} of ${config.users} users joined`);
+  if (!config.churnSeconds && connectedAtEnd < joinsOk * 0.999) problems.push(`${joinsOk - connectedAtEnd} of ${joinsOk} clients were not connected at the end`);
 
   return {
     users: config.users,
     rooms: rooms.length,
     durationSeconds: Math.round((Date.now() - started) / 1000),
     peakActive: peak,
+    connectedAtEnd,
     joinsOk,
     joinFailures: failures.toObject(),
     joinMs: joinMs.summary(),
@@ -213,7 +218,7 @@ export async function runLoad(config: LoadConfig): Promise<LoadReport> {
 export function formatReport(report: LoadReport): string {
   const ms = (n: number) => (Number.isNaN(n) ? 'n/a' : `${Math.round(n)}ms`);
   const lines = [
-    `users ${report.users} in ${report.rooms} rooms, ran ${report.durationSeconds}s, peak ${report.peakActive} connected`,
+    `users ${report.users} in ${report.rooms} rooms, ran ${report.durationSeconds}s, peak ${report.peakActive} connected, ${report.connectedAtEnd} at the end`,
     `joins: ${report.joinsOk} ok, failures ${JSON.stringify(report.joinFailures)}`,
     `join time: p50 ${ms(report.joinMs.p50)}, p95 ${ms(report.joinMs.p95)}, p99 ${ms(report.joinMs.p99)}, max ${ms(report.joinMs.max)}`,
     `signal round trip: p50 ${ms(report.signalRttMs.p50)}, p95 ${ms(report.signalRttMs.p95)}, p99 ${ms(report.signalRttMs.p99)} (${report.signalsSent} sent, ${report.signalsReceived} received)`,

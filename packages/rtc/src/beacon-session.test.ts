@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { requestJoin } from './beacon-session';
-import { JoinError, UpgradeRequiredError } from './transport';
+import { BeaconUnavailableError, JoinError, UpgradeRequiredError } from './transport';
 
 const session = {
   signalingUrl: 'wss://n1/ws',
@@ -60,6 +60,7 @@ describe('requestJoin', () => {
   it('explains when nothing answers', async () => {
     const f = fakeFetch({});
     await expect(requestJoin(['https://a.example'], params, f.impl)).rejects.toThrow('Could not reach the server.');
+    await expect(requestJoin(['https://a.example'], params, f.impl)).rejects.toBeInstanceOf(BeaconUnavailableError);
     const g = fakeFetch({ 'https://a.example': json({}, 503) });
     await expect(requestJoin(['https://a.example'], params, g.impl)).rejects.toThrow('No server is available');
   });

@@ -13,6 +13,9 @@ ENV NODE_ENV=production \
     PORT=8080 \
     DATA_DIR=/data \
     WEB_DIR=/repo/apps/app/dist
+# Create the data directory owned by the unprivileged user before declaring the volume: a fresh named volume
+# copies this ownership, so the server can write its signing key. (A bind mount keeps the host's ownership.)
+RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 EXPOSE 8080
 USER node

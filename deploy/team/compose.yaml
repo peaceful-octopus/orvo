@@ -22,6 +22,7 @@ services:
 
   beacon:
     <<: *chillcall
+    stop_grace_period: 15s
     working_dir: /repo/apps/beacon
     command: ["node_modules/.bin/tsx", "src/main.ts"]
     environment:
@@ -36,6 +37,8 @@ services:
 
   node-1:
     <<: *chillcall
+    # Longer than DRAIN_MS (30 s) so a stopping node can finish serving before Docker kills it.
+    stop_grace_period: 45s
     working_dir: /repo/apps/signaling
     command: ["node_modules/.bin/tsx", "src/main.ts"]
     environment: &node-env
@@ -51,6 +54,7 @@ services:
 
   node-2:
     <<: *chillcall
+    stop_grace_period: 45s
     working_dir: /repo/apps/signaling
     command: ["node_modules/.bin/tsx", "src/main.ts"]
     environment:
