@@ -1,6 +1,6 @@
 import { isValidRoomSlug } from '@chillcall/protocol';
 import { useState } from 'react';
-import { CLIENT_VERSION, defaultServerUrl, getServerUrl, setServerUrl, setTelemetryAllowed, telemetryAllowed } from './config';
+import { CLIENT_VERSION, defaultServerUrl, giphyApiKey, getServerUrl, setServerUrl, setTelemetryAllowed, telemetryAllowed } from './config';
 import { updateRequired } from './configLogic';
 import { useConfig } from './configStore';
 import { AnnouncementBanner, UpdateRequired } from './Notices';
@@ -9,6 +9,7 @@ import { setTelemetryEnabled } from './telemetry';
 
 function Home() {
   const maxRoomSize = useConfig((s) => s.config.limits.maxRoomSize);
+  const gifsOn = useConfig((s) => Boolean(giphyApiKey(s.config)));
   const [error, setError] = useState<string>();
   const [server, setServer] = useState(getServerUrl());
   const [saved, setSaved] = useState(false);
@@ -75,6 +76,9 @@ function Home() {
           />{' '}
           Share anonymous connection statistics with this server (whether calls connect directly, and how fast). No names, rooms or addresses.
         </label>
+        {gifsOn && (
+          <p className="hint">GIF search is provided by GIPHY: the terms you search for, and your address, are sent to them directly.</p>
+        )}
       </details>
     </main>
   );

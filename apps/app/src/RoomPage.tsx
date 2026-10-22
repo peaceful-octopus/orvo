@@ -1,9 +1,11 @@
 import { roomStatus } from '@chillcall/protocol';
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bubble } from './Bubble';
 import { useCall } from './callStore';
+import { giphyApiKey } from './config';
 import { useConfig } from './configStore';
+import { ReactionBar } from './ReactionBar';
 import { BubbleField, type Member } from './float/BubbleField';
 import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
@@ -11,13 +13,33 @@ import { LAYOUT_MODES } from './float/layouts';
 import { unreachableNotice } from './unreachable';
 import { useUi } from './uiStore';
 
+const GifPicker = lazy(() => import('./GifPicker'));
+
 const MODE_LABELS = { row: 'Row', column: 'Column', campfire: 'Campfire' } as const;
 
 export function RoomPage({ room }: { room: string }) {
-  const { phase, error, local, audio, video, remotes, reconnecting, startPreview, join, toggleAudio, toggleVideo, leave } =
-    useCall();
+  const {
+    phase,
+    error,
+    local,
+    localDisplay,
+    effectsMessage,
+    audio,
+    video,
+    remotes,
+    reconnecting,
+    startPreview,
+    join,
+    toggleAudio,
+    toggleVideo,
+    react,
+    sendGif,
+    leave,
+  } = useCall();
   const { mode, setMode } = useUi();
   const limits = useConfig((s) => s.config.limits);
+  const apiKey = useConfig((s) => giphyApiKey(s.config));
+  const [gifOpen, setGifOpen] = useState(false);
   const [name, setName] = useState(() => localStorage.getItem('chillcall:name') ?? '');
 
   useEffect(() => {
@@ -26,7 +48,7 @@ export function RoomPage({ room }: { room: string }) {
 
   const members = useMemo<Member[]>(
     () => [
-      { id: 'self', name, stream: local, video, audio, self: true },
+      { id: 'self', name, stream: localDisplay ?? local, video, audio, self: true },
       ...Object.values(remotes).map((p) => ({
         id: p.id,
         name: p.name,
@@ -37,7 +59,7 @@ export function RoomPage({ room }: { room: string }) {
         route: p.route,
       })),
     ],
-    [name, local, video, audio, remotes],
+    [name, local, localDisplay, video, audio, remotes],
   );
 
   const float = useFloat(mode, members.length);
@@ -73,6 +95,7 @@ export function RoomPage({ room }: { room: string }) {
       draggable={draggable}
       onToggleAudio={toggleAudio}
       onToggleVideo={toggleVideo}
+      onReact={(emoji) => void react(emoji)}
       onExpand={() => void float.exit()}
     />
   );
@@ -85,6 +108,11 @@ export function RoomPage({ room }: { room: string }) {
 
   return (
     <main className="call">
+      {effectsMessage && (
+        <p className="banner" role="status">
+          {effectsMessage}
+        </p>
+      )}
       {reconnecting && <p className="banner">Reconnecting to the server... your call continues.</p>}
       {notice && (
         <p className="banner" role="alert">
@@ -97,6 +125,7 @@ export function RoomPage({ room }: { room: string }) {
         </p>
       )}
       <BubbleField members={members} mode={mode} />
+      <ReactionBar disabled={!video} onReact={(emoji) => void react(emoji)} onGif={apiKey ? () => setGifOpen(true) : undefined} />
       <nav className="controls">
         <div className="modes" role="group" aria-label="Layout">
           {LAYOUT_MODES.map((m) => (
@@ -121,6 +150,18 @@ export function RoomPage({ room }: { room: string }) {
           Leave
         </button>
       </nav>
+      {gifOpen && apiKey && (
+        <Suspense fallback={null}>
+          <GifPicker
+            apiKey={apiKey}
+            onClose={() => setGifOpen(false)}
+            onPick={(source, mode) => {
+              setGifOpen(false);
+              sendGif(source, mode).catch(() => {}); // the store already shows a message
+            }}
+          />
+        </Suspense>
+      )}
       {float.pip && createPortal(floatView(false), float.pip.document.body)}
     </main>
   );

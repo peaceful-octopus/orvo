@@ -217,6 +217,17 @@ describe('limits and announcements', () => {
     expect(checked).toMatchObject({ ok: true, payload: { maxRoomSize: 4 } });
   });
 
+  it('publishes a Giphy key to clients when one is configured, and nothing otherwise', async () => {
+    await start({ integrations: { giphyApiKey: 'web-sdk-key' } });
+    const withKey = verifyConfig((await app.inject({ method: 'GET', url: '/v1/config' })).json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
+    expect(withKey).toMatchObject({ ok: true, config: { integrations: { giphyApiKey: 'web-sdk-key' } } });
+
+    await app.close();
+    await start({ integrations: { giphyApiKey: '' } });
+    const without = verifyConfig((await app.inject({ method: 'GET', url: '/v1/config' })).json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
+    expect((without as { config: { integrations?: unknown } }).config.integrations).toBeUndefined();
+  });
+
   it('defaults to ten people and no announcement', async () => {
     await start();
     const res = await app.inject({ method: 'GET', url: '/v1/config' });

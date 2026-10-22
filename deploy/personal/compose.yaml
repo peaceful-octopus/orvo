@@ -15,6 +15,7 @@ services:
     environment:
       BEHIND_PROXY: ${BEHIND_PROXY:-}
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
+      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
     volumes:
       - chillcall-data:/data
 

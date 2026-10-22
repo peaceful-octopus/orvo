@@ -11,11 +11,14 @@ interface Props {
   draggable: boolean;
   onToggleAudio(): void;
   onToggleVideo(): void;
+  onReact(emoji: string): void;
   onExpand(): void;
 }
 
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉'];
+
 /** Compact bubbles-only view with hover controls, shown in the floating window. */
-export function FloatView({ members, mode, audio, video, draggable, onToggleAudio, onToggleVideo, onExpand }: Props) {
+export function FloatView({ members, mode, audio, video, draggable, onToggleAudio, onToggleVideo, onReact, onExpand }: Props) {
   return (
     <div className="float-view" onMouseDown={draggable ? () => void startWindowDrag() : undefined}>
       <BubbleField members={members} mode={mode} />
@@ -26,6 +29,11 @@ export function FloatView({ members, mode, audio, video, draggable, onToggleAudi
         <button onClick={onToggleVideo} title={video ? 'Camera off' : 'Camera on'}>
           {video ? 'Cam off' : 'Cam on'}
         </button>
+        {QUICK_REACTIONS.map((emoji) => (
+          <button key={emoji} disabled={!video} aria-label={`React with ${emoji}`} onClick={() => onReact(emoji)}>
+            {emoji}
+          </button>
+        ))}
         <button onClick={onExpand} title="Back to full window">
           Expand
         </button>

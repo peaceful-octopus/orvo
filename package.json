@@ -31,7 +31,9 @@
     "test:loadgen": "vitest run --project loadgen",
     "load": "pnpm --filter @chillcall/loadgen start",
     "load:fleet": "pnpm --filter @chillcall/loadgen start --fleet 3",
-    "test:server": "vitest run --project server"
+    "test:server": "vitest run --project server",
+    "test:effects": "vitest run --project effects",
+    "test:e2e:effects": "playwright test --project=effects"
   },
   "devDependencies": {
     "@chillcall/protocol": "workspace:*",

@@ -1,3 +1,4 @@
+import { EffectsController, type GifMode, type GifSource } from '@chillcall/effects';
 import {
   JoinError,
   MeshTransport,
@@ -27,6 +28,10 @@ interface CallState {
   phase: Phase;
   error?: string;
   local?: MediaStream;
+  /** What your own bubble shows: the camera, or the camera with reactions and GIFs drawn on it while they run. */
+  localDisplay?: MediaStream;
+  /** A short message about reactions or GIFs, such as a GIF that failed to load. */
+  effectsMessage?: string;
   audio: boolean;
   video: boolean;
   /** Whether the connection to the signaling server is up; calls continue while it reconnects. */
@@ -36,11 +41,15 @@ interface CallState {
   join(room: string, name: string): Promise<void>;
   toggleAudio(): void;
   toggleVideo(): void;
+  react(emoji: string): Promise<void>;
+  sendGif(source: GifSource, mode: GifMode): Promise<void>;
   leave(): void;
 }
 
 let transport: MeshTransport | undefined;
 let unsubscribe: (() => void) | undefined;
+let effects: EffectsController | undefined;
+let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useCall = create<CallState>((set, get) => {
   const broadcastState = () => {
@@ -55,6 +64,12 @@ export const useCall = create<CallState>((set, get) => {
         [id]: { id, name: '', audio: true, video: true, state: 'connecting', route: 'unknown', ...s.remotes[id], ...patch },
       },
     }));
+
+  const showEffectsMessage = (message: string) => {
+    set({ effectsMessage: message });
+    clearTimeout(messageTimer);
+    messageTimer = setTimeout(() => set({ effectsMessage: undefined }), 4000);
+  };
 
   const onEvent = (event: RoomEvent) => {
     switch (event.type) {
@@ -125,6 +140,14 @@ export const useCall = create<CallState>((set, get) => {
       unsubscribe = transport.on(onEvent);
       try {
         await transport.join(room, name, local);
+        // Effects are drawn into the outgoing video only while one is showing; between them the camera is sent as is.
+        effects = new EffectsController({
+          camera: () => get().local,
+          setStream: (stream) => {
+            void transport?.replaceLocalStream(stream);
+            set({ localDisplay: stream === get().local ? undefined : stream });
+          },
+        });
         set({ phase: 'in-call' });
         broadcastState();
       } catch (err) {
@@ -145,17 +168,38 @@ export const useCall = create<CallState>((set, get) => {
 
     toggleVideo() {
       const video = !get().video;
+      if (!video) effects?.end(); // nobody can see effects on a camera that is off
       get().local?.getVideoTracks().forEach((t) => (t.enabled = video));
       set({ video });
       broadcastState();
     },
 
+    async react(emoji) {
+      if (!get().video) return;
+      try {
+        await effects?.react(emoji);
+      } catch {
+        showEffectsMessage('Reactions are not available right now.');
+      }
+    },
+
+    async sendGif(source, mode) {
+      try {
+        await effects?.showGif(source, mode);
+      } catch {
+        showEffectsMessage('That GIF could not be loaded. Try another one.');
+        throw new Error('gif-failed');
+      }
+    },
+
     leave() {
+      effects?.dispose();
+      effects = undefined;
       transport?.leave();
       unsubscribe?.();
       transport = undefined;
       get().local?.getTracks().forEach((t) => t.stop());
-      set({ phase: 'lobby', local: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
+      set({ phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
     },
   };
 });

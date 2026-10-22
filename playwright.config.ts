@@ -56,6 +56,7 @@ export default defineConfig({
     { name: 'layout', testDir: 'e2e/layout', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'resilience', testDir: 'e2e/resilience', timeout: 90_000, expect: { timeout: 30_000 } },
     { name: 'tiers', testDir: 'e2e/tiers', timeout: 90_000, expect: { timeout: 45_000 } },
+    { name: 'effects', testDir: 'e2e/effects', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'fleet', testDir: 'e2e/fleet', timeout: 90_000, expect: { timeout: 30_000 } },
     // Ten software-encoding tabs on one machine take about a minute to converge.
     { name: 'scale', testDir: 'e2e/scale', timeout: 240_000, expect: { timeout: 90_000 } },
@@ -65,7 +66,13 @@ export default defineConfig({
     : external
       ? undefined
       : [
-          { command: 'pnpm --filter @chillcall/server start', url: 'http://localhost:8080/healthz', reuseExistingServer: true },
+          {
+            command: 'pnpm --filter @chillcall/server start',
+            url: 'http://localhost:8080/healthz',
+            reuseExistingServer: true,
+            // A made-up key: the effects tests answer the Giphy API themselves, so no real key or network is used.
+            env: { GIPHY_API_KEY: 'e2e-giphy-key' },
+          },
           { command: 'pnpm --filter @chillcall/app dev', url: 'http://localhost:5173', reuseExistingServer: true },
         ],
 });

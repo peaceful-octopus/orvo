@@ -55,6 +55,11 @@ export function setTelemetryAllowed(allowed: boolean) {
   }
 }
 
+/** The Giphy Web SDK key: the one the server publishes, else one baked in at build time. Without it GIFs are off. */
+export function giphyApiKey(config: { integrations?: { giphyApiKey?: string } }): string | undefined {
+  return config.integrations?.giphyApiKey || import.meta.env.VITE_GIPHY_API_KEY || undefined;
+}
+
 let loading: Promise<LoadedConfig> | undefined;
 let loadedFor: string | undefined;
 

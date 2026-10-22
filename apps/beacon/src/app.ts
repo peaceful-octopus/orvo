@@ -49,6 +49,8 @@ export interface BeaconOptions {
   limits?: { maxRoomSize?: number; warnRoomSize?: number; videoTiers?: VideoTierRule[] };
   /** A notice shown to every client, for example about maintenance. */
   announcement?: { id: string; text: string };
+  /** Published to clients in the signed config. A Giphy Web SDK key is meant to be public, but it is still the operator's quota. */
+  integrations?: { giphyApiKey?: string };
   /** A pre-signed config (for example produced by `tools/sign-config`) served as is instead of a generated one. */
   staticConfig?: unknown;
   /** Share a metrics registry with other components in the process; one is created when omitted. */
@@ -155,6 +157,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       ice: { stunUrls: opts.stunUrls },
       regions: [{ id: 'default', name: 'Default' }],
       announcement: opts.announcement,
+      integrations: opts.integrations?.giphyApiKey ? { giphyApiKey: opts.integrations.giphyApiKey } : undefined,
     };
     return reply.header('cache-control', 'max-age=60').send(signConfig(config, kid, secretKey));
   });

@@ -9,12 +9,17 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@chillcall/effects": "workspace:*",
     "@chillcall/protocol": "workspace:*",
     "@chillcall/rtc": "workspace:*",
+    "@giphy/js-fetch-api": "^5.8.0",
+    "@giphy/js-types": "^5.1.0",
+    "@giphy/react-components": "^10.1.2",
     "@tauri-apps/api": "^2.12.4",
     "motion": "^14.4.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "styled-components": "^6.6.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

@@ -22,6 +22,7 @@ import { serveWebApp } from './web';
 //   CONFIG_FILE      a pre-signed config served as is (see tools/sign-config)
 //   MIN_CLIENT_VERSION, MAX_ROOM_SIZE, WARN_ROOM_SIZE, ANNOUNCEMENT(_ID)   published in the signed config
 //   RATE_LIMIT_PER_MINUTE   per client address (default 120; 0 disables)
+//   GIPHY_API_KEY    a Giphy Web SDK key, published to clients so they can offer a GIF picker
 //   WEB_DIR          also serve the built web app from this directory
 function pool(urls: string | undefined, secret: string | undefined): TurnPool | undefined {
   return urls && secret ? { urls: urls.split(',').filter(Boolean), secret } : undefined;
@@ -62,6 +63,7 @@ const app = await createBeaconApp({
   staticConfig: process.env.CONFIG_FILE ? JSON.parse(fs.readFileSync(process.env.CONFIG_FILE, 'utf8')) : undefined,
   // 0 turns limiting off, which load tests need because every simulated user shares one address.
   rateLimitPerMinute: process.env.RATE_LIMIT_PER_MINUTE ? Number(process.env.RATE_LIMIT_PER_MINUTE) || false : undefined,
+  integrations: { giphyApiKey: process.env.GIPHY_API_KEY || undefined },
   corsOrigin: process.env.CORS_ORIGIN ?? true,
   trustProxy: Boolean(process.env.BEHIND_PROXY),
 });

@@ -28,6 +28,7 @@ export default defineConfig({
       unit('protocol', './packages/protocol'),
       unit('testkit', './packages/testkit'),
       unit('placement', './packages/placement'),
+      unit('effects', './packages/effects'),
       unit('rtc', './packages/rtc'),
       unit('signaling', './apps/signaling'),
       unit('beacon', './apps/beacon'),

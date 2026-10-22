@@ -28,6 +28,8 @@ export const ClientConfig = z.object({
   }),
   features: z.record(z.string(), z.boolean()),
   ice: z.object({ stunUrls: z.array(z.string()) }),
+  /** Third-party services the app can use. Keys here reach every client, so only publish keys meant for browsers. */
+  integrations: z.object({ giphyApiKey: z.string().min(1).optional() }).optional(),
   regions: z.array(z.object({ id: z.string(), name: z.string() })),
   announcement: z.object({ id: z.string(), text: z.string().max(280) }).optional(),
   updateUrl: z.url().optional(),
