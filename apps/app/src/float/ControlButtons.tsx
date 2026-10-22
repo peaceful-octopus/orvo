@@ -1,5 +1,7 @@
 import { ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, VideoIcon, VideoOffIcon } from './icons';
 
+import type { MenuKind } from '../DeviceMenu';
+
 export const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉'];
 
 interface Props {
@@ -12,19 +14,33 @@ interface Props {
   onLeave(): void;
   /** Present only when GIFs are set up. */
   onGif?: () => void;
+  /** Present when device choices can be shown; adds an arrow beside the microphone and camera buttons. */
+  onDeviceMenu?: (menu: MenuKind) => void;
+  openMenu?: MenuKind | null;
 }
 
 /** The floating view's control strip: icon buttons plus quick reactions. */
-export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif }: Props) {
+export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif, onDeviceMenu, openMenu }: Props) {
+  const chevron = (menu: MenuKind, label: string) => (
+    <button className="chevron" aria-label={label} aria-haspopup="menu" aria-expanded={openMenu === menu} title={label} onClick={() => onDeviceMenu?.(menu)}>
+      ▾
+    </button>
+  );
   const needsCamera = video ? undefined : 'Turn your camera on to use reactions';
   return (
     <div className="float-controls" role="toolbar" aria-label="Call controls">
-      <button className="icon" onClick={onToggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
-        {audio ? <MicIcon /> : <MicOffIcon />}
-      </button>
-      <button className="icon" onClick={onToggleVideo} aria-label={video ? 'Camera off' : 'Camera on'} title={video ? 'Camera off' : 'Camera on'}>
-        {video ? <VideoIcon /> : <VideoOffIcon />}
-      </button>
+      <div className="split">
+        <button className="icon" onClick={onToggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
+          {audio ? <MicIcon /> : <MicOffIcon />}
+        </button>
+        {onDeviceMenu && chevron('mic', 'Microphone options')}
+      </div>
+      <div className="split">
+        <button className="icon" onClick={onToggleVideo} aria-label={video ? 'Camera off' : 'Camera on'} title={video ? 'Camera off' : 'Camera on'}>
+          {video ? <VideoIcon /> : <VideoOffIcon />}
+        </button>
+        {onDeviceMenu && chevron('cam', 'Camera options')}
+      </div>
       <span className="sep" />
       {QUICK_REACTIONS.map((emoji) => (
         <button key={emoji} className="icon emoji" disabled={!video} title={needsCamera} aria-label={`React with ${emoji}`} onClick={() => onReact(emoji)}>

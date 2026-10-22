@@ -5,6 +5,8 @@ import { Bubble } from './Bubble';
 import { useCall } from './callStore';
 import { giphyApiKey } from './config';
 import { useConfig } from './configStore';
+import { DeviceButton, DeviceSelects } from './DeviceMenu';
+import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
 import { BubbleField, type Member } from './float/BubbleField';
 import type { ControlAction } from './float/bridge';
@@ -14,6 +16,7 @@ import { useFloat } from './float/float';
 import { LAYOUT_MODES } from './float/layouts';
 import { unreachableNotice } from './unreachable';
 import { useUi } from './uiStore';
+import type { DeviceKind } from './devices';
 
 const GifPicker = lazy(() => import('./GifPicker'));
 
@@ -36,8 +39,13 @@ export function RoomPage({ room }: { room: string }) {
     toggleVideo,
     react,
     sendGif,
+    devices,
+    selected,
+    selectDevice,
     leave,
   } = useCall();
+  const outputs = canSelectOutput();
+  const deviceProps = { devices, selected, canSelectOutput: outputs, onSelect: (kind: DeviceKind, id: string) => void selectDevice(kind, id) };
   const { mode, setMode } = useUi();
   const limits = useConfig((s) => s.config.limits);
   const apiKey = useConfig((s) => giphyApiKey(s.config));
@@ -70,6 +78,7 @@ export function RoomPage({ room }: { room: string }) {
     else if (a.type === 'video') toggleVideo();
     else if (a.type === 'react') void react(a.emoji);
     else if (a.type === 'gif') sendGif(a.source, a.mode).catch(() => {}); // the store already shows a message
+    else if (a.type === 'device') void selectDevice(a.kind, a.id);
     else if (a.type === 'leave') void leaveCall();
     else void float.exit();
   };
@@ -80,7 +89,7 @@ export function RoomPage({ room }: { room: string }) {
   };
   const controlsWindow = useControlsWindow(
     float.active && float.kind === 'tauri',
-    { audio, video, giphyKey: apiKey },
+    { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs },
     onControlAction,
   );
 
@@ -91,6 +100,7 @@ export function RoomPage({ room }: { room: string }) {
         <div className="preview">
           <Bubble name={name} stream={local} videoOn={video} audioOn={audio} mirrored muteAudio />
         </div>
+        <DeviceSelects {...deviceProps} />
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -163,8 +173,12 @@ export function RoomPage({ room }: { room: string }) {
             </button>
           ))}
         </div>
-        <button onClick={toggleAudio}>{audio ? 'Mute' : 'Unmute'}</button>
-        <button onClick={toggleVideo}>{video ? 'Camera off' : 'Camera on'}</button>
+        <DeviceButton menu="mic" {...deviceProps}>
+          <button onClick={toggleAudio}>{audio ? 'Mute' : 'Unmute'}</button>
+        </DeviceButton>
+        <DeviceButton menu="cam" {...deviceProps}>
+          <button onClick={toggleVideo}>{video ? 'Camera off' : 'Camera on'}</button>
+        </DeviceButton>
         {float.kind && (
           <button onClick={() => void (float.active ? float.exit() : float.enter())}>
             {float.active ? 'Dock' : 'Float'}

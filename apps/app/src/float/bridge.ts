@@ -1,4 +1,5 @@
 import type { GifMode, GifSource } from '@chillcall/effects';
+import type { DeviceKind, DeviceLists, DeviceSelection } from '../devices';
 
 /** Events exchanged between the floating bubble window and its separate controls window. */
 export const CONTROLS_LABEL = 'float-controls';
@@ -12,6 +13,9 @@ export interface ControlsState {
   audio: boolean;
   video: boolean;
   giphyKey?: string;
+  devices: DeviceLists;
+  selected: DeviceSelection;
+  canSelectOutput: boolean;
 }
 
 export type ControlAction =
@@ -20,6 +24,7 @@ export type ControlAction =
   | { type: 'react'; emoji: string }
   | { type: 'gif'; source: GifSource; mode: GifMode }
   | { type: 'expand' }
+  | { type: 'device'; kind: DeviceKind; id: string }
   | { type: 'leave' };
 
 export interface Rect {

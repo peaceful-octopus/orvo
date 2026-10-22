@@ -1,5 +1,7 @@
 import type { GifMode, GifSource } from '@chillcall/effects';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { DeviceMenuPanel, menuRows, type MenuKind } from '../DeviceMenu';
+import { noDevices, noSelection } from '../devices';
 import { ControlButtons } from './ControlButtons';
 import {
   EVT_ACTION,
@@ -17,19 +19,32 @@ const GifPicker = lazy(() => import('../GifPicker'));
 
 const PICKER = { w: 480, h: 560 };
 const HIDE_DELAY_MS = 300;
+/** Tallest the device menu's window grows; longer lists scroll. */
+const MENU_MAX = 420;
 /** Space between the bubble window and the controls, in logical pixels. */
 const GAP = 4;
 
 /** Contents of the separate controls window: fades in over the bubble window and follows it. */
 export function ControlsView() {
-  const [state, setState] = useState<ControlsState>({ audio: true, video: true });
+  const [state, setState] = useState<ControlsState>({
+    audio: true,
+    video: true,
+    devices: noDevices(),
+    selected: noSelection(),
+    canSelectOutput: false,
+  });
   const [mainHover, setMainHover] = useState(false);
   const [selfHover, setSelfHover] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [menu, setMenu] = useState<MenuKind | null>(null);
+  const panelOpen = pickerOpen || menu !== null;
   const [lingering, setLingering] = useState(false);
   const [above, setAbove] = useState(false);
 
-  const shown = mainHover || selfHover || pickerOpen || lingering;
+  const rows = menu ? menuRows(menu, state.devices, state.canSelectOutput) : { sections: 0, options: 0 };
+  const menuHeight = Math.min(MENU_MAX, 20 + rows.sections * 34 + rows.options * 36);
+
+  const shown = mainHover || selfHover || panelOpen || lingering;
 
   // Stay visible briefly after the pointer leaves so it can cross the gap between the two windows.
   useEffect(() => {
@@ -40,6 +55,14 @@ export function ControlsView() {
     const t = setTimeout(() => setLingering(false), HIDE_DELAY_MS);
     return () => clearTimeout(t);
   }, [mainHover, selfHover]);
+
+  // Escape closes whichever panel is open.
+  useEffect(() => {
+    if (!menu) return;
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null);
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [menu]);
 
   const act = useCallback(async (action: ControlAction) => {
     const { emit } = await import('@tauri-apps/api/event');
@@ -86,7 +109,7 @@ export function ControlsView() {
       const me = getCurrentWindow();
       const main = await Window.getByLabel('main');
       if (!main) return;
-      const logical = pickerOpen ? PICKER : CONTROLS_BAR;
+      const logical = pickerOpen ? PICKER : menu ? { w: CONTROLS_BAR.w, h: CONTROLS_BAR.h + menuHeight } : CONTROLS_BAR;
       await me.setSize(new LogicalSize(logical.w, logical.h));
 
       const place = async () => {
@@ -110,7 +133,12 @@ export function ControlsView() {
       cancelled = true;
       unlisten.forEach((u) => u());
     };
-  }, [pickerOpen]);
+  }, [pickerOpen, menu, menuHeight]);
+
+  const toggleMenu = (next: MenuKind) => {
+    setPickerOpen(false);
+    setMenu((current) => (current === next ? null : next));
+  };
 
   const pick = (source: GifSource, mode: GifMode) => {
     setPickerOpen(false);
@@ -122,6 +150,7 @@ export function ControlsView() {
       className={`controls-view${shown ? ' shown' : ''}${above ? ' above' : ''}`}
       onMouseEnter={() => setSelfHover(true)}
       onMouseLeave={() => setSelfHover(false)}
+      onMouseDown={(e) => e.target === e.currentTarget && setMenu(null)}
     >
       <ControlButtons
         audio={state.audio}
@@ -131,8 +160,26 @@ export function ControlsView() {
         onReact={(emoji) => void act({ type: 'react', emoji })}
         onExpand={() => void act({ type: 'expand' })}
         onLeave={() => void act({ type: 'leave' })}
-        onGif={state.giphyKey ? () => setPickerOpen(true) : undefined}
+        onGif={
+          state.giphyKey
+            ? () => {
+                setMenu(null);
+                setPickerOpen(true);
+              }
+            : undefined
+        }
+        onDeviceMenu={toggleMenu}
+        openMenu={menu}
       />
+      {menu && (
+        <DeviceMenuPanel
+          menu={menu}
+          devices={state.devices}
+          selected={state.selected}
+          canSelectOutput={state.canSelectOutput}
+          onSelect={(kind, id) => void act({ type: 'device', kind, id })}
+        />
+      )}
       {pickerOpen && state.giphyKey && (
         <Suspense fallback={null}>
           <GifPicker apiKey={state.giphyKey} onClose={() => setPickerOpen(false)} onPick={pick} />

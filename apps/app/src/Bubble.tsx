@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useCall } from './callStore';
 
 interface Props {
   name: string;
@@ -16,6 +17,13 @@ interface Props {
 /** A circular video that fills its parent; the parent sets the diameter. */
 export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, unreachable, route }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
+  const speaker = useCall((s) => s.selected.audiooutput);
+
+  // Other people's audio plays through the chosen speaker where the browser allows choosing one.
+  useEffect(() => {
+    const video = ref.current as (HTMLVideoElement & { setSinkId?: (id: string) => Promise<void> }) | null;
+    if (!muteAudio) void video?.setSinkId?.(speaker).catch(() => {});
+  }, [speaker, muteAudio]);
 
   useEffect(() => {
     const video = ref.current;

@@ -10,6 +10,17 @@ import {
 } from '@chillcall/rtc';
 import { create } from 'zustand';
 import { CLIENT_VERSION, loadClientConfig } from './config';
+import {
+  deviceConstraint,
+  loadSelection,
+  noDevices,
+  saveSelection,
+  toDeviceLists,
+  validSelection,
+  type DeviceKind,
+  type DeviceLists,
+  type DeviceSelection,
+} from './devices';
 import { telemetry } from './telemetry';
 
 export interface Remote {
@@ -34,6 +45,9 @@ interface CallState {
   effectsMessage?: string;
   audio: boolean;
   video: boolean;
+  /** The cameras, microphones and speakers the system offers, and which of them are chosen. */
+  devices: DeviceLists;
+  selected: DeviceSelection;
   /** Whether the connection to the signaling server is up; calls continue while it reconnects. */
   reconnecting: boolean;
   remotes: Record<string, Remote>;
@@ -41,6 +55,8 @@ interface CallState {
   join(room: string, name: string): Promise<void>;
   toggleAudio(): void;
   toggleVideo(): void;
+  refreshDevices(): Promise<void>;
+  selectDevice(kind: DeviceKind, id: string): Promise<void>;
   react(emoji: string): Promise<void>;
   sendGif(source: GifSource, mode: GifMode): Promise<void>;
   leave(): void;
@@ -50,6 +66,22 @@ let transport: MeshTransport | undefined;
 let unsubscribe: (() => void) | undefined;
 let effects: EffectsController | undefined;
 let messageTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** One new track from the chosen device; if that device is gone, from the system default instead. */
+async function acquireTrack(kind: 'audioinput' | 'videoinput', id: string): Promise<{ track: MediaStreamTrack; id: string }> {
+  const key = kind === 'audioinput' ? 'audio' : 'video';
+  const get = (wanted: string) => navigator.mediaDevices.getUserMedia({ [key]: deviceConstraint(wanted) });
+  let stream: MediaStream;
+  let used = id;
+  try {
+    stream = await get(id);
+  } catch (err) {
+    if (!id) throw err;
+    stream = await get('');
+    used = '';
+  }
+  return { track: stream.getTracks()[0]!, id: used };
+}
 
 export const useCall = create<CallState>((set, get) => {
   const broadcastState = () => {
@@ -112,14 +144,61 @@ export const useCall = create<CallState>((set, get) => {
     video: true,
     reconnecting: false,
     remotes: {},
+    devices: noDevices(),
+    selected: loadSelection(),
 
     async startPreview() {
       if (get().local) return;
       try {
-        const local = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        set({ local, error: undefined });
+        const { selected } = get();
+        const [audio, video] = await Promise.all([acquireTrack('audioinput', selected.audioinput), acquireTrack('videoinput', selected.videoinput)]);
+        const next = { ...selected, audioinput: audio.id, videoinput: video.id };
+        saveSelection(next);
+        set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
       } catch {
         set({ error: 'Camera or microphone access was denied.' });
+      }
+      await get().refreshDevices(); // device names are only available once access is granted
+    },
+
+    async refreshDevices() {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = toDeviceLists(await navigator.mediaDevices.enumerateDevices());
+      const selected = validSelection(get().selected, devices);
+      const unplugged = (['audioinput', 'videoinput'] as const).filter((k) => selected[k] !== get().selected[k]);
+      set({ devices, selected });
+      saveSelection(selected);
+      for (const kind of unplugged) await get().selectDevice(kind, ''); // the chosen device went away; use the default
+    },
+
+    async selectDevice(kind, id) {
+      const selected = { ...get().selected, [kind]: id };
+      if (kind === 'audiooutput') {
+        saveSelection(selected);
+        set({ selected });
+        return;
+      }
+      const { local, audio, video } = get();
+      if (!local) {
+        saveSelection(selected);
+        set({ selected });
+        return;
+      }
+      try {
+        const next = await acquireTrack(kind, id);
+        const isVideo = kind === 'videoinput';
+        if (isVideo) effects?.end(); // an effect is drawn on the old camera
+        next.track.enabled = isVideo ? video : audio;
+        const old = isVideo ? local.getVideoTracks() : local.getAudioTracks();
+        const kept = isVideo ? local.getAudioTracks() : local.getVideoTracks();
+        const stream = new MediaStream([...kept, next.track]);
+        selected[kind] = next.id;
+        saveSelection(selected);
+        set({ local: stream, selected, localDisplay: undefined });
+        old.forEach((t) => t.stop());
+        await transport?.replaceLocalStream(stream);
+      } catch {
+        showEffectsMessage(`Could not switch to that ${kind === 'videoinput' ? 'camera' : 'microphone'}.`);
       }
     },
 
@@ -203,3 +282,8 @@ export const useCall = create<CallState>((set, get) => {
     },
   };
 });
+
+// Plugging in or removing a device updates the lists, and a chosen device that vanished falls back to the default.
+if (typeof navigator !== 'undefined') {
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => void useCall.getState().refreshDevices());
+}
