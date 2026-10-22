@@ -21,7 +21,7 @@ import {
   type DeviceLists,
   type DeviceSelection,
 } from './devices';
-import { createNoiseFilter, noiseSupported, type NoiseFilter } from './noise';
+import { createMicProcessor, noiseSupported, type MicProcessor } from './noise';
 import { useSettings } from './settingsStore';
 import { telemetry } from './telemetry';
 
@@ -72,7 +72,7 @@ let unsubscribe: (() => void) | undefined;
 let effects: EffectsController | undefined;
 /** The microphone as the browser gives it; what is sent is this, or its noise-filtered version. */
 let micRaw: MediaStreamTrack | undefined;
-let noiseFilter: NoiseFilter | undefined;
+let micProcessor: MicProcessor | undefined;
 let noiseQueue: Promise<void> = Promise.resolve();
 let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -152,33 +152,40 @@ export const useCall = create<CallState>((set, get) => {
   const applyNoiseNow = async () => {
     const { local } = get();
     if (!local || !micRaw) return;
-    const { noise } = useSettings.getState();
-    const wanted = noise.enabled && noiseSupported();
+    const { noise, micVolume } = useSettings.getState();
+    const wantNoise = noise.enabled && noiseSupported();
+    // The microphone goes through our own audio path only when something needs doing to it.
+    const wantProcessor = wantNoise || micVolume !== 100;
     let output = micRaw;
-    if (wanted) {
+    if (wantProcessor) {
       try {
-        if (!noiseFilter || noiseFilter.source !== micRaw) {
-          set({ noiseStatus: 'loading' });
-          noiseFilter?.dispose();
-          noiseFilter = undefined;
-          noiseFilter = await createNoiseFilter(micRaw, noise.strength);
+        if (!micProcessor || micProcessor.source !== micRaw || micProcessor.hasNoise !== wantNoise) {
+          if (wantNoise) set({ noiseStatus: 'loading' });
+          micProcessor?.dispose();
+          micProcessor = undefined;
+          micProcessor = await createMicProcessor(micRaw, { noise: wantNoise, level: noise.strength, gain: micVolume });
         } else {
-          noiseFilter.setLevel(noise.strength);
+          micProcessor.setLevel(noise.strength);
+          micProcessor.setGain(micVolume);
         }
-        output = noiseFilter.track;
-        set({ noiseStatus: 'on' });
+        output = micProcessor.track;
+        set({ noiseStatus: wantNoise ? 'on' : 'off' });
       } catch {
-        noiseFilter = undefined;
-        set({ noiseStatus: 'error' });
-        showEffectsMessage('Noise suppression could not start, so your microphone is sent as it is.');
+        micProcessor = undefined;
+        set({ noiseStatus: wantNoise ? 'error' : 'off' });
+        showEffectsMessage(
+          wantNoise
+            ? 'Noise suppression could not start, so your microphone is sent as it is.'
+            : 'The microphone volume could not be applied.',
+        );
       }
     } else {
-      noiseFilter?.dispose();
-      noiseFilter = undefined;
+      micProcessor?.dispose();
+      micProcessor = undefined;
       set({ noiseStatus: 'off' });
     }
     // The browser's own suppression is skipped while ours runs, so audio is not cleaned twice.
-    void micRaw.applyConstraints({ noiseSuppression: output === micRaw }).catch(() => {});
+    void micRaw.applyConstraints({ noiseSuppression: !micProcessor?.hasNoise }).catch(() => {});
 
     const current = get().local;
     if (!current || current.getAudioTracks()[0] === output) return;
@@ -252,8 +259,8 @@ export const useCall = create<CallState>((set, get) => {
         selected[kind] = next.id;
         saveSelection(selected);
         if (!isVideo) {
-          noiseFilter?.dispose(); // it was reading the old microphone
-          noiseFilter = undefined;
+          micProcessor?.dispose(); // it was reading the old microphone
+          micProcessor = undefined;
           micRaw?.stop();
           micRaw = next.track;
         }
@@ -343,8 +350,8 @@ export const useCall = create<CallState>((set, get) => {
       unsubscribe?.();
       transport = undefined;
       get().local?.getTracks().forEach((t) => t.stop());
-      noiseFilter?.dispose();
-      noiseFilter = undefined;
+      micProcessor?.dispose();
+      micProcessor = undefined;
       micRaw?.stop();
       micRaw = undefined;
       set({ noiseStatus: 'off', phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
@@ -362,7 +369,7 @@ if (typeof navigator !== 'undefined') {
 let nameTimer: ReturnType<typeof setTimeout> | undefined;
 let noiseTimer: ReturnType<typeof setTimeout> | undefined;
 useSettings.subscribe((now, before) => {
-  if (now.noise !== before.noise) {
+  if (now.noise !== before.noise || now.micVolume !== before.micVolume) {
     clearTimeout(noiseTimer);
     noiseTimer = setTimeout(() => void useCall.getState().applyNoise(), 150);
   }

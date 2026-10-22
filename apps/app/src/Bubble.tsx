@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useCall } from './callStore';
+import { useSettings } from './settingsStore';
 
 interface Props {
   name: string;
@@ -18,12 +19,17 @@ interface Props {
 export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, unreachable, route }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const speaker = useCall((s) => s.selected.audiooutput);
+  const speakerVolume = useSettings((s) => s.speakerVolume);
 
   // Other people's audio plays through the chosen speaker where the browser allows choosing one.
   useEffect(() => {
     const video = ref.current as (HTMLVideoElement & { setSinkId?: (id: string) => Promise<void> }) | null;
     if (!muteAudio) void video?.setSinkId?.(speaker).catch(() => {});
   }, [speaker, muteAudio]);
+
+  useEffect(() => {
+    if (ref.current && !muteAudio) ref.current.volume = speakerVolume / 100;
+  }, [speakerVolume, muteAudio, stream]);
 
   useEffect(() => {
     const video = ref.current;

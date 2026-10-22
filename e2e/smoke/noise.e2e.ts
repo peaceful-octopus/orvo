@@ -50,7 +50,7 @@ test('bob keeps receiving a live audio track from ann while the filter runs @smo
 test('the filter really removes steady hiss and key-click bursts @smoke', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    const { createNoiseFilter } = await import('/src/noise.ts');
+    const { createMicProcessor } = await import('/src/noise.ts');
     const rate = 48000;
     const source = (fill: (t: number) => number) => {
       const context = new AudioContext({ sampleRate: rate });
@@ -93,7 +93,7 @@ test('the filter really removes steady hiss and key-click bursts @smoke', async 
     for (const [name, fill] of Object.entries(sounds)) {
       const track = source(fill);
       const before = await rms(track);
-      const filter = await createNoiseFilter(track, 100);
+      const filter = await createMicProcessor(track, { noise: true, level: 100, gain: 100 });
       await new Promise((r) => setTimeout(r, 1500)); // the model needs a moment to settle
       out[name] = { before, after: await rms(filter.track) };
       filter.dispose();

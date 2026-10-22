@@ -1,16 +1,23 @@
-/** Background noise suppression for the microphone, using DeepFilterNet3 (a neural model) in an AudioWorklet. */
+/**
+ * The microphone's path to the call: an optional DeepFilterNet3 background-noise filter (a neural model in an
+ * AudioWorklet) followed by a volume stage.
+ */
 
-export interface NoiseFilter {
-  /** The microphone track this filter reads. */
+export interface MicProcessor {
+  /** The microphone track this reads. */
   source: MediaStreamTrack;
-  /** The cleaned-up audio to send. */
+  /** The processed audio to send. */
   track: MediaStreamTrack;
-  /** 0 to 100. */
+  /** Whether the noise filter is part of this path. */
+  hasNoise: boolean;
+  /** Noise filter strength, 0 to 100. */
   setLevel(level: number): void;
+  /** Microphone volume as a percentage; 100 leaves the level as it is. */
+  setGain(percent: number): void;
   dispose(): void;
 }
 
-/** The filter needs AudioWorklet and WebAssembly; without them the microphone is used as it is. */
+/** The noise filter needs AudioWorklet and WebAssembly; without them the microphone is used as it is. */
 export function noiseSupported(): boolean {
   return typeof AudioWorkletNode !== 'undefined' && typeof WebAssembly !== 'undefined';
 }
@@ -23,34 +30,57 @@ function assetBase(): string {
   return new URL('/noise', location.origin).href;
 }
 
-export async function createNoiseFilter(source: MediaStreamTrack, level: number): Promise<NoiseFilter> {
-  // Loaded on demand: the model is several megabytes and many people will have this turned off.
-  const { DeepFilterNet3Core } = await import('deepfilternet3-noise-filter');
-  const core = new DeepFilterNet3Core({ sampleRate: 48000, noiseReductionLevel: level, assetConfig: { cdnUrl: assetBase() } });
+interface Options {
+  noise: boolean;
+  level: number;
+  gain: number;
+}
+
+export async function createMicProcessor(source: MediaStreamTrack, { noise, level, gain }: Options): Promise<MicProcessor> {
   const context = new AudioContext({ sampleRate: 48000 });
+  let core: { setSuppressionLevel(level: number): void; destroy(): void } | undefined;
   try {
-    await core.initialize();
-    const node = await core.createAudioWorkletNode(context);
     const input = context.createMediaStreamSource(new MediaStream([source]));
+    const volume = context.createGain();
+    volume.gain.value = gain / 100;
     const output = context.createMediaStreamDestination();
-    input.connect(node);
-    node.connect(output);
+    let filter: AudioWorkletNode | undefined;
+
+    if (noise) {
+      // Loaded on demand: the model is several megabytes and many people will have this turned off.
+      const { DeepFilterNet3Core } = await import('deepfilternet3-noise-filter');
+      const loaded = new DeepFilterNet3Core({ sampleRate: 48000, noiseReductionLevel: level, assetConfig: { cdnUrl: assetBase() } });
+      core = loaded;
+      await loaded.initialize();
+      filter = await loaded.createAudioWorkletNode(context);
+      input.connect(filter);
+      filter.connect(volume);
+    } else {
+      input.connect(volume);
+    }
+    volume.connect(output);
     await context.resume();
+
     const track = output.stream.getAudioTracks()[0]!;
     return {
       source,
       track,
-      setLevel: (value) => core.setSuppressionLevel(value),
+      hasNoise: noise,
+      setLevel: (value) => core?.setSuppressionLevel(value),
+      setGain: (percent) => {
+        volume.gain.value = percent / 100;
+      },
       dispose() {
         track.stop();
         input.disconnect();
-        node.disconnect();
-        core.destroy();
+        filter?.disconnect();
+        volume.disconnect();
+        core?.destroy();
         void context.close();
       },
     };
   } catch (err) {
-    core.destroy();
+    core?.destroy();
     void context.close();
     throw err;
   }
