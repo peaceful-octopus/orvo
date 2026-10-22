@@ -37,9 +37,10 @@ test('settings are remembered and the name is used in the lobby @smoke', async (
 });
 
 test('when the noise model cannot load, the call continues with the plain microphone @smoke', async ({ context }) => {
+  await context.route('**/noise/**', (route) => route.abort()); // the model files cannot be fetched
   const room = `e2e-noise-fallback-${Date.now()}`;
   const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
-  await expectAllConnected([ann, bob]); // noise suppression is on by default, and its files are not available here
+  await expectAllConnected([ann, bob]); // noise suppression is on by default
   await expect(ann.getByRole('status').filter({ hasText: 'Noise suppression could not start' })).toBeVisible();
 
   await ann.getByRole('button', { name: 'Settings' }).click();

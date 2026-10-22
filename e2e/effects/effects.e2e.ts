@@ -4,6 +4,13 @@ import { effectPixels, fakeGiphy, solidClip } from './helpers';
 
 // Reactions and GIFs are drawn into the sender's outgoing video, so the proof is what the *other* person sees.
 
+// These tests time short-lived effects, so keep the noise filter's CPU use out of them (it has its own tests).
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() => {
+    localStorage.setItem('chillcall:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
+  });
+});
+
 test('an emoji reaction shows on the sender and, in the video itself, to the other person @effects', async ({ context }) => {
   const room = `e2e-react-${Date.now()}`;
   const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
