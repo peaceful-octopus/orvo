@@ -1,11 +1,4 @@
-export { createBeaconApp, type BeaconOptions } from './app';
-export { loadOrCreateSigningKey, type SigningKey } from './keys';
-export {
-  LEASE_TTL_MS,
-  MemoryPlacementStore,
-  NoNodesError,
-  placeRoom,
-  rendezvousPick,
-  type NodeInfo,
-  type PlacementStore,
-} from './placement';
+export { createBeaconApp, type BeaconOptions, type EntitlementVerifier } from './app';
+export { loadOrCreateSigningKey, signingKeyFromEnv, type SigningKey } from './keys';
+export { turnCredentials, type TurnPool } from './turn';
+export { serveWebApp } from './web';

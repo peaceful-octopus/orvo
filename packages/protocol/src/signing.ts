@@ -46,6 +46,10 @@ export function generateKeyPair(): KeyPair {
   return ed25519.keygen();
 }
 
+export function publicKeyFromSecret(secretKey: Uint8Array): Uint8Array {
+  return ed25519.getPublicKey(secretKey);
+}
+
 export function signValue(value: unknown, secretKey: Uint8Array): string {
   return toBase64Url(ed25519.sign(encoder.encode(canonicalize(value)), secretKey));
 }

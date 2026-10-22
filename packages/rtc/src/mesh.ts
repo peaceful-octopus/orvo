@@ -6,6 +6,7 @@ import {
   type DataMessage,
   type ServerMessage,
 } from '@chillcall/protocol';
+import { requestJoin } from './beacon-session';
 import { backoffDelay } from './backoff';
 import { PeerLink, type SignalPayload } from './peer-link';
 import {
@@ -17,8 +18,8 @@ import {
 } from './transport';
 
 export interface MeshOptions {
-  /** Base URL of the beacon, for example `https://chill.example.com`. */
-  beaconUrl: string;
+  /** Beacon base URLs in preference order, for example `['https://chill.example.com']`; later ones are fallbacks. */
+  beaconUrls: string[];
   clientVersion?: string;
 }
 
@@ -95,24 +96,11 @@ export class MeshTransport implements RoomTransport {
   // --- signaling connection -------------------------------------------------
 
   private async requestSession(): Promise<JoinResponse> {
-    let res: Response;
-    try {
-      res = await fetch(new URL('/v1/rooms/join', this.opts.beaconUrl), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          room: this.room,
-          clientVersion: this.opts.clientVersion ?? '0.0.0',
-          protocol: PROTOCOL_VERSION,
-          resume: this.resumeToken,
-        }),
-      });
-    } catch {
-      throw new JoinError('Could not reach the server.');
-    }
-    if (res.status === 426) throw new UpgradeRequiredError();
-    if (!res.ok) throw new JoinError(res.status === 503 ? 'No server is available right now.' : 'Could not join the room.');
-    const session = JoinResponse.parse(await res.json());
+    const session = await requestJoin(this.opts.beaconUrls, {
+      room: this.room,
+      clientVersion: this.opts.clientVersion ?? '0.0.0',
+      resume: this.resumeToken,
+    });
     this.resumeToken = session.resumeToken;
     return session;
   }

@@ -1,0 +1,11 @@
+{$DOMAIN} {
+	reverse_proxy beacon:8080
+}
+
+n1.{$DOMAIN} {
+	reverse_proxy node-1:9000
+}
+
+n2.{$DOMAIN} {
+	reverse_proxy node-2:9000
+}

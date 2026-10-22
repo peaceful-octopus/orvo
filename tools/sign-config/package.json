@@ -1,0 +1,21 @@
+{
+  "name": "@chillcall/sign-config",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "bin": {
+    "chillcall-sign-config": "src/main.ts"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@chillcall/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@chillcall/testkit": "workspace:*",
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15"
+  }
+}

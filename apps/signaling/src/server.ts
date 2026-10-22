@@ -95,6 +95,11 @@ export class SignalingServer {
     return { connections: this.conns.size, rooms: this.rooms.size, draining: this.isDraining };
   }
 
+  /** Ids of the rooms this node currently hosts, whose leases it must keep alive. */
+  roomIds(): string[] {
+    return [...this.rooms.keys()];
+  }
+
   renderMetrics(): string {
     const { connections, rooms } = this.stats();
     return this.metrics.render({

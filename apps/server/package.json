@@ -10,13 +10,19 @@
   },
   "dependencies": {
     "@chillcall/beacon": "workspace:*",
+    "@chillcall/placement": "workspace:*",
     "@chillcall/protocol": "workspace:*",
     "@chillcall/signaling": "workspace:*",
-    "@fastify/static": "^10.1.6",
-    "fastify": "^5.12.7"
+    "fastify": "^5.12.7",
+    "ioredis": "^6.0.0"
   },
   "devDependencies": {
+    "@chillcall/testkit": "workspace:*",
+    "@types/ioredis-mock": "^8.2.8",
     "@types/node": "^26.6.5",
-    "tsx": "^4.23.15"
+    "@types/ws": "^8.18.2",
+    "ioredis-mock": "^8.13.1",
+    "tsx": "^4.23.15",
+    "ws": "^8.22.0"
   }
 }

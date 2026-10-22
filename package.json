@@ -22,11 +22,16 @@
     "test:e2e:layout": "playwright test --project=layout",
     "test:e2e:scale": "playwright test --project=scale",
     "test:beacon": "vitest run --project beacon",
-    "test:e2e:resilience": "playwright test --project=resilience"
+    "test:e2e:resilience": "playwright test --project=resilience",
+    "test:placement": "vitest run --project placement",
+    "test:integration": "vitest run --project \"int:*\"",
+    "test:sign-config": "vitest run --project sign-config",
+    "test:e2e:fleet": "pnpm --filter @chillcall/app build && cross-env-shell E2E_FLEET=1 playwright test --project=fleet"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
+    "cross-env": "^10.1.0",
     "eslint": "^10.13.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",

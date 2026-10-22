@@ -9,6 +9,7 @@ export const IceServer = z.object({
 export type IceServer = z.infer<typeof IceServer>;
 
 export const Tier = z.enum(['free', 'relay-lite', 'full']);
+export type Tier = z.infer<typeof Tier>;
 
 export const CreateRoomResponse = z.object({ room: z.string() });
 

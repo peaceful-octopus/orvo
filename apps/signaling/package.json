@@ -11,7 +11,9 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@chillcall/placement": "workspace:*",
     "@chillcall/protocol": "workspace:*",
+    "ioredis": "^6.0.0",
     "ws": "^8.22.0"
   },
   "devDependencies": {

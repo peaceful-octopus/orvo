@@ -7,7 +7,7 @@ import {
   type RoomEvent,
 } from '@chillcall/rtc';
 import { create } from 'zustand';
-import { CLIENT_VERSION, getServerUrl } from './config';
+import { CLIENT_VERSION, loadClientConfig } from './config';
 
 export interface Remote {
   id: string;
@@ -106,7 +106,8 @@ export const useCall = create<CallState>((set, get) => {
       const { local } = get();
       if (!local) return;
       set({ phase: 'joining', error: undefined });
-      transport = new MeshTransport({ beaconUrl: getServerUrl(), clientVersion: CLIENT_VERSION });
+      const { config } = await loadClientConfig();
+      transport = new MeshTransport({ beaconUrls: config.beaconUrls, clientVersion: CLIENT_VERSION });
       unsubscribe = transport.on(onEvent);
       try {
         await transport.join(room, name, local);

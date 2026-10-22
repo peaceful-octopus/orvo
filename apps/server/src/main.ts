@@ -1,7 +1,6 @@
-import { createBeaconApp, loadOrCreateSigningKey, MemoryPlacementStore } from '@chillcall/beacon';
+import { createBeaconApp, loadOrCreateSigningKey, serveWebApp } from '@chillcall/beacon';
+import { MemoryPlacementStore } from '@chillcall/placement';
 import { SignalingServer } from '@chillcall/signaling';
-import fastifyStatic from '@fastify/static';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,17 +28,7 @@ app.get('/readyz', async (_req, reply) =>
 );
 app.get('/metrics', async (_req, reply) => reply.type('text/plain').send(signaling.renderMetrics()));
 
-if (fs.existsSync(path.join(webDir, 'index.html'))) {
-  await app.register(fastifyStatic, { root: webDir });
-  // Single-page app: unknown paths such as /r/<room> serve index.html.
-  app.setNotFoundHandler((req, reply) =>
-    req.method === 'GET' && !req.url.startsWith('/v1/')
-      ? reply.sendFile('index.html')
-      : reply.code(404).send({ error: 'Not found.' }),
-  );
-} else {
-  console.warn(`No web app found at ${webDir}; serving the API and signaling only.`);
-}
+if (!(await serveWebApp(app, webDir))) console.warn(`No web app found at ${webDir}; serving the API and signaling only.`);
 
 await app.listen({ port, host: '0.0.0.0' });
 console.log(`ChillCall listening on :${port}`);

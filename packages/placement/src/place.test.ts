@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LEASE_TTL_MS, MemoryPlacementStore, NoNodesError, placeRoom, rendezvousPick, type NodeInfo } from './placement';
+import { MemoryPlacementStore } from './memory';
+import { placeRoom, rendezvousPick } from './place';
+import { LEASE_TTL_MS, NoNodesError, type NodeInfo } from './types';
 
 const node = (id: string, extra: Partial<NodeInfo> = {}): NodeInfo => ({
   id,
@@ -9,6 +11,9 @@ const node = (id: string, extra: Partial<NodeInfo> = {}): NodeInfo => ({
   ...extra,
 });
 const rooms = Array.from({ length: 5000 }, (_, i) => `room-${i}-abcdefgh`);
+
+const withNodes = (nodes: NodeInfo[], store: MemoryPlacementStore) =>
+  Promise.all(nodes.map((n) => store.registerNode(n, Infinity)));
 
 describe('rendezvousPick', () => {
   it('is deterministic', () => {
@@ -58,35 +63,49 @@ describe('rendezvousPick', () => {
 
 describe('placeRoom', () => {
   it('keeps a room on its leased node when nodes are added', async () => {
-    const t = 0;
-    const store = new MemoryPlacementStore([node('a'), node('b')], () => t);
+    const store = new MemoryPlacementStore([], () => 0);
+    await withNodes([node('a'), node('b')], store);
     const placed = new Map<string, string>();
     for (const room of rooms.slice(0, 200)) placed.set(room, (await placeRoom(store, room)).id);
 
-    store.setNodes(['a', 'b', 'c', 'd', 'e', 'f'].map((id) => node(id)));
+    await withNodes(['c', 'd', 'e', 'f'].map((id) => node(id)), store);
     for (const [room, id] of placed) expect((await placeRoom(store, room)).id).toBe(id);
   });
 
-  it('rehashes once the lease expires or its node is gone', async () => {
-    let t = 0;
-    const store = new MemoryPlacementStore([node('a'), node('b')], () => t);
+  it('takes the lease over from a dead owner so later placements agree', async () => {
+    const store = new MemoryPlacementStore([], () => 0);
+    await withNodes([node('a'), node('b')], store);
     const first = (await placeRoom(store, 'room-lease-abc')).id;
+    const other = first === 'a' ? 'b' : 'a';
 
-    store.setNodes([node(first === 'a' ? 'b' : 'a')]);
-    expect((await placeRoom(store, 'room-lease-abc')).id).not.toBe(first);
+    await store.deregisterNode(first);
+    expect((await placeRoom(store, 'room-lease-abc')).id).toBe(other);
+    expect(await store.getLease('room-lease-abc')).toBe(other);
+
+    await withNodes([node(first)], store); // the old node returns; the room stays where it moved
+    expect((await placeRoom(store, 'room-lease-abc')).id).toBe(other);
+  });
+
+  it('rehashes once an unrenewed lease expires', async () => {
+    let t = 0;
+    const store = new MemoryPlacementStore([], () => t);
+    await withNodes([node('a')], store);
+    expect((await placeRoom(store, 'room-expire-abc')).id).toBe('a');
 
     t += LEASE_TTL_MS + 1;
-    store.setNodes([node('z')]);
-    expect((await placeRoom(store, 'room-lease-abc')).id).toBe('z');
+    await store.deregisterNode('a');
+    await withNodes([node('z')], store);
+    expect((await placeRoom(store, 'room-expire-abc')).id).toBe('z');
   });
 
   it('does not place new rooms on draining nodes but keeps leased rooms on them', async () => {
-    const store = new MemoryPlacementStore([node('a'), node('b')]);
+    const store = new MemoryPlacementStore([], () => 0);
+    await withNodes([node('a'), node('b')], store);
     const leased = (await placeRoom(store, 'room-old-abc')).id;
-    store.setNodes([node('a', { draining: true }), node('b', { draining: true })]);
+    await withNodes([node('a', { draining: true }), node('b', { draining: true })], store);
     expect((await placeRoom(store, 'room-old-abc')).id).toBe(leased);
 
-    store.setNodes([node('a', { draining: true }), node('b')]);
+    await withNodes([node('a', { draining: true }), node('b')], store);
     for (const room of rooms.slice(0, 50)) expect((await placeRoom(store, `new-${room}`)).id).toBe('b');
   });
 

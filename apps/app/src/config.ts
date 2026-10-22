@@ -1,3 +1,4 @@
+import { ConfigClient, parseTrustedKeys, type LoadedConfig } from '@chillcall/rtc';
 import { normalizeServerUrl } from './serverUrl';
 
 const STORAGE_KEY = 'chillcall:server';
@@ -33,4 +34,33 @@ export function setServerUrl(input: string): boolean {
     return false;
   }
   return true;
+}
+
+let loading: Promise<LoadedConfig> | undefined;
+let loadedFor: string | undefined;
+
+/**
+ * The signed client config, loaded once per server address: verified, cached for offline starts, and
+ * carrying fallback beacon addresses so servers can move without an app update. Public keys embedded at
+ * build time (`VITE_TRUSTED_KEYS`) pin a CDN-served config; without them the server's own HTTPS origin is trusted.
+ */
+export function loadClientConfig(): Promise<LoadedConfig> {
+  const server = getServerUrl();
+  if (!loading || loadedFor !== server) {
+    loadedFor = server;
+    loading = new ConfigClient({
+      beaconUrls: [server],
+      trustedKeys: parseTrustedKeys(import.meta.env.VITE_TRUSTED_KEYS),
+      storage: safeStorage(),
+    }).load();
+  }
+  return loading;
+}
+
+function safeStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
 }

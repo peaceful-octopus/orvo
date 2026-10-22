@@ -10,5 +10,8 @@
   },
   "dependencies": {
     "@chillcall/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@chillcall/testkit": "workspace:*"
   }
 }

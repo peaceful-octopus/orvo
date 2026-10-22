@@ -1,8 +1,9 @@
 import { JoinResponse, fromBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@chillcall/protocol';
 import { FakeClock, testKeys } from '@chillcall/testkit';
+import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBeaconApp, type BeaconOptions } from './app';
-import { MemoryPlacementStore } from './placement';
+import { MemoryPlacementStore } from '@chillcall/placement';
 
 const key = testKeys('beacon-1');
 const clock = new FakeClock();
@@ -111,5 +112,85 @@ describe('rate limiting', () => {
     const codes = [];
     for (let i = 0; i < 5; i++) codes.push((await join({ room: 'cozy-room-abc123' })).statusCode);
     expect(codes).toEqual([200, 200, 200, 429, 429]);
+  });
+});
+
+describe('tiers and TURN', () => {
+  const turn = {
+    full: { urls: ['turn:turn.example.com:3478'], secret: 'full-secret' },
+    'relay-lite': { urls: ['turn:lite.example.com:3478'], secret: 'lite-secret' },
+  };
+  const entitlements = async (token: string) => (token === 'paid' ? 'full' : token === 'lite' ? 'relay-lite' : undefined) as 'full' | 'relay-lite' | undefined;
+  const turnServers = (body: JoinResponse) => body.iceServers.filter((s) => s.username);
+
+  it('gives free rooms STUN only, even when TURN is configured', async () => {
+    await start({ turn, entitlements });
+    const body = (await join({ room: 'cozy-room-abc123' })).json() as JoinResponse;
+    expect(body.tier).toBe('free');
+    expect(body.iceServers).toEqual([{ urls: ['stun:stun.example.com:3478'] }]);
+  });
+
+  it('ignores entitlement tokens that do not verify or when no verifier exists', async () => {
+    await start({ turn, entitlements });
+    const bogus = (await join({ room: 'cozy-room-abc123', entitlement: 'nonsense' })).json() as JoinResponse;
+    expect(bogus.tier).toBe('free');
+    expect(turnServers(bogus)).toEqual([]);
+
+    await app.close();
+    await start({ turn });
+    const noVerifier = (await join({ room: 'cozy-room-abc123', entitlement: 'paid' })).json() as JoinResponse;
+    expect(noVerifier.tier).toBe('free');
+  });
+
+  it('issues time-limited TURN credentials for the entitled tier', async () => {
+    await start({ turn, entitlements });
+    const body = (await join({ room: 'cozy-room-abc123', entitlement: 'paid' })).json() as JoinResponse;
+    expect(body.tier).toBe('full');
+    const [server] = turnServers(body);
+    expect(server!.urls).toEqual(turn.full.urls);
+    expect(server!.username).toBe(`${Math.floor(clock.now / 1000) + 3600}:${body.peerId}`);
+    expect(server!.credential).toBe(createHmac('sha1', 'full-secret').update(server!.username!).digest('base64'));
+  });
+
+  it('uses the capped pool for relay-lite', async () => {
+    await start({ turn, entitlements });
+    const body = (await join({ room: 'cozy-room-abc123', entitlement: 'lite' })).json() as JoinResponse;
+    expect(body.tier).toBe('relay-lite');
+    expect(turnServers(body)[0]!.urls).toEqual(turn['relay-lite'].urls);
+  });
+
+  it('extends an owner entitlement to everyone who joins the room, and only that room', async () => {
+    await start({ turn, entitlements });
+    await join({ room: 'cozy-room-abc123', entitlement: 'paid' });
+
+    const guest = (await join({ room: 'cozy-room-abc123' })).json() as JoinResponse;
+    expect(guest.tier).toBe('full');
+    expect(turnServers(guest)).toHaveLength(1);
+    expect(guest.iceServers.find((s) => s.username)!.username).toContain(guest.peerId);
+
+    const other = (await join({ room: 'another-room-xyz' })).json() as JoinResponse;
+    expect(other.tier).toBe('free');
+  });
+
+  it('never downgrades a room that already has a better tier', async () => {
+    await start({ turn, entitlements });
+    await join({ room: 'cozy-room-abc123', entitlement: 'paid' });
+    const again = (await join({ room: 'cozy-room-abc123', entitlement: 'lite' })).json() as JoinResponse;
+    expect(again.tier).toBe('full');
+  });
+
+  it('falls back to STUN when the tier has no pool configured', async () => {
+    await start({ turn: { full: turn.full }, entitlements });
+    const body = (await join({ room: 'cozy-room-abc123', entitlement: 'lite' })).json() as JoinResponse;
+    expect(body.tier).toBe('relay-lite');
+    expect(turnServers(body)).toEqual([]);
+  });
+});
+
+describe('static config', () => {
+  it('serves a pre-signed config unchanged', async () => {
+    const signed = { kid: 'x', payload: { hello: 'world' }, sig: 'abc' };
+    await start({ staticConfig: signed });
+    expect((await app.inject({ method: 'GET', url: '/v1/config' })).json()).toEqual(signed);
   });
 });
