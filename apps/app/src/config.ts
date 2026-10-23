@@ -55,9 +55,15 @@ export function setTelemetryAllowed(allowed: boolean) {
   }
 }
 
-/** The Giphy Web SDK key: the one the server publishes, else one baked in at build time. Without it GIFs are off. */
+/**
+ * The Giphy Web SDK key: the one the server publishes in its signed config. While developing, a key in
+ * `apps/app/.env.local` (`VITE_GIPHY_API_KEY`) is used as well. Release builds never carry a key: `import.meta.env.DEV`
+ * is false there, so the build drops that branch, and `vite.config.ts` fails the build if a key still turns up in the
+ * output. Without a key GIFs are off.
+ */
 export function giphyApiKey(config: { integrations?: { giphyApiKey?: string } }): string | undefined {
-  return config.integrations?.giphyApiKey || import.meta.env.VITE_GIPHY_API_KEY || undefined;
+  const developmentKey = import.meta.env.DEV ? import.meta.env.VITE_GIPHY_API_KEY : undefined;
+  return config.integrations?.giphyApiKey || developmentKey || undefined;
 }
 
 let loading: Promise<LoadedConfig> | undefined;
