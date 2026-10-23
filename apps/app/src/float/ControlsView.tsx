@@ -26,7 +26,7 @@ const HIDE_DELAY_MS = 300;
 /** Tallest the device menu's window grows; longer lists scroll. */
 const MENU_MAX = 420;
 /** Height of the filters panel: three rows of swatches and two switches. */
-const FILTERS_HEIGHT = 330;
+const FILTERS_HEIGHT = 270;
 /** Room for one message under the controls. */
 const TOAST_HEIGHT = 56;
 /** Space between the bubble window and the controls, in logical pixels. */

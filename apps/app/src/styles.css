@@ -693,17 +693,17 @@ button.chevron {
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.35rem;
+  gap: 0.15rem;
 }
 
 .filter-grid button {
   display: grid;
   justify-items: center;
-  gap: 0.3rem;
-  padding: 0.5rem 0.25rem;
+  gap: 0.15rem;
+  padding: 0.25rem 0.2rem;
   border: 1px solid transparent;
   background: transparent;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .filter-grid button:not(:disabled):hover {
@@ -716,16 +716,16 @@ button.chevron {
 }
 
 .filter-grid .swatch {
-  width: 2rem;
-  height: 2rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
   background: var(--raised);
 }
 
 .filter-toggles {
-  margin-top: 0.4rem;
-  padding-top: 0.4rem;
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
   border-top: 1px solid var(--border);
 }
 
@@ -733,11 +733,11 @@ button.chevron {
   display: flex;
   gap: 0.4rem;
   width: 100%;
-  padding: 0.4rem 0.6rem;
+  padding: 0.25rem 0.6rem;
   border: none;
   background: transparent;
   text-align: left;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .filter-toggles button:not(:disabled):hover {
