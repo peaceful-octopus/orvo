@@ -58,6 +58,7 @@ export class MeshTransport implements RoomTransport {
   private connectStarted = new Map<string, number>();
   private reportedPeers = new Set<string>();
   private lastSent = new Map<string, DataMessage>();
+  private screen?: MediaStream;
   private outbox: string[] = [];
 
   private socket?: WebSocket;
@@ -114,6 +115,12 @@ export class MeshTransport implements RoomTransport {
       // A peer we send no video to keeps seeing our camera as off, whatever we toggle.
       link.send(message.kind === 'state' && this.pausedVideo.has(id) ? { ...message, video: false } : message);
     }
+  }
+
+  /** Shares a screen with everyone in the room (and with people who join later), or stops sharing with undefined. */
+  setScreenStream(screen: MediaStream | undefined): void {
+    this.screen = screen;
+    for (const link of this.links.values()) link.setScreen(screen);
   }
 
   async replaceLocalStream(local: MediaStream): Promise<void> {
@@ -311,6 +318,7 @@ export class MeshTransport implements RoomTransport {
       },
       initiator,
     );
+    link.setScreen(this.screen);
     this.links.set(id, link);
     this.connectStarted.set(id, Date.now());
     return link;

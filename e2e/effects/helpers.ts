@@ -146,3 +146,25 @@ export async function saturation(page: Page, which: number): Promise<number> {
     return n ? total / n : 0;
   });
 }
+
+/** How much fine detail one of the call's videos has: the average change between neighbouring pixels. Blur lowers it. */
+export async function sharpness(page: Page, which: number): Promise<number> {
+  return page.locator('.bubble video').nth(which).evaluate((video) => {
+    const c = document.createElement('canvas');
+    c.width = 160;
+    c.height = 120;
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(video as HTMLVideoElement, 0, 0, 160, 120);
+    const { data } = ctx.getImageData(0, 0, 160, 120);
+    let total = 0;
+    let n = 0;
+    for (let y = 0; y < 120; y++) {
+      for (let x = 1; x < 160; x++) {
+        const i = (y * 160 + x) * 4;
+        total += Math.abs(data[i + 1]! - data[i - 3]!) + Math.abs(data[i]! - data[i - 4]!);
+        n++;
+      }
+    }
+    return total / n;
+  });
+}

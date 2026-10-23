@@ -1,7 +1,9 @@
 import { drawFiltered, type MoodFilter } from './filters';
+import { fullFrame, stepCrop, targetCrop, type Crop } from './framing';
 import type { GifMode, GifSource } from './gif-source';
 import { coverRect, fillAlpha, stickerPlacement } from './layout';
 import { anyAlive, particleState, spawnReaction, type Particle } from './particles';
+import { PLAIN_LOOK, type CameraLook, type VisionProvider } from './vision';
 
 export const DEFAULT_GIF_MS = 6000;
 const IDLE_TAIL_MS = 300;
@@ -17,6 +19,8 @@ export interface CompositorLike {
   ready(): Promise<void>;
   /** The look applied to the camera; undefined for none. */
   setFilter(filter: MoodFilter | undefined): void;
+  /** Background blur and keeping you in frame. */
+  setLook(look: CameraLook): void;
   /** Removes any reactions and GIFs at once. */
   clearEffects(): void;
   react(emoji: string): void;
@@ -84,10 +88,17 @@ export class Compositor implements CompositorLike {
   private idleCallbacks: (() => void)[] = [];
   private disposed = false;
   private filter?: MoodFilter;
+  private look: CameraLook = PLAIN_LOOK;
+  /** Where the camera picture is cropped to keep you in frame, and when it last moved. */
+  private crop?: Crop;
+  private cropAt = 0;
+  /** Working canvases for blur and framing: the composed camera picture, and you cut out of it. */
+  private stage = document.createElement('canvas');
+  private cutout = document.createElement('canvas');
 
   constructor(
     private camera: MediaStream,
-    private opts: { fps?: number; now?: () => number; random?: () => number } = {},
+    private opts: { fps?: number; now?: () => number; random?: () => number; vision?: VisionProvider } = {},
   ) {
     const settings = camera.getVideoTracks()[0]?.getSettings();
     this.canvas.width = settings?.width ?? 640;
@@ -125,6 +136,11 @@ export class Compositor implements CompositorLike {
 
   setFilter(filter: MoodFilter | undefined) {
     this.filter = filter;
+  }
+
+  setLook(look: CameraLook) {
+    this.look = look;
+    if (!look.autoFrame) this.crop = undefined;
   }
 
   clearEffects() {
@@ -173,6 +189,65 @@ export class Compositor implements CompositorLike {
     this.canvasTrack.stop();
   }
 
+  /**
+   * The camera picture with the chosen look: cropped to keep a face in frame, and with the background blurred
+   * around a cut-out of the person. Returns undefined when the look is plain, or its models are not ready yet, so
+   * the unprocessed camera is shown instead of a half-finished picture.
+   */
+  private composeCamera(now: number): CanvasImageSource | undefined {
+    const { vision } = this.opts;
+    const { blurBackground, autoFrame } = this.look;
+    const video = this.cameraVideo;
+    if (!vision || (!blurBackground && !autoFrame)) return undefined;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const { width: W, height: H } = this.canvas;
+    let crop = fullFrame(vw, vh);
+    if (autoFrame) {
+      const face = vision.detectFace(video, now);
+      const dt = this.cropAt ? now - this.cropAt : 0;
+      this.crop = stepCrop(this.crop ?? crop, targetCrop(face, vw, vh), dt);
+      this.cropAt = now;
+      crop = this.crop;
+    } else {
+      this.crop = undefined;
+    }
+
+    const mask = blurBackground ? vision.segment(video, now) : undefined;
+    if (blurBackground && !mask && !autoFrame) return undefined;
+
+    for (const c of [this.stage, this.cutout]) {
+      if (c.width !== W || c.height !== H) {
+        c.width = W;
+        c.height = H;
+      }
+    }
+    const stage = this.stage.getContext('2d')!;
+    if (!mask) {
+      stage.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
+      return this.stage;
+    }
+
+    // You, cut out of the picture with the mask.
+    const person = this.cutout.getContext('2d')!;
+    person.globalCompositeOperation = 'source-over';
+    person.clearRect(0, 0, W, H);
+    person.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
+    person.globalCompositeOperation = 'destination-in';
+    const sx = mask.width / vw;
+    const sy = mask.height / vh;
+    person.drawImage(mask.source, crop.x * sx, crop.y * sy, crop.w * sx, crop.h * sy, 0, 0, W, H);
+    person.globalCompositeOperation = 'source-over';
+
+    // The blurred picture behind, then you on top.
+    stage.filter = `blur(${Math.max(4, Math.round(W / 45))}px)`;
+    stage.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
+    stage.filter = 'none';
+    stage.drawImage(this.cutout, 0, 0);
+    return this.stage;
+  }
+
   private releaseGif() {
     if (!this.gif) return;
     this.gif.video.pause();
@@ -189,7 +264,9 @@ export class Compositor implements CompositorLike {
 
     if (this.cameraVideo.readyState >= 2 && this.cameraVideo.videoWidth) {
       const r = coverRect(this.cameraVideo.videoWidth, this.cameraVideo.videoHeight, W, H);
-      drawFiltered(ctx, this.filter, W, H, () => ctx.drawImage(this.cameraVideo, r.x, r.y, r.w, r.h));
+      const composed = this.composeCamera(now);
+      if (composed) drawFiltered(ctx, this.filter, W, H, () => ctx.drawImage(composed, 0, 0, W, H));
+      else drawFiltered(ctx, this.filter, W, H, () => ctx.drawImage(this.cameraVideo, r.x, r.y, r.w, r.h));
     } else {
       ctx.fillStyle = '#231f38';
       ctx.fillRect(0, 0, W, H);

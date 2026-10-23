@@ -1,4 +1,4 @@
-import { ChevronIcon, ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, SparklesIcon, VideoIcon, VideoOffIcon } from './icons';
+import { ChevronIcon, ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, ScreenShareIcon, ScreenShareOffIcon, SparklesIcon, VideoIcon, VideoOffIcon } from './icons';
 
 import type { MenuKind } from '../DeviceMenu';
 
@@ -20,10 +20,13 @@ interface Props {
   /** Present when the filter picker can be shown; adds a filters button. */
   onFilters?: () => void;
   filterOn?: boolean;
+  /** Present when this system can share a screen. */
+  onShare?: () => void;
+  sharing?: boolean;
 }
 
 /** The floating view's control strip: icon buttons plus quick reactions. */
-export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif, onDeviceMenu, openMenu, onFilters, filterOn }: Props) {
+export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif, onDeviceMenu, openMenu, onFilters, filterOn, onShare, sharing }: Props) {
   const chevron = (menu: MenuKind, label: string) => (
     <button className="chevron" aria-label={label} aria-haspopup="menu" aria-expanded={openMenu === menu} title={label} onClick={() => onDeviceMenu?.(menu)}>
       <ChevronIcon />
@@ -53,6 +56,11 @@ export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onR
       {onFilters && (
         <button className={`icon${filterOn ? ' on' : ''}`} aria-label="Filters" aria-haspopup="menu" aria-expanded={openMenu === 'filters'} title="Filters" onClick={onFilters}>
           <SparklesIcon />
+        </button>
+      )}
+      {onShare && (
+        <button className={`icon${sharing ? ' on' : ''}`} aria-label={sharing ? 'Stop sharing' : 'Share screen'} title={sharing ? 'Stop sharing your screen' : 'Share your screen'} onClick={onShare}>
+          {sharing ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
         </button>
       )}
       {onGif && (

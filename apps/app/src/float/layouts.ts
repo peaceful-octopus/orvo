@@ -88,3 +88,34 @@ export function bubbleForWindow(mode: LayoutMode, count: number, size: Bounds): 
   const d = layout(mode, count, inner, UNCAPPED).size;
   return Math.round(Math.min(MAX_FLOAT_BUBBLE, Math.max(MIN_FLOAT_BUBBLE, d)));
 }
+
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Share of the window given to shared screens; the rest holds the bubbles. */
+const SCREEN_SHARE = 0.74;
+
+/**
+ * Divides a window between shared screens and the bubbles. Screens get the larger part: the left side of a wide
+ * window (bubbles in a column on the right) or the top of a tall one (bubbles in a row below). Several screens share
+ * their part equally.
+ */
+export function splitForScreens(bounds: Bounds, screens: number): { screens: Rect[]; bubbles: Rect; direction: 'row' | 'column' } {
+  if (screens <= 0) return { screens: [], bubbles: { x: 0, y: 0, w: bounds.w, h: bounds.h }, direction: 'row' };
+  const wide = bounds.w >= bounds.h * 1.15;
+  const area: Rect = wide ? { x: 0, y: 0, w: bounds.w * SCREEN_SHARE, h: bounds.h } : { x: 0, y: 0, w: bounds.w, h: bounds.h * SCREEN_SHARE };
+  const bubbles: Rect = wide
+    ? { x: area.w, y: 0, w: bounds.w - area.w, h: bounds.h }
+    : { x: 0, y: area.h, w: bounds.w, h: bounds.h - area.h };
+  const alongWidth = area.w >= area.h;
+  const tiles = Array.from({ length: screens }, (_, i) =>
+    alongWidth
+      ? { x: area.x + (area.w / screens) * i, y: area.y, w: area.w / screens, h: area.h }
+      : { x: area.x, y: area.y + (area.h / screens) * i, w: area.w, h: area.h / screens },
+  );
+  return { screens: tiles, bubbles, direction: wide ? 'column' : 'row' };
+}

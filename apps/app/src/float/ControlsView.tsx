@@ -2,7 +2,7 @@ import type { GifMode, GifSource } from '@chillcall/effects';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { DeviceMenuPanel, menuRows, type MenuKind } from '../DeviceMenu';
 import { noDevices, noSelection } from '../devices';
-import { FilterPanel } from '../FilterMenu';
+import { FilterPanel, lookIsOn } from '../FilterMenu';
 import { ControlButtons } from './ControlButtons';
 import {
   EVT_ACTION,
@@ -22,8 +22,8 @@ const PICKER = { w: 480, h: 560 };
 const HIDE_DELAY_MS = 300;
 /** Tallest the device menu's window grows; longer lists scroll. */
 const MENU_MAX = 420;
-/** Height of the filters panel: three rows of swatches. */
-const FILTERS_HEIGHT = 230;
+/** Height of the filters panel: three rows of swatches and two switches. */
+const FILTERS_HEIGHT = 330;
 /** Space between the bubble window and the controls, in logical pixels. */
 const GAP = 4;
 
@@ -36,6 +36,10 @@ export function ControlsView() {
     selected: noSelection(),
     canSelectOutput: false,
     filter: 'none',
+    blurBackground: false,
+    autoFrame: false,
+    sharing: false,
+    canShare: false,
   });
   const [mainHover, setMainHover] = useState(false);
   const [selfHover, setSelfHover] = useState(false);
@@ -175,9 +179,17 @@ export function ControlsView() {
         onDeviceMenu={toggleMenu}
         openMenu={menu}
         onFilters={() => toggleMenu('filters')}
-        filterOn={state.filter !== 'none'}
+        filterOn={lookIsOn(state)}
+        onShare={state.canShare ? () => void act({ type: 'share' }) : undefined}
+        sharing={state.sharing}
       />
-      {menu === 'filters' && <FilterPanel selected={state.filter} onSelect={(id) => void act({ type: 'filter', id })} />}
+      {menu === 'filters' && (
+        <FilterPanel
+          look={state}
+          onFilter={(id) => void act({ type: 'filter', id })}
+          onToggle={(which, on) => void act({ type: 'look', which, on })}
+        />
+      )}
       {menu && menu !== 'filters' && (
         <DeviceMenuPanel
           menu={menu}

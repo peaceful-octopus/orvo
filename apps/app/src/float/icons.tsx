@@ -8,6 +8,8 @@ import {
   MicOff,
   PanelTop,
   PictureInPicture2,
+  ScreenShare,
+  ScreenShareOff,
   Settings,
   Sparkles,
   Video,
@@ -29,6 +31,8 @@ export const ChevronIcon = () => <ChevronDown size={14} strokeWidth={3} aria-hid
 export const GearIcon = () => <Settings size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LinkIcon = () => <Link size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const CheckIcon = () => <Check size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const ScreenShareIcon = () => <ScreenShare size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const ScreenShareOffIcon = () => <ScreenShareOff size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const SparklesIcon = () => <Sparkles size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const FloatIcon = () => <PictureInPicture2 size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const DockIcon = () => <PanelTop size={SIZE} strokeWidth={STROKE} aria-hidden />;

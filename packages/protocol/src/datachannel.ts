@@ -11,7 +11,13 @@ const stateMessage = z.object({ kind: z.literal('state'), audio: z.boolean(), vi
 /** A participant changed their display name during the call. */
 const nameMessage = z.object({ kind: z.literal('name'), name: z.string().trim().min(1).max(MAX_NAME_LENGTH) });
 
-export type DataMessage = { kind: 'state'; audio: boolean; video: boolean } | { kind: 'name'; name: string };
+/** Which of the sender's media streams is a shared screen (the others are the camera), or null when sharing stopped. */
+const screenMessage = z.object({ kind: z.literal('screen'), streamId: z.string().min(1).max(200).nullable() });
+
+export type DataMessage =
+  | { kind: 'state'; audio: boolean; video: boolean }
+  | { kind: 'name'; name: string }
+  | { kind: 'screen'; streamId: string | null };
 
 export function encodeDataMessage(message: DataMessage): string {
   return JSON.stringify({ v: DATA_VERSION, ...message });
@@ -32,6 +38,6 @@ export function parseDataMessage(raw: unknown): DataMessage | null {
   }
   const head = envelope.safeParse(value);
   if (!head.success || head.data.v > DATA_VERSION) return null;
-  const message = z.union([stateMessage, nameMessage]).safeParse(value);
+  const message = z.union([stateMessage, nameMessage, screenMessage]).safeParse(value);
   return message.success ? message.data : null;
 }

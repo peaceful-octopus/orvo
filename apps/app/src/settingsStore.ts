@@ -20,6 +20,10 @@ export interface Settings {
   mode: ModePreference;
   /** The look applied to your camera; 'none' for the plain picture. */
   moodFilter: string;
+  /** Blur what is behind you. */
+  blurBackground: boolean;
+  /** Zoom and follow so your face stays in frame. */
+  autoFrame: boolean;
   /** Microphone volume as a percentage of the original level; above 100 amplifies. */
   micVolume: number;
   /** Volume of other people, 0 to 100. */
@@ -33,6 +37,8 @@ interface SettingsState extends Settings {
   setPalette(palette: string): void;
   setMode(mode: ModePreference): void;
   setMoodFilter(id: string): void;
+  setBlurBackground(on: boolean): void;
+  setAutoFrame(on: boolean): void;
   setMicVolume(percent: number): void;
   setSpeakerVolume(percent: number): void;
 }
@@ -58,6 +64,8 @@ export const useSettings = create<SettingsState>()(
       palette: DEFAULT_PALETTE,
       mode: 'system',
       moodFilter: 'none',
+      blurBackground: false,
+      autoFrame: false,
       micVolume: 100,
       speakerVolume: 100,
       setName: (name) => set({ name }),
@@ -66,6 +74,8 @@ export const useSettings = create<SettingsState>()(
       setPalette: (palette) => set({ palette }),
       setMode: (mode) => set({ mode }),
       setMoodFilter: (moodFilter) => set({ moodFilter }),
+      setBlurBackground: (blurBackground) => set({ blurBackground }),
+      setAutoFrame: (autoFrame) => set({ autoFrame }),
       setMicVolume: (micVolume) => set({ micVolume }),
       setSpeakerVolume: (speakerVolume) => set({ speakerVolume }),
     }),

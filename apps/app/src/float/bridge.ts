@@ -16,8 +16,13 @@ export interface ControlsState {
   devices: DeviceLists;
   selected: DeviceSelection;
   canSelectOutput: boolean;
-  /** The chosen mood filter. */
+  /** The chosen mood filter, and whether background blur and framing are on. */
   filter: string;
+  blurBackground: boolean;
+  autoFrame: boolean;
+  /** Whether you are sharing your screen, and whether this system can. */
+  sharing: boolean;
+  canShare: boolean;
 }
 
 export type ControlAction =
@@ -28,6 +33,8 @@ export type ControlAction =
   | { type: 'expand' }
   | { type: 'device'; kind: DeviceKind; id: string }
   | { type: 'filter'; id: string }
+  | { type: 'share' }
+  | { type: 'look'; which: 'blurBackground' | 'autoFrame'; on: boolean }
   | { type: 'leave' };
 
 export interface Rect {

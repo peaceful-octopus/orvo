@@ -29,6 +29,8 @@ export interface RoomTransport {
   leave(): void;
   send(message: DataMessage): void;
   replaceLocalStream(local: MediaStream): Promise<void>;
+  /** Shares a screen alongside the camera; undefined stops sharing. */
+  setScreenStream(screen: MediaStream | undefined): void;
   on(handler: (event: RoomEvent) => void): () => void;
 }
 

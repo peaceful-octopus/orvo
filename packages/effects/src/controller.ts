@@ -1,4 +1,5 @@
 import { Compositor, type CompositorLike } from './compositor';
+import { PLAIN_LOOK, type CameraLook, type VisionProvider } from './vision';
 import { findFilter, type MoodFilter } from './filters';
 import type { GifMode, GifSource } from './gif-source';
 
@@ -11,6 +12,8 @@ export interface EffectsControllerOptions {
    */
   setStream: (stream: MediaStream) => void;
   create?: (camera: MediaStream) => CompositorLike;
+  /** Face detection and person segmentation, for background blur and framing. Disposed with the controller. */
+  vision?: VisionProvider;
   now?: () => number;
   /** Shortest time between two reactions from one person, so holding a button does not flood the call. */
   minReactionGapMs?: number;
@@ -26,6 +29,7 @@ export class EffectsController {
   private lastReactionAt = -Infinity;
   private disposed = false;
   private filter?: MoodFilter;
+  private look: CameraLook = PLAIN_LOOK;
 
   constructor(private opts: EffectsControllerOptions) {}
 
@@ -51,31 +55,49 @@ export class EffectsController {
   }
 
   /** Applies a mood filter to the camera (by id), or removes it with undefined or an unknown id. */
-  async setFilter(id: string | undefined): Promise<void> {
+  setFilter(id: string | undefined): Promise<void> {
     this.filter = findFilter(id);
+    return this.apply();
+  }
+
+  /** Turns background blur and keeping you in frame on or off. */
+  setLook(look: CameraLook): Promise<void> {
+    this.look = look;
+    return this.apply();
+  }
+
+  /** True when there is no filter and no blur or framing, so the plain camera can be sent. */
+  private get plain() {
+    return !this.filter && !this.look.blurBackground && !this.look.autoFrame;
+  }
+
+  private async apply(): Promise<void> {
     if (this.disposed) return;
-    if (this.filter) {
-      (await this.ensure()).setFilter(this.filter);
+    if (!this.plain) {
+      const compositor = await this.ensure();
+      compositor.setFilter(this.filter);
+      compositor.setLook(this.look);
       return;
     }
     const compositor = this.compositor;
     if (!compositor) return;
     compositor.setFilter(undefined);
-    // With no filter the compositor is only needed while an effect is still showing.
+    compositor.setLook(PLAIN_LOOK);
+    // With nothing applied the compositor is only needed while an effect is still showing.
     if (compositor.busy) compositor.onIdle(() => this.finishIfPlain());
     else this.finish();
   }
 
-  /** Ends any running effects at once. The camera is restored unless a mood filter is still applied. */
+  /** Ends any running effects at once. The camera is restored unless a filter, blur or framing is still on. */
   end() {
-    if (this.filter && this.compositor) this.compositor.clearEffects();
+    if (!this.plain && this.compositor) this.compositor.clearEffects();
     else this.finish();
   }
 
-  /** Call after the camera changes: a running filter is redrawn from the new camera, anything else is dropped. */
+  /** Call after the camera changes: a running look is redrawn from the new camera, anything else is dropped. */
   async restart(): Promise<void> {
     const compositor = this.compositor;
-    if (!this.filter || !compositor) return this.end();
+    if (this.plain || !compositor) return this.end();
     this.compositor = undefined;
     compositor.dispose();
     await this.ensure();
@@ -85,6 +107,7 @@ export class EffectsController {
   dispose() {
     this.disposed = true;
     this.finish();
+    this.opts.vision?.dispose();
   }
 
   private ensure(): Promise<CompositorLike> {
@@ -97,7 +120,7 @@ export class EffectsController {
   private async start(): Promise<CompositorLike> {
     const camera = this.opts.camera();
     if (!camera) throw new Error('There is no camera to put effects on.');
-    const compositor = (this.opts.create ?? ((c) => new Compositor(c)))(camera);
+    const compositor = (this.opts.create ?? ((c) => new Compositor(c, { vision: this.opts.vision })))(camera);
     await compositor.ready();
     if (this.disposed) {
       compositor.dispose();
@@ -105,13 +128,14 @@ export class EffectsController {
     }
     this.compositor = compositor;
     compositor.setFilter(this.filter);
+    compositor.setLook(this.look);
     compositor.onIdle(() => this.finishIfPlain());
     this.opts.setStream(compositor.output);
     return compositor;
   }
 
   private finishIfPlain() {
-    if (!this.filter) this.finish();
+    if (this.plain) this.finish();
   }
 
   private finish() {

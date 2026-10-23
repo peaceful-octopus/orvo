@@ -1,7 +1,8 @@
 import { motion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 import { Bubble } from '../Bubble';
-import { layout, type LayoutMode } from './layouts';
+import { layout, splitForScreens, type LayoutMode } from './layouts';
+import { ScreenTile } from './ScreenTile';
 import { useSize } from './useSize';
 
 export interface Member {
@@ -15,9 +16,19 @@ export interface Member {
   route?: string;
 }
 
+export interface ScreenShare {
+  id: string;
+  name: string;
+  stream?: MediaStream;
+  self?: boolean;
+}
+
 interface Props {
   members: Member[];
   mode: LayoutMode;
+  /** Shared screens; they take most of the window and the bubbles move aside. */
+  screens?: ScreenShare[];
+  onStopSharing?: () => void;
   /** Largest bubble diameter; omit for the default cap. */
   maxSize?: number;
 }
@@ -25,9 +36,12 @@ interface Props {
 const spring = { type: 'spring', stiffness: 220, damping: 26 } as const;
 
 /** Lays out circular bubbles in a row, column or ring, animating between arrangements. */
-export function BubbleField({ members, mode, maxSize }: Props) {
+export function BubbleField({ members, mode, maxSize, screens = [], onStopSharing }: Props) {
   const [ref, bounds] = useSize<HTMLDivElement>();
-  const { size, positions } = layout(mode, members.length, bounds, maxSize);
+  const split = splitForScreens(bounds, screens.length);
+  // Beside a screen the bubbles line up in a column or row, whatever layout is chosen.
+  const bubbleMode = screens.length ? split.direction : mode;
+  const { size, positions } = layout(bubbleMode, members.length, { w: split.bubbles.w, h: split.bubbles.h }, maxSize);
 
   // Whoever is here when the field first appears is simply there; people who arrive later pop in.
   const known = useRef<Set<string> | null>(null);
@@ -39,8 +53,9 @@ export function BubbleField({ members, mode, maxSize }: Props) {
   return (
     <div ref={ref} className="field">
       {members.map((m, i) => {
-        const p = positions[i];
-        if (!p) return null;
+        const at = positions[i];
+        if (!at) return null;
+        const p = { x: at.x + split.bubbles.x, y: at.y + split.bubbles.y };
         return (
           <motion.div
             key={m.id}
@@ -59,6 +74,22 @@ export function BubbleField({ members, mode, maxSize }: Props) {
               mirrored={m.self}
               muteAudio={m.self}
             />
+          </motion.div>
+        );
+      })}
+      {screens.map((screen, i) => {
+        const r = split.screens[i];
+        if (!r) return null;
+        const pad = 6;
+        return (
+          <motion.div
+            key={screen.id}
+            className="slot"
+            initial={false}
+            animate={{ x: r.x + pad, y: r.y + pad, width: Math.max(r.w - pad * 2, 0), height: Math.max(r.h - pad * 2, 0) }}
+            transition={spring}
+          >
+            <ScreenTile name={screen.name} stream={screen.stream} self={screen.self} onStop={onStopSharing} />
           </motion.div>
         );
       })}

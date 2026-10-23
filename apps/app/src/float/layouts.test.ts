@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LAYOUT_MODES, MAX_BUBBLE, UNCAPPED, bubbleForWindow, floatWindowSize, layout } from './layouts';
+import { LAYOUT_MODES, MAX_BUBBLE, UNCAPPED, bubbleForWindow, floatWindowSize, layout, splitForScreens } from './layouts';
 
 const bounds = { w: 800, h: 500 };
 const EPS = 1e-6;
@@ -108,5 +108,36 @@ describe('remembered float size', () => {
   it('clamps absurd sizes', () => {
     expect(bubbleForWindow('row', 1, { w: 10, h: 10 })).toBe(48);
     expect(bubbleForWindow('row', 1, { w: 9000, h: 9000 })).toBe(800);
+  });
+});
+
+describe('splitForScreens', () => {
+  it('gives the whole window to the bubbles when nothing is shared', () => {
+    const s = splitForScreens({ w: 800, h: 500 }, 0);
+    expect(s.screens).toEqual([]);
+    expect(s.bubbles).toEqual({ x: 0, y: 0, w: 800, h: 500 });
+  });
+
+  it('puts the screen left and the bubbles in a column on the right in a wide window', () => {
+    const s = splitForScreens({ w: 1000, h: 500 }, 1);
+    expect(s.direction).toBe('column');
+    expect(s.screens[0]!.x).toBe(0);
+    expect(s.screens[0]!.w).toBeGreaterThan(s.bubbles.w);
+    expect(s.bubbles.x).toBeCloseTo(s.screens[0]!.w);
+  });
+
+  it('puts the screen on top and the bubbles in a row below in a tall window', () => {
+    const s = splitForScreens({ w: 500, h: 1000 }, 1);
+    expect(s.direction).toBe('row');
+    expect(s.screens[0]!.h).toBeGreaterThan(s.bubbles.h);
+    expect(s.bubbles.y).toBeCloseTo(s.screens[0]!.h);
+  });
+
+  it('divides the screen area equally between several screens without overlap', () => {
+    const s = splitForScreens({ w: 1000, h: 500 }, 3);
+    expect(s.screens).toHaveLength(3);
+    const total = s.screens.reduce((a, r) => a + r.w * r.h, 0);
+    expect(total).toBeCloseTo(1000 * 0.74 * 500);
+    for (let i = 1; i < 3; i++) expect(s.screens[i]!.x + s.screens[i]!.y).toBeGreaterThanOrEqual(s.screens[i - 1]!.x + s.screens[i - 1]!.y);
   });
 });

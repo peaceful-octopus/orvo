@@ -38,6 +38,9 @@ describe('data-channel messages', () => {
     expect(parseDataMessage('{"v":1,"kind":"name","name":" Ann "}')).toEqual({ kind: 'name', name: 'Ann' });
     expect(parseDataMessage('{"v":1,"kind":"name","name":"   "}')).toBeNull();
     expect(parseDataMessage(`{"v":1,"kind":"name","name":"${'x'.repeat(41)}"}`)).toBeNull();
+    expect(parseDataMessage('{"v":1,"kind":"screen","streamId":"abc"}')).toEqual({ kind: 'screen', streamId: 'abc' });
+    expect(parseDataMessage('{"v":1,"kind":"screen","streamId":null}')).toEqual({ kind: 'screen', streamId: null });
+    expect(parseDataMessage('{"v":1,"kind":"screen","streamId":""}')).toBeNull();
     expect(parseDataMessage('{"v":1,"kind":"reaction","emoji":"x"}')).toBeNull();
     expect(parseDataMessage('{"v":2,"kind":"state","audio":true,"video":true}')).toBeNull();
     expect(parseDataMessage('garbage')).toBeNull();

@@ -40,6 +40,9 @@ export class PeerLink {
   private currentRoute: Route = 'unknown';
   private policy?: SendPolicy;
   private readonly polite: boolean;
+  /** A shared screen travels as extra tracks, apart from the camera's, so they are tracked separately. */
+  private screen?: MediaStream;
+  private screenSenders: RTCRtpSender[] = [];
 
   constructor(
     readonly id: string,
@@ -102,9 +105,30 @@ export class PeerLink {
   async replaceLocalStream(local: MediaStream) {
     this.local = local;
     for (const sender of this.pc.getSenders()) {
+      if (this.screenSenders.includes(sender)) continue;
       const track = local.getTracks().find((t) => t.kind === sender.track?.kind);
       if (track) await sender.replaceTrack(track);
     }
+  }
+
+  /** Starts or stops sending a shared screen to this peer, alongside the camera. */
+  setScreen(screen: MediaStream | undefined) {
+    for (const sender of this.screenSenders) {
+      try {
+        this.pc.removeTrack(sender);
+      } catch {
+        // The connection may already be closing.
+      }
+    }
+    this.screenSenders = [];
+    this.screen = screen;
+    if (this.prepared) this.addScreenTracks();
+  }
+
+  private addScreenTracks() {
+    if (!this.screen) return;
+    for (const track of this.screen.getTracks()) this.screenSenders.push(this.pc.addTrack(track, this.screen));
+    if (this.policy) void this.applySendPolicy(this.policy); // the new tracks follow the same limits
   }
 
   /** Applies video limits to what we send this peer; `video: false` stops sending video to them altogether. */
@@ -151,6 +175,7 @@ export class PeerLink {
     if (this.prepared) return;
     this.prepared = true;
     for (const track of this.local.getTracks()) this.pc.addTrack(track, this.local);
+    this.addScreenTracks();
     this.channel = this.pc.createDataChannel('ctl', { negotiated: true, id: 0 });
     this.channel.onopen = () => this.hooks.channelOpen();
     this.channel.onmessage = (event) => {

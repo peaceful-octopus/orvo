@@ -13,7 +13,7 @@ import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
 import { SettingsButton } from './SettingsPane';
 import { useSettings } from './settingsStore';
-import { BubbleField, type Member } from './float/BubbleField';
+import { BubbleField, type Member, type ScreenShare } from './float/BubbleField';
 import type { ControlAction } from './float/bridge';
 import { useControlsWindow } from './float/controlsWindow';
 import { FloatView } from './float/FloatView';
@@ -29,6 +29,8 @@ import {
   MicIcon,
   MicOffIcon,
   RowIcon,
+  ScreenShareIcon,
+  ScreenShareOffIcon,
   VideoIcon,
   VideoOffIcon,
 } from './float/icons';
@@ -62,8 +64,12 @@ export function RoomPage({ room }: { room: string }) {
     devices,
     selected,
     selectDevice,
+    screen,
+    shareScreen,
+    stopScreen,
     leave,
   } = useCall();
+  const canShare = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia);
   const outputs = canSelectOutput();
   const copyInvite = () =>
     copyText(roomLink(room, getServerUrl())).then((ok) => {
@@ -81,6 +87,12 @@ export function RoomPage({ room }: { room: string }) {
   const startView = useSettings((s) => s.startView);
   const moodFilter = useSettings((s) => s.moodFilter);
   const setMoodFilter = useSettings((s) => s.setMoodFilter);
+  const blurBackground = useSettings((s) => s.blurBackground);
+  const autoFrame = useSettings((s) => s.autoFrame);
+  const setBlurBackground = useSettings((s) => s.setBlurBackground);
+  const setAutoFrame = useSettings((s) => s.setAutoFrame);
+  const look = { filter: moodFilter, blurBackground, autoFrame };
+  const toggleLook = (which: 'blurBackground' | 'autoFrame', on: boolean) => (which === 'blurBackground' ? setBlurBackground(on) : setAutoFrame(on));
 
   useEffect(() => {
     void startPreview();
@@ -102,6 +114,16 @@ export function RoomPage({ room }: { room: string }) {
     [name, local, localDisplay, video, audio, remotes],
   );
 
+  const screens = useMemo<ScreenShare[]>(
+    () => [
+      ...(screen ? [{ id: 'self-screen', name, self: true }] : []),
+      ...Object.values(remotes)
+        .filter((p) => p.screen)
+        .map((p) => ({ id: `${p.id}-screen`, name: p.name, stream: p.screen })),
+    ],
+    [screen, name, remotes],
+  );
+
   const float = useFloat(mode, members.length);
 
   // Calls open as floating bubbles when that is the chosen start view.
@@ -121,6 +143,8 @@ export function RoomPage({ room }: { room: string }) {
     else if (a.type === 'gif') sendGif(a.source, a.mode).catch(() => {}); // the store already shows a message
     else if (a.type === 'device') void selectDevice(a.kind, a.id);
     else if (a.type === 'filter') setMoodFilter(a.id);
+    else if (a.type === 'share') void (screen ? stopScreen() : shareScreen());
+    else if (a.type === 'look') toggleLook(a.which, a.on);
     else if (a.type === 'leave') void leaveCall();
     else void float.exit();
   };
@@ -131,7 +155,7 @@ export function RoomPage({ room }: { room: string }) {
   };
   const controlsWindow = useControlsWindow(
     float.active && float.kind === 'tauri',
-    { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs, filter: moodFilter },
+    { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs, ...look, sharing: Boolean(screen), canShare },
     onControlAction,
   );
 
@@ -242,8 +266,8 @@ export function RoomPage({ room }: { room: string }) {
           More than {limits.warnRoomSize} people are here, so video quality may be degraded.
         </p>
       )}
-      <BubbleField members={members} mode={mode} />
-      {members.length === 1 && (
+      <BubbleField members={members} mode={mode} screens={screens} onStopSharing={stopScreen} />
+      {members.length === 1 && !screens.length && (
         <div className="alone">
           <p>{COPY.alone.text}</p>
           <button onClick={() => void copyInvite()}>{copied ? COPY.alone.copied : COPY.alone.copy}</button>
@@ -268,7 +292,17 @@ export function RoomPage({ room }: { room: string }) {
             {video ? <VideoIcon /> : <VideoOffIcon />}
           </button>
         </DeviceButton>
-        <FilterButton selected={moodFilter} onSelect={setMoodFilter} />
+        <FilterButton look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
+        {canShare && (
+          <button
+            className={`icon${screen ? ' on' : ''}`}
+            aria-label={screen ? 'Stop sharing' : 'Share screen'}
+            title={screen ? 'Stop sharing your screen' : 'Share your screen'}
+            onClick={() => void (screen ? stopScreen() : shareScreen())}
+          >
+            {screen ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
+          </button>
+        )}
         {float.kind && (
           <button
             className="icon"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CompositorLike } from './compositor';
 import type { MoodFilter } from './filters';
+import type { CameraLook } from './vision';
 import { EffectsController } from './controller';
 import type { GifSource } from './gif-source';
 
@@ -13,6 +14,7 @@ class FakeCompositor implements CompositorLike {
   disposed = false;
   failGif = false;
   filter?: MoodFilter;
+  look?: CameraLook;
   cleared = 0;
   private idle: (() => void)[] = [];
 
@@ -26,6 +28,9 @@ class FakeCompositor implements CompositorLike {
   }
   setFilter(filter: MoodFilter | undefined) {
     this.filter = filter;
+  }
+  setLook(look: CameraLook) {
+    this.look = look;
   }
   clearEffects() {
     this.cleared++;
@@ -239,6 +244,53 @@ describe('EffectsController', () => {
       await controller.react('x');
       await controller.restart();
       expect(streams).toEqual(['effects', 'camera']);
+    });
+  });
+
+  describe('background blur and framing', () => {
+    it('sends the processed video while blur or framing is on, and the camera when both are off', async () => {
+      const { controller, streams, made } = setup();
+      await controller.setLook({ blurBackground: true, autoFrame: false });
+      expect(streams).toEqual(['effects']);
+      expect(made[0]!.look).toEqual({ blurBackground: true, autoFrame: false });
+
+      await controller.setLook({ blurBackground: false, autoFrame: false });
+      expect(streams).toEqual(['effects', 'camera']);
+      expect(made[0]!.disposed).toBe(true);
+    });
+
+    it('keeps one compositor for a filter, blur and framing together, and only drops it when all are off', async () => {
+      const { controller, streams, made } = setup();
+      await controller.setFilter('noir');
+      await controller.setLook({ blurBackground: true, autoFrame: true });
+      await controller.setFilter(undefined);
+      expect(made).toHaveLength(1);
+      expect(made[0]!.disposed).toBe(false);
+      await controller.setLook({ blurBackground: false, autoFrame: false });
+      expect(made[0]!.disposed).toBe(true);
+      expect(streams).toEqual(['effects', 'camera']);
+    });
+
+    it('keeps blur through a camera change and through ending effects', async () => {
+      const { controller, made } = setup();
+      await controller.setLook({ blurBackground: true, autoFrame: false });
+      controller.end();
+      expect(made[0]!.cleared).toBe(1);
+      expect(made[0]!.disposed).toBe(false);
+      await controller.restart();
+      expect(made).toHaveLength(2);
+      expect(made[1]!.look?.blurBackground).toBe(true);
+    });
+
+    it('disposes the vision models with the controller', () => {
+      let disposed = false;
+      const controller = new EffectsController({
+        camera: () => undefined,
+        setStream: () => {},
+        vision: { detectFace: () => undefined, segment: () => undefined, dispose: () => void (disposed = true) },
+      });
+      controller.dispose();
+      expect(disposed).toBe(true);
     });
   });
 });

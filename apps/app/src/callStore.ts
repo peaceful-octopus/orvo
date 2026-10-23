@@ -22,6 +22,7 @@ import {
   type DeviceSelection,
 } from './devices';
 import { createMicProcessor, noiseSupported, type MicProcessor } from './noise';
+import { createVision, visionSupported } from './vision';
 import { useSettings } from './settingsStore';
 import { MEDIA_DENIED_MESSAGE } from './copy';
 import { telemetry } from './telemetry';
@@ -29,7 +30,13 @@ import { telemetry } from './telemetry';
 export interface Remote {
   id: string;
   name: string;
+  /** Their camera and microphone. */
   stream?: MediaStream;
+  /** Their shared screen, once we know which of their streams it is. */
+  screen?: MediaStream;
+  /** Every stream they send, by id, and the id of the shared screen once they have said which it is. */
+  streams?: Record<string, MediaStream>;
+  screenId?: string;
   audio: boolean;
   video: boolean;
   state: PeerState;
@@ -51,6 +58,8 @@ interface CallState {
   /** The cameras, microphones and speakers the system offers, and which of them are chosen. */
   devices: DeviceLists;
   selected: DeviceSelection;
+  /** Your own shared screen, while you are sharing. */
+  screen?: MediaStream;
   /** Whether background noise suppression is running on your microphone. */
   noiseStatus: 'off' | 'loading' | 'on' | 'error';
   /** Whether the connection to the signaling server is up; calls continue while it reconnects. */
@@ -60,6 +69,8 @@ interface CallState {
   join(room: string, name: string): Promise<void>;
   toggleAudio(): void;
   toggleVideo(): void;
+  shareScreen(): Promise<void>;
+  stopScreen(): void;
   applyNoise(): Promise<void>;
   refreshDevices(): Promise<void>;
   selectDevice(kind: DeviceKind, id: string): Promise<void>;
@@ -93,6 +104,11 @@ async function acquireTrack(kind: 'audioinput' | 'videoinput', id: string): Prom
   return { track: stream.getTracks()[0]!, id: used };
 }
 
+const lookFromSettings = () => {
+  const { blurBackground, autoFrame } = useSettings.getState();
+  return { blurBackground, autoFrame };
+};
+
 export const useCall = create<CallState>((set, get) => {
   const broadcastState = () => {
     const { audio, video } = get();
@@ -110,6 +126,19 @@ export const useCall = create<CallState>((set, get) => {
   const publish = async () => {
     const stream = outgoing();
     if (stream) await transport?.replaceLocalStream(stream);
+  };
+
+  const blank = (id: string): Remote => ({ id, name: '', audio: true, video: true, state: 'connecting', route: 'unknown' });
+
+  /**
+   * Works out which of a person's streams is their camera and which their screen. The screen is the one they have
+   * announced by id; the camera is whichever other stream arrived first.
+   */
+  const sortStreams = (remote: Remote, added: Record<string, MediaStream>): Remote => {
+    const streams = { ...remote.streams, ...added };
+    const screen = remote.screenId ? streams[remote.screenId] : undefined;
+    const camera = Object.values(streams).find((s) => s.id !== remote.screenId);
+    return { ...remote, streams, screen, stream: camera };
   };
 
   const upsert = (id: string, patch: Partial<Remote>) =>
@@ -132,7 +161,7 @@ export const useCall = create<CallState>((set, get) => {
         upsert(event.participant.id, { name: event.participant.name });
         break;
       case 'stream':
-        upsert(event.id, { stream: event.stream });
+        set((s) => ({ remotes: { ...s.remotes, [event.id]: sortStreams({ ...blank(event.id), ...s.remotes[event.id] }, { [event.stream.id]: event.stream }) } }));
         break;
       case 'peer-state':
         upsert(event.id, { state: event.state });
@@ -143,6 +172,15 @@ export const useCall = create<CallState>((set, get) => {
       case 'message':
         if (event.data.kind === 'state') upsert(event.id, { audio: event.data.audio, video: event.data.video });
         else if (event.data.kind === 'name') upsert(event.id, { name: event.data.name });
+        else if (event.data.kind === 'screen') {
+          const { streamId } = event.data;
+          set((s) => {
+            const current = { ...blank(event.id), ...s.remotes[event.id] };
+            const streams = { ...current.streams };
+            if (!streamId && current.screenId) delete streams[current.screenId];
+            return { remotes: { ...s.remotes, [event.id]: sortStreams({ ...current, streams, screenId: streamId ?? undefined }, {}) } };
+          });
+        }
         break;
       case 'participant-left':
         set((s) => {
@@ -308,12 +346,14 @@ export const useCall = create<CallState>((set, get) => {
         // Effects are drawn into the outgoing video only while one is showing; between them the camera is sent as is.
         effects = new EffectsController({
           camera: () => get().local,
+          vision: visionSupported() ? createVision() : undefined,
           setStream: (stream) => {
             set({ localDisplay: stream === get().local ? undefined : stream });
             void publish();
           },
         });
         void effects.setFilter(useSettings.getState().moodFilter);
+        void effects.setLook(lookFromSettings());
         set({ phase: 'in-call' });
         broadcastState();
       } catch (err) {
@@ -330,6 +370,31 @@ export const useCall = create<CallState>((set, get) => {
       get().local?.getAudioTracks().forEach((t) => (t.enabled = audio));
       set({ audio });
       broadcastState();
+    },
+
+    async shareScreen() {
+      if (get().screen) return;
+      try {
+        const screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
+        const track = screen.getVideoTracks()[0];
+        if (!track) return;
+        track.contentHint = 'detail'; // keep text sharp rather than smooth
+        track.addEventListener('ended', () => get().stopScreen()); // the browser's own "Stop sharing" button
+        set({ screen });
+        transport?.setScreenStream(screen);
+        transport?.send({ kind: 'screen', streamId: screen.id });
+      } catch {
+        // The person closed the picker, or the system refused: nothing to share.
+      }
+    },
+
+    stopScreen() {
+      const { screen } = get();
+      if (!screen) return;
+      screen.getTracks().forEach((t) => t.stop());
+      set({ screen: undefined });
+      transport?.setScreenStream(undefined);
+      transport?.send({ kind: 'screen', streamId: null });
     },
 
     toggleVideo() {
@@ -360,6 +425,7 @@ export const useCall = create<CallState>((set, get) => {
     },
 
     leave() {
+      get().stopScreen();
       effects?.dispose();
       effects = undefined;
       transport?.leave();
@@ -390,6 +456,7 @@ useSettings.subscribe((now, before) => {
     noiseTimer = setTimeout(() => void useCall.getState().applyNoise(), 150);
   }
   if (now.moodFilter !== before.moodFilter) void effects?.setFilter(now.moodFilter);
+  if (now.blurBackground !== before.blurBackground || now.autoFrame !== before.autoFrame) void effects?.setLook(lookFromSettings());
   if (now.name !== before.name) {
     clearTimeout(nameTimer);
     nameTimer = setTimeout(() => {

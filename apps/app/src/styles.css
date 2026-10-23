@@ -622,9 +622,6 @@ button.chevron {
 }
 
 .filter-menu {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.35rem;
   width: 17rem;
   padding: 0.5rem;
   border-radius: var(--r-panel);
@@ -632,7 +629,13 @@ button.chevron {
   border: 1px solid var(--border-strong);
 }
 
-.filter-menu button {
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.filter-grid button {
   display: grid;
   justify-items: center;
   gap: 0.3rem;
@@ -642,16 +645,16 @@ button.chevron {
   font-size: 0.8125rem;
 }
 
-.filter-menu button:not(:disabled):hover {
+.filter-grid button:not(:disabled):hover {
   background: var(--hover);
 }
 
-.filter-menu button[aria-checked='true'] {
+.filter-grid button[aria-checked='true'] {
   border-color: var(--accent);
   font-weight: 600;
 }
 
-.filter-menu .swatch {
+.filter-grid .swatch {
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
@@ -659,9 +662,80 @@ button.chevron {
   background: var(--raised);
 }
 
+.filter-toggles {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+.filter-toggles button {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.filter-toggles button:not(:disabled):hover {
+  background: var(--hover);
+}
+
+.filter-toggles .tick {
+  width: 1rem;
+  flex: none;
+  color: var(--accent);
+}
+
 .controls-view .filter-menu {
   width: 100%;
   box-sizing: border-box;
+}
+
+/* A shared screen: a rounded rectangle among the bubbles. */
+.screen-tile {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: var(--r-panel);
+  border: 1px solid var(--border-strong);
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.screen-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.screen-tile figcaption {
+  position: absolute;
+  left: 0.6rem;
+  bottom: 0.6rem;
+  padding: 0.1rem 0.65rem;
+  border-radius: 999px;
+  background: var(--caption);
+  color: var(--on-caption);
+  font-size: 0.8125rem;
+}
+
+.screen-self {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  height: 100%;
+  text-align: center;
+}
+
+.screen-self p {
+  margin: 0;
+  color: var(--muted);
 }
 
 /* ---- Floating view ----------------------------------------------------------------------------------------- */

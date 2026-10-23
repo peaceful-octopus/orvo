@@ -17,6 +17,7 @@
     "@giphy/js-fetch-api": "^5.8.0",
     "@giphy/js-types": "^5.1.0",
     "@giphy/react-components": "^10.1.2",
+    "@mediapipe/tasks-vision": "^1.1.1",
     "@tauri-apps/api": "^2.12.4",
     "deepfilternet3-noise-filter": "^1.3.0",
     "lucide-react": "^1.61.0",
