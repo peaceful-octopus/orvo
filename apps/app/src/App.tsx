@@ -6,6 +6,7 @@ import { useConfig } from './configStore';
 import { AnnouncementBanner, UpdateRequired } from './Notices';
 import { RoomPage } from './RoomPage';
 import { SettingsButton } from './SettingsPane';
+import { Toasts } from './Toasts';
 import { parseRoomInput } from './roomInput';
 
 function Home() {
@@ -92,6 +93,7 @@ export function App() {
   return (
     <>
       <AnnouncementBanner />
+      <Toasts />
       {room && isValidRoomSlug(room) ? <RoomPage room={room} /> : <Home />}
     </>
   );

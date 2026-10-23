@@ -41,7 +41,7 @@ test('when the noise model cannot load, the call continues with the plain microp
   const room = `e2e-noise-fallback-${Date.now()}`;
   const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
   await expectAllConnected([ann, bob]); // noise suppression is on by default
-  await expect(ann.getByRole('status').filter({ hasText: 'Noise suppression could not start' })).toBeVisible();
+  await expect(ann.getByRole('alert').filter({ hasText: 'Noise suppression could not start' })).toBeVisible();
 
   await ann.getByRole('button', { name: 'Settings' }).click();
   await expect(ann.getByRole('status').filter({ hasText: 'noise filter could not start' })).toBeVisible();

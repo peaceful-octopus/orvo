@@ -10,10 +10,13 @@ import {
   EVT_MAIN_HOVER,
   EVT_READY,
   EVT_STATE,
+  EVT_TOAST,
   placeControls,
   type ControlAction,
   type ControlsState,
 } from './bridge';
+import { ToastCard } from '../Toasts';
+import type { Toast } from '../toastStore';
 import { CONTROLS_BAR } from './controlsWindow';
 
 const GifPicker = lazy(() => import('../GifPicker'));
@@ -24,6 +27,8 @@ const HIDE_DELAY_MS = 300;
 const MENU_MAX = 420;
 /** Height of the filters panel: three rows of swatches and two switches. */
 const FILTERS_HEIGHT = 330;
+/** Room for one message under the controls. */
+const TOAST_HEIGHT = 56;
 /** Space between the bubble window and the controls, in logical pixels. */
 const GAP = 4;
 
@@ -47,12 +52,13 @@ export function ControlsView() {
   const [menu, setMenu] = useState<MenuKind | 'filters' | null>(null);
   const panelOpen = pickerOpen || menu !== null;
   const [lingering, setLingering] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
   const [above, setAbove] = useState(false);
 
   const rows = menu && menu !== 'filters' ? menuRows(menu, state.devices, state.canSelectOutput) : { sections: 0, options: 0 };
   const menuHeight = menu === 'filters' ? FILTERS_HEIGHT : Math.min(MENU_MAX, 20 + rows.sections * 34 + rows.options * 36);
 
-  const shown = mainHover || selfHover || panelOpen || lingering;
+  const shown = mainHover || selfHover || panelOpen || lingering || toast !== null;
 
   // Stay visible briefly after the pointer leaves so it can cross the gap between the two windows.
   useEffect(() => {
@@ -72,6 +78,13 @@ export function ControlsView() {
     return () => window.removeEventListener('keydown', esc);
   }, [menu]);
 
+  // A message stays for a few seconds, then the controls fade away again.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), toast.kind === 'error' ? 7000 : 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const act = useCallback(async (action: ControlAction) => {
     const { emit } = await import('@tauri-apps/api/event');
     await emit(EVT_ACTION, action);
@@ -86,6 +99,7 @@ export function ControlsView() {
       const subs = await Promise.all([
         listen<ControlsState>(EVT_STATE, (e) => setState(e.payload)),
         listen<boolean>(EVT_MAIN_HOVER, (e) => setMainHover(e.payload)),
+        listen<Toast>(EVT_TOAST, (e) => setToast(e.payload)),
       ]);
       if (cancelled) return subs.forEach((u) => u());
       unlisten.push(...subs);
@@ -117,7 +131,8 @@ export function ControlsView() {
       const me = getCurrentWindow();
       const main = await Window.getByLabel('main');
       if (!main) return;
-      const logical = pickerOpen ? PICKER : menu ? { w: CONTROLS_BAR.w, h: CONTROLS_BAR.h + menuHeight } : CONTROLS_BAR;
+      const base = pickerOpen ? PICKER : menu ? { w: CONTROLS_BAR.w, h: CONTROLS_BAR.h + menuHeight } : CONTROLS_BAR;
+      const logical = toast ? { w: base.w, h: base.h + TOAST_HEIGHT } : base;
       await me.setSize(new LogicalSize(logical.w, logical.h));
 
       const place = async () => {
@@ -141,7 +156,7 @@ export function ControlsView() {
       cancelled = true;
       unlisten.forEach((u) => u());
     };
-  }, [pickerOpen, menu, menuHeight]);
+  }, [pickerOpen, menu, menuHeight, toast !== null]);
 
   const toggleMenu = (next: MenuKind | 'filters') => {
     setPickerOpen(false);
@@ -199,6 +214,7 @@ export function ControlsView() {
           onSelect={(kind, id) => void act({ type: 'device', kind, id })}
         />
       )}
+      {toast && <ToastCard toast={toast} onDismiss={() => setToast(null)} />}
       {pickerOpen && state.giphyKey && (
         <Suspense fallback={null}>
           <GifPicker apiKey={state.giphyKey} onClose={() => setPickerOpen(false)} onPick={pick} />

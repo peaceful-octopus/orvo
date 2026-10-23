@@ -102,7 +102,7 @@ test('a GIF that cannot be loaded shows a message and leaves the call as it was 
   await ann.getByRole('button', { name: 'GIF' }).click();
   await ann.getByRole('dialog', { name: 'Choose a GIF' }).locator('.giphy-gif').first().click();
 
-  await expect(ann.getByRole('status').filter({ hasText: 'could not be loaded' })).toBeVisible();
+  await expect(ann.getByRole('alert').filter({ hasText: 'could not be loaded' })).toBeVisible();
   await ann.waitForTimeout(1500);
   expect(await effectPixels(bob, 1)).toBeLessThan(50);
   await expectAllConnected([ann, bob]); // still connected, video still flowing

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useToasts } from '../toastStore';
 import {
   CONTROLS_LABEL,
   EVT_ACTION,
@@ -6,6 +7,7 @@ import {
   EVT_MAIN_HOVER,
   EVT_READY,
   EVT_STATE,
+  EVT_TOAST,
   type ControlAction,
   type ControlsState,
 } from './bridge';
@@ -106,6 +108,18 @@ export function useControlsWindow(
       setControlsHover(false);
       void enqueue(closeControls);
     };
+  }, [active]);
+
+  // The call window is too small to show messages while floating, so they appear beside the controls instead.
+  useEffect(() => {
+    if (!active) return;
+    let seen = new Set(useToasts.getState().toasts.map((t) => t.id));
+    return useToasts.subscribe((s) => {
+      for (const t of s.toasts) {
+        if (!seen.has(t.id)) void import('@tauri-apps/api/event').then(({ emit }) => emit(EVT_TOAST, t));
+      }
+      seen = new Set(s.toasts.map((t) => t.id));
+    });
   }, [active]);
 
   useEffect(() => {

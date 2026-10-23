@@ -8,6 +8,8 @@ export const EVT_READY = 'float:ready';
 export const EVT_ACTION = 'float:action';
 export const EVT_MAIN_HOVER = 'float:main-hover';
 export const EVT_CONTROLS_HOVER = 'float:controls-hover';
+/** A message for the person to see while the call window is small. */
+export const EVT_TOAST = 'float:toast';
 
 export interface ControlsState {
   audio: boolean;

@@ -24,7 +24,8 @@ import {
 import { createMicProcessor, noiseSupported, type MicProcessor } from './noise';
 import { createVision, visionSupported } from './vision';
 import { useSettings } from './settingsStore';
-import { MEDIA_DENIED_MESSAGE } from './copy';
+import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
+import { toast } from './toastStore';
 import { telemetry } from './telemetry';
 
 export interface Remote {
@@ -51,8 +52,6 @@ interface CallState {
   local?: MediaStream;
   /** What your own bubble shows: the camera, or the camera with reactions and GIFs drawn on it while they run. */
   localDisplay?: MediaStream;
-  /** A short message about reactions or GIFs, such as a GIF that failed to load. */
-  effectsMessage?: string;
   audio: boolean;
   video: boolean;
   /** The cameras, microphones and speakers the system offers, and which of them are chosen. */
@@ -67,13 +66,14 @@ interface CallState {
   remotes: Record<string, Remote>;
   startPreview(): Promise<void>;
   join(room: string, name: string): Promise<void>;
-  toggleAudio(): void;
-  toggleVideo(): void;
+  toggleAudio(): Promise<void>;
+  toggleVideo(): Promise<void>;
   shareScreen(): Promise<void>;
   stopScreen(): void;
   applyNoise(): Promise<void>;
   refreshDevices(): Promise<void>;
-  selectDevice(kind: DeviceKind, id: string): Promise<void>;
+  /** Switches to a device; resolves to whether it worked. `quiet` leaves the error message to the caller. */
+  selectDevice(kind: DeviceKind, id: string, quiet?: boolean): Promise<boolean>;
   react(emoji: string): Promise<void>;
   sendGif(source: GifSource, mode: GifMode): Promise<void>;
   leave(): void;
@@ -86,7 +86,6 @@ let effects: EffectsController | undefined;
 let micRaw: MediaStreamTrack | undefined;
 let micProcessor: MicProcessor | undefined;
 let noiseQueue: Promise<void> = Promise.resolve();
-let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** One new track from the chosen device; if that device is gone, from the system default instead. */
 async function acquireTrack(kind: 'audioinput' | 'videoinput', id: string): Promise<{ track: MediaStreamTrack; id: string }> {
@@ -149,10 +148,24 @@ export const useCall = create<CallState>((set, get) => {
       },
     }));
 
-  const showEffectsMessage = (message: string) => {
-    set({ effectsMessage: message });
-    clearTimeout(messageTimer);
-    messageTimer = setTimeout(() => set({ effectsMessage: undefined }), 4000);
+  /** Whether your camera or microphone is still working; if not, tries to open it again. */
+  const ensureLive = async (kind: 'audioinput' | 'videoinput'): Promise<boolean> => {
+    const track = kind === 'videoinput' ? get().local?.getVideoTracks()[0] : micRaw;
+    if (track && track.readyState === 'live') return true;
+    return get().selectDevice(kind, get().selected[kind], true);
+  };
+
+  /** Turns a device off and says so when it stops by itself, such as when it is unplugged. */
+  const watchDevice = (track: MediaStreamTrack, kind: 'audioinput' | 'videoinput') => {
+    track.addEventListener('ended', () => {
+      const current = kind === 'videoinput' ? get().local?.getVideoTracks()[0] : micRaw;
+      if (current !== track) return; // we replaced it ourselves
+      if (kind === 'videoinput' ? get().video : get().audio) {
+        set(kind === 'videoinput' ? { video: false } : { audio: false });
+        broadcastState();
+      }
+      toast.error(kind === 'videoinput' ? COPY.toasts.cameraLost : COPY.toasts.micLost);
+    });
   };
 
   const onEvent = (event: RoomEvent) => {
@@ -225,11 +238,7 @@ export const useCall = create<CallState>((set, get) => {
       } catch {
         micProcessor = undefined;
         set({ noiseStatus: wantNoise ? 'error' : 'off' });
-        showEffectsMessage(
-          wantNoise
-            ? 'Noise suppression could not start, so your microphone is sent as it is.'
-            : 'The microphone volume could not be applied.',
-        );
+        toast.error(wantNoise ? COPY.toasts.noise : COPY.toasts.volume);
       }
     } else {
       micProcessor?.dispose();
@@ -265,6 +274,8 @@ export const useCall = create<CallState>((set, get) => {
         const next = { ...selected, audioinput: audio.id, videoinput: video.id };
         saveSelection(next);
         micRaw = audio.track;
+        watchDevice(audio.track, 'audioinput');
+        watchDevice(video.track, 'videoinput');
         set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
       } catch {
         set({ error: MEDIA_DENIED_MESSAGE });
@@ -287,23 +298,24 @@ export const useCall = create<CallState>((set, get) => {
       for (const kind of unplugged) await get().selectDevice(kind, ''); // the chosen device went away; use the default
     },
 
-    async selectDevice(kind, id) {
+    async selectDevice(kind, id, quiet = false) {
       const selected = { ...get().selected, [kind]: id };
       if (kind === 'audiooutput') {
         saveSelection(selected);
         set({ selected });
-        return;
+        return true;
       }
       const { local, audio, video } = get();
       if (!local) {
         saveSelection(selected);
         set({ selected });
-        return;
+        return true;
       }
       try {
         const next = await acquireTrack(kind, id);
         const isVideo = kind === 'videoinput';
         next.track.enabled = isVideo ? video : audio;
+        watchDevice(next.track, kind);
         const old = isVideo ? local.getVideoTracks() : local.getAudioTracks();
         const kept = isVideo ? local.getAudioTracks() : local.getVideoTracks();
         const stream = new MediaStream([...kept, next.track]);
@@ -320,8 +332,10 @@ export const useCall = create<CallState>((set, get) => {
         if (isVideo) await effects?.restart(); // a filter or effect was drawn from the old camera
         await publish();
         if (!isVideo) await get().applyNoise();
+        return true;
       } catch {
-        showEffectsMessage(`Could not switch to that ${kind === 'videoinput' ? 'camera' : 'microphone'}.`);
+        if (!quiet) toast.error(kind === 'videoinput' ? COPY.toasts.switchCamera : COPY.toasts.switchMic);
+        return false;
       }
     },
 
@@ -365,8 +379,9 @@ export const useCall = create<CallState>((set, get) => {
       }
     },
 
-    toggleAudio() {
+    async toggleAudio() {
       const audio = !get().audio;
+      if (audio && !(await ensureLive('audioinput'))) return toast.error(COPY.toasts.micFailed);
       get().local?.getAudioTracks().forEach((t) => (t.enabled = audio));
       set({ audio });
       broadcastState();
@@ -383,8 +398,11 @@ export const useCall = create<CallState>((set, get) => {
         set({ screen });
         transport?.setScreenStream(screen);
         transport?.send({ kind: 'screen', streamId: screen.id });
-      } catch {
-        // The person closed the picker, or the system refused: nothing to share.
+      } catch (err) {
+        // Closing the picker is not a failure. Anything else is, and the person should hear about it.
+        const e = err as DOMException;
+        const cancelled = e?.name === 'NotAllowedError' && !/system/i.test(e.message);
+        if (!cancelled) toast.error(e?.name === 'NotAllowedError' ? COPY.toasts.screenBlocked : COPY.toasts.screenFailed);
       }
     },
 
@@ -397,8 +415,9 @@ export const useCall = create<CallState>((set, get) => {
       transport?.send({ kind: 'screen', streamId: null });
     },
 
-    toggleVideo() {
+    async toggleVideo() {
       const video = !get().video;
+      if (video && !(await ensureLive('videoinput'))) return toast.error(COPY.toasts.cameraFailed);
       if (!video) effects?.end(); // nobody can see effects on a camera that is off
       get().local?.getVideoTracks().forEach((t) => (t.enabled = video));
       get().localDisplay?.getVideoTracks().forEach((t) => (t.enabled = video));
@@ -411,7 +430,7 @@ export const useCall = create<CallState>((set, get) => {
       try {
         await effects?.react(emoji);
       } catch {
-        showEffectsMessage('Reactions are not available right now.');
+        toast.error(COPY.toasts.reactions);
       }
     },
 
@@ -419,7 +438,7 @@ export const useCall = create<CallState>((set, get) => {
       try {
         await effects?.showGif(source, mode);
       } catch {
-        showEffectsMessage('That GIF could not be loaded. Try another one.');
+        toast.error(COPY.toasts.gif);
         throw new Error('gif-failed');
       }
     },

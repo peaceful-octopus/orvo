@@ -50,7 +50,6 @@ export function RoomPage({ room }: { room: string }) {
     error,
     local,
     localDisplay,
-    effectsMessage,
     audio,
     video,
     remotes,
@@ -250,11 +249,6 @@ export function RoomPage({ room }: { room: string }) {
   return (
     <main className="call">
       <SettingsButton />
-      {effectsMessage && (
-        <p className="banner" role="status">
-          {effectsMessage}
-        </p>
-      )}
       {reconnecting && <p className="banner">Reconnecting to the server... your call continues.</p>}
       {notice && (
         <p className="banner" role="alert">
