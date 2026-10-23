@@ -16,6 +16,7 @@ export const useConfig = create<ConfigState>((set) => ({
   source: 'default',
   loaded: false,
   async refresh() {
+    set({ loaded: false });
     const { config, source } = await loadClientConfig();
     set({ config, source, loaded: true });
   },

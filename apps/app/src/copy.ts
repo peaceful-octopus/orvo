@@ -18,6 +18,11 @@ export const COPY = {
     back: 'Back to start',
   },
   devices: 'Devices',
+  serverUnreachable: {
+    title: 'Cannot reach the server',
+    body: (url: string) => `ChillCall could not connect to ${url}. Open Settings, then Advanced, and check the server address.`,
+    retry: 'Try again',
+  },
   account: {
     signIn: 'Sign in',
     signOut: 'Sign out',

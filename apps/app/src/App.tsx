@@ -18,6 +18,8 @@ function Home() {
   const [roomName, setRoomName] = useState('');
   const [signedInOnly, setSignedInOnly] = useState(false);
   const auth = useConfig((s) => s.config.auth);
+  // Only a config fetched from the server proves it exists; a cached or built-in one means it did not answer.
+  const unreachable = useConfig((s) => s.loaded && s.source !== 'network');
   const signedIn = useAuth((s) => Boolean(s.session));
   const signIn = useSignIn();
   const [needsSignIn, setNeedsSignIn] = useState(false);
@@ -53,7 +55,16 @@ function Home() {
         <div>
           <h1>ChillCall</h1>
           <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
-          <div className="home-actions">
+          {unreachable && (
+            <section className="state-card" role="alert">
+              <h2>{COPY.serverUnreachable.title}</h2>
+              <p>{COPY.serverUnreachable.body(getServerUrl())}</p>
+              <div className="actions">
+                <button onClick={() => void useConfig.getState().refresh()}>{COPY.serverUnreachable.retry}</button>
+              </div>
+            </section>
+          )}
+          <div className="home-actions" hidden={unreachable}>
             <button className="primary big" onClick={() => void startRoom()}>
               {auth?.createRequiresLogin && !signedIn ? COPY.account.signInToStart : 'Start a room'}
             </button>

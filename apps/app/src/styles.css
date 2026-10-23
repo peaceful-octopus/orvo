@@ -310,6 +310,10 @@ html.floating .toasts {
   max-width: 28rem;
 }
 
+.home-actions[hidden] {
+  display: none;
+}
+
 .home-actions {
   display: grid;
   gap: 0.9rem;
