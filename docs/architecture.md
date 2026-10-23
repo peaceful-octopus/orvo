@@ -29,6 +29,10 @@ Status: contracts (`packages/protocol`), the signaling node (`apps/signaling`), 
 ## Entitlements and TURN
 The join request may carry an `entitlement` token. A pluggable `EntitlementVerifier` (none by default, so every room is `free`) decides what it grants. A granted tier sticks to the room for an hour (refreshed on each join), so everyone in an entitled room receives credentials. `relay-lite` and `full` map to separate TURN pools; credentials are coturn REST-style (`<expiry>:<peerId>` plus HMAC-SHA1) and expire on their own.
 
+## Accounts
+
+Optional OpenID Connect sign-in, a server rule for who may start rooms, and per-room "signed-in only" access with an owner. See [accounts.md](accounts.md). Room records (owner, access rule) live in the placement store beside leases and tiers, with a one-day idle expiry.
+
 ## Client config
 The beacon publishes `limits` (room size, warning size, video tiers), `minClientVersion`, `minProtocol` and an optional `announcement` through environment variables (`MAX_ROOM_SIZE`, `WARN_ROOM_SIZE`, `MIN_CLIENT_VERSION`, `ANNOUNCEMENT`, `ANNOUNCEMENT_ID`) or a pre-signed config file. It also puts the room cap into each join token, so signaling nodes enforce the limit clients were told (a node's own `hardMaxRoomSize`, 100 by default, is a ceiling no token can exceed).
 

@@ -29,6 +29,7 @@ export const COPY = {
     needsLoginToStart: { title: 'Sign in to start this room', body: 'This server only lets signed-in people start a room. Nobody has started this one yet.' },
     expired: { title: 'Your sign-in ran out', body: 'Sign in again to carry on.' },
     signingIn: 'Signing you in...',
+    waiting: 'Finish signing in in your browser...',
     failed: 'Sign-in did not work.',
     backHome: 'Back to start',
   },

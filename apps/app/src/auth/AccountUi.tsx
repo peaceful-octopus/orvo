@@ -7,7 +7,11 @@ import { useAuth } from './authStore';
 /** Starts sign-in, telling the person if the provider cannot be reached. */
 export function useSignIn() {
   const signIn = useAuth((s) => s.signIn);
-  return () => void signIn().catch(() => toast.error(COPY.toasts.signInFailed));
+  return () => {
+    // On the desktop the browser opens separately, so say where to look.
+    if ('__TAURI_INTERNALS__' in window) toast.info(COPY.account.waiting);
+    void signIn().catch((err: unknown) => toast.error(err instanceof Error && err.message && !/fetch|network/i.test(err.message) ? err.message : COPY.toasts.signInFailed));
+  };
 }
 
 /** Whether this server lets people sign in at all; when it does not, no sign-in appears anywhere. */
@@ -22,9 +26,16 @@ export function accountName(user: { name?: string; email?: string } | undefined)
 export function AccountButton({ onOpenSettings }: { onOpenSettings(): void }) {
   const offered = useAuthOffered();
   const user = useAuth((s) => s.session?.user);
+  const waiting = useAuth((s) => s.waiting);
   const signIn = useSignIn();
   if (!offered) return null;
-  if (!user) return <button onClick={signIn}>{COPY.account.signIn}</button>;
+  if (!user) {
+    return (
+      <button onClick={signIn} disabled={waiting}>
+        {waiting ? COPY.account.waiting : COPY.account.signIn}
+      </button>
+    );
+  }
   const name = accountName(user);
   return (
     <button className="icon account" aria-label={`${COPY.account.signedInAs} ${name}`} title={`${COPY.account.signedInAs} ${name}`} onClick={onOpenSettings}>

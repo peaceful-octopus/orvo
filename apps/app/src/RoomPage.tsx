@@ -131,6 +131,11 @@ export function RoomPage({ room }: { room: string }) {
     [screen, name, remotes],
   );
 
+  // Once signed in, the sign-in card has done its job.
+  useEffect(() => {
+    if (accountName) useCall.setState({ loginRequired: undefined });
+  }, [accountName]);
+
   // Someone who is signed in does not have to type their name: the account's is the starting point.
   useEffect(() => {
     if (!name && accountName) setName(accountName);

@@ -35,6 +35,11 @@ services:
       TURN_URLS: ${TURN_URLS:-}
       TURN_SECRET: ${TURN_SECRET:-}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
+      # Optional sign-in with an OpenID Connect provider; see docs/accounts.md.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      ROOM_CREATION: ${ROOM_CREATION:-anyone}
+      DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
 
   node-1:
     <<: *chillcall

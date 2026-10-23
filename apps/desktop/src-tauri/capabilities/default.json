@@ -25,6 +25,17 @@
     "core:window:allow-destroy",
     "core:window:allow-set-skip-taskbar",
     "core:window:allow-monitor-from-point",
-    "core:window:allow-cursor-position"
+    "core:window:allow-cursor-position",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://*"
+        },
+        {
+          "url": "http://*"
+        }
+      ]
+    }
   ]
 }

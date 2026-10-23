@@ -16,6 +16,11 @@ services:
       BEHIND_PROXY: ${BEHIND_PROXY:-}
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
+      # Optional sign-in with an OpenID Connect provider; see docs/accounts.md.
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      ROOM_CREATION: ${ROOM_CREATION:-anyone}
+      DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
     volumes:
       - chillcall-data:/data
 
