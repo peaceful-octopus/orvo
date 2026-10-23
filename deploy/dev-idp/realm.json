@@ -1,0 +1,39 @@
+{
+  "realm": "orvo",
+  "enabled": true,
+  "registrationAllowed": false,
+  "sslRequired": "none",
+  "eventsEnabled": true,
+  "eventsListeners": ["jboss-logging"],
+  "enabledEventTypes": ["LOGIN", "LOGIN_ERROR", "CODE_TO_TOKEN", "CODE_TO_TOKEN_ERROR", "IDENTITY_PROVIDER_LOGIN", "IDENTITY_PROVIDER_LOGIN_ERROR", "IDENTITY_PROVIDER_FIRST_LOGIN", "UPDATE_PROFILE"],
+  "clients": [
+    {
+      "clientId": "orvo",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/auth/callback",
+        "http://127.0.0.1/callback"
+      ],
+      "webOrigins": ["http://localhost:5173", "http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GOOGLE_CLIENT_ID}",
+        "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+        "defaultScope": "openid profile email",
+        "syncMode": "IMPORT"
+      }
+    }
+  ]
+}

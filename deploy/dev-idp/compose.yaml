@@ -1,0 +1,20 @@
+# Keycloak for local sign-in testing, with Google as the way people log in.
+# Orvo talks to Keycloak as a public client (PKCE, no secret); the Google client secret stays here.
+# Setup: docs/accounts.md, "Testing sign-in with Google".
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    ports:
+      - "8081:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in deploy/dev-idp/.env}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET in deploy/dev-idp/.env}
+    volumes:
+      - ./realm.json:/opt/keycloak/data/import/realm.json:ro
+      - keycloak-data:/opt/keycloak/data
+
+volumes:
+  keycloak-data:

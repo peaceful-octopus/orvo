@@ -85,6 +85,28 @@ OIDC_ISSUER=https://id.example.com/realms/chill OIDC_CLIENT_ID=orvo ROOM_CREATIO
 Keycloak, Authentik, Auth0, Okta, Google and any other OpenID Connect provider that publishes
 `/.well-known/openid-configuration` and issues ID tokens can be used.
 
+## Testing sign-in with Google
+
+Google's token endpoint requires a client secret, which Orvo's public-client flow does not send. `deploy/dev-idp` runs
+a local Keycloak that Orvo uses as a public client, with Google configured inside Keycloak as the way people log in.
+The Google secret stays in Keycloak.
+
+1. In Google Cloud Console, open **APIs & Services → OAuth consent screen**: user type External, status Testing, and add
+   your Google account as a test user.
+2. Open **Credentials → Create credentials → OAuth client ID → Web application** and add this authorized redirect URI:
+   `http://localhost:8081/realms/orvo/broker/google/endpoint`.
+3. Copy `deploy/dev-idp/.env.example` to `deploy/dev-idp/.env` and fill in the client id and secret.
+4. Start Keycloak: `docker compose -f deploy/dev-idp/compose.yaml up`. The realm `orvo` and its public client `orvo`
+   are imported on first start. Its admin console is `http://localhost:8081` (`admin` / `admin`).
+5. Start the server against it, and the app with `pnpm dev`:
+   ```
+   OIDC_ISSUER=http://localhost:8081/realms/orvo OIDC_CLIENT_ID=orvo ROOM_CREATION=signed-in pnpm --filter @orvo/server start
+   ```
+
+Sign in from `http://localhost:5173`; Keycloak's login page offers "Google". The first login creates the Keycloak user.
+The realm registers `http://127.0.0.1/callback` for the desktop app; Keycloak ignores the port when matching a loopback redirect (RFC 8252), so the random port the app picks is accepted. The client also lists the desktop app's own origins (`http://tauri.localhost`, `tauri://localhost`) as web origins: the app calls the token endpoint from its webview, and Keycloak only sends the CORS header the browser needs for origins on that list. The realm is imported only when it
+does not exist, so after editing `realm.json` run `docker compose -f deploy/dev-idp/compose.yaml down -v` first.
+
 ## Where tokens live
 
 The tokens are kept in the app's local storage (`orvo:auth`), like the rest of its settings, and renewed with the
