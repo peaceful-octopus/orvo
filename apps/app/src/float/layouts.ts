@@ -119,3 +119,23 @@ export function splitForScreens(bounds: Bounds, screens: number): { screens: Rec
   );
   return { screens: tiles, bubbles, direction: wide ? 'column' : 'row' };
 }
+
+/** A bubble size must be this much larger to make the line of bubbles change direction, so it does not flicker at a square. */
+const SWITCH_MARGIN = 1.06;
+
+/**
+ * For the floating window: a row or column of bubbles turns whichever way gives the larger bubbles, so stretching the
+ * window wide gives a row and stretching it tall gives a column. A ring (campfire) and a single bubble are left alone.
+ * `previous` is the direction in use now; it is kept unless the other is clearly better.
+ */
+export function adaptiveMode(mode: LayoutMode, count: number, bounds: Bounds, previous?: LayoutMode, maxSize = UNCAPPED): LayoutMode {
+  if (mode === 'campfire' || count <= 1 || bounds.w <= 0 || bounds.h <= 0) return mode;
+  const row = layout('row', count, bounds, maxSize).size;
+  const column = layout('column', count, bounds, maxSize).size;
+  if (previous === 'row' || previous === 'column') {
+    const other = previous === 'row' ? column : row;
+    const current = previous === 'row' ? row : column;
+    return other > current * SWITCH_MARGIN ? (previous === 'row' ? 'column' : 'row') : previous;
+  }
+  return column > row ? 'column' : 'row';
+}

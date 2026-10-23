@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerThemeTarget } from '../theme/theme';
-import { bubbleForWindow, FLOAT_BUBBLE, floatWindowSize, MAX_FLOAT_BUBBLE, MIN_FLOAT_BUBBLE, type LayoutMode } from './layouts';
+import { adaptiveMode, bubbleForWindow, FLOAT_BUBBLE, floatWindowSize, MAX_FLOAT_BUBBLE, MIN_FLOAT_BUBBLE, type LayoutMode } from './layouts';
 
 export type FloatKind = 'tauri' | 'pip';
 
@@ -131,14 +131,20 @@ export function useFloat(mode: LayoutMode, count: number) {
   // Keep the floating window fitted to the layout as people come and go.
   useEffect(() => {
     if (!active) return;
-    const size = floatWindowSize(mode, count, bubble.current);
+    // A row or column keeps whichever way the window was stretched; the new count only changes its length.
+    const fitted = (current: { w: number; h: number }) =>
+      floatWindowSize(adaptiveMode(mode, count, current), count, bubble.current);
     if (kind === 'tauri') {
       ownResizeAt.current = Date.now();
-      void import('@tauri-apps/api/dpi').then(async ({ LogicalSize }) =>
-        (await tauriWindow()).setSize(new LogicalSize(size.w, size.h)),
-      );
+      void import('@tauri-apps/api/dpi').then(async ({ LogicalSize }) => {
+        const win = await tauriWindow();
+        const inner = (await win.innerSize()).toLogical(await win.scaleFactor());
+        const size = fitted({ w: inner.width, h: inner.height });
+        await win.setSize(new LogicalSize(size.w, size.h));
+      });
     } else {
       try {
+        const size = fitted({ w: pip?.innerWidth ?? 0, h: pip?.innerHeight ?? 0 });
         pip?.resizeTo(size.w, size.h);
       } catch {
         // Browsers may refuse resizes without a user gesture.
@@ -158,7 +164,8 @@ export function useFloat(mode: LayoutMode, count: number) {
         timer = setTimeout(async () => {
           if (Date.now() - ownResizeAt.current < OWN_RESIZE_MS) return;
           const inner = (await win.innerSize()).toLogical(await win.scaleFactor());
-          bubble.current = bubbleForWindow(mode, count, { w: inner.width, h: inner.height });
+          const size = { w: inner.width, h: inner.height };
+          bubble.current = bubbleForWindow(adaptiveMode(mode, count, size), count, size);
           saveBubble(bubble.current);
         }, SAVE_DELAY_MS);
       });

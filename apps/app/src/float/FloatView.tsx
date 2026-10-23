@@ -30,7 +30,7 @@ export function FloatView({ members, mode, draggable, hot, inlineControls }: Pro
       className={`float-view${hot ? ' hot' : ''}${inlineControls ? ' inline-controls' : ''}`}
       onMouseDown={draggable ? () => void startWindowDrag() : undefined}
     >
-      <BubbleField members={members} mode={mode} maxSize={UNCAPPED} />
+      <BubbleField members={members} mode={mode} maxSize={UNCAPPED} adaptive />
       {inlineControls && (
         <div onMouseDown={(e) => e.stopPropagation()}>
           <ControlButtons {...inlineControls} />

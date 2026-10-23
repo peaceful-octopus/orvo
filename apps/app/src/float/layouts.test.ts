@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LAYOUT_MODES, MAX_BUBBLE, UNCAPPED, bubbleForWindow, floatWindowSize, layout, splitForScreens } from './layouts';
+import { LAYOUT_MODES, MAX_BUBBLE, UNCAPPED, adaptiveMode, bubbleForWindow, floatWindowSize, layout, splitForScreens } from './layouts';
 
 const bounds = { w: 800, h: 500 };
 const EPS = 1e-6;
@@ -139,5 +139,41 @@ describe('splitForScreens', () => {
     const total = s.screens.reduce((a, r) => a + r.w * r.h, 0);
     expect(total).toBeCloseTo(1000 * 0.74 * 500);
     for (let i = 1; i < 3; i++) expect(s.screens[i]!.x + s.screens[i]!.y).toBeGreaterThanOrEqual(s.screens[i - 1]!.x + s.screens[i - 1]!.y);
+  });
+});
+
+describe('adaptiveMode', () => {
+  it('lines bubbles up in a row in a wide window and a column in a tall one', () => {
+    expect(adaptiveMode('row', 3, { w: 900, h: 300 })).toBe('row');
+    expect(adaptiveMode('column', 3, { w: 900, h: 300 })).toBe('row');
+    expect(adaptiveMode('row', 3, { w: 300, h: 900 })).toBe('column');
+    expect(adaptiveMode('column', 3, { w: 300, h: 900 })).toBe('column');
+  });
+
+  it('chooses the direction that makes the bubbles bigger', () => {
+    for (const bounds of [{ w: 800, h: 500 }, { w: 500, h: 800 }, { w: 1200, h: 400 }, { w: 350, h: 1000 }]) {
+      for (let n = 2; n <= 8; n++) {
+        const chosen = adaptiveMode('row', n, bounds);
+        const other = chosen === 'row' ? 'column' : 'row';
+        expect(layout(chosen, n, bounds, UNCAPPED).size).toBeGreaterThanOrEqual(layout(other, n, bounds, UNCAPPED).size - 1e-6);
+      }
+    }
+  });
+
+  it('leaves a ring and a single bubble as they are', () => {
+    expect(adaptiveMode('campfire', 5, { w: 300, h: 900 })).toBe('campfire');
+    expect(adaptiveMode('row', 1, { w: 300, h: 900 })).toBe('row');
+  });
+
+  it('does not flip back and forth around a square window', () => {
+    const square = { w: 500, h: 500 };
+    expect(adaptiveMode('row', 2, square, 'row')).toBe('row');
+    expect(adaptiveMode('row', 2, square, 'column')).toBe('column');
+    expect(adaptiveMode('row', 2, { w: 520, h: 500 }, 'column')).toBe('column'); // a small stretch is not enough
+    expect(adaptiveMode('row', 2, { w: 900, h: 500 }, 'column')).toBe('row'); // a clear one is
+  });
+
+  it('keeps the current direction while the window has no size yet', () => {
+    expect(adaptiveMode('column', 3, { w: 0, h: 0 }, 'column')).toBe('column');
   });
 });

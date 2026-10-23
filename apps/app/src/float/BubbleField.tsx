@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 import { Bubble } from '../Bubble';
-import { layout, splitForScreens, type LayoutMode } from './layouts';
+import { adaptiveMode, layout, splitForScreens, type LayoutMode } from './layouts';
 import { ScreenTile } from './ScreenTile';
 import { useSize } from './useSize';
 
@@ -31,17 +31,26 @@ interface Props {
   onStopSharing?: () => void;
   /** Largest bubble diameter; omit for the default cap. */
   maxSize?: number;
+  /** A row or column turns whichever way fits the window best; used by the floating window. */
+  adaptive?: boolean;
 }
 
 const spring = { type: 'spring', stiffness: 220, damping: 26 } as const;
 
 /** Lays out circular bubbles in a row, column or ring, animating between arrangements. */
-export function BubbleField({ members, mode, maxSize, screens = [], onStopSharing }: Props) {
+export function BubbleField({ members, mode, maxSize, screens = [], onStopSharing, adaptive }: Props) {
   const [ref, bounds] = useSize<HTMLDivElement>();
   const split = splitForScreens(bounds, screens.length);
   // Beside a screen the bubbles line up in a column or row, whatever layout is chosen.
-  const bubbleMode = screens.length ? split.direction : mode;
-  const { size, positions } = layout(bubbleMode, members.length, { w: split.bubbles.w, h: split.bubbles.h }, maxSize);
+  const bubbleArea = { w: split.bubbles.w, h: split.bubbles.h };
+  const direction = useRef<LayoutMode | undefined>(undefined);
+  const bubbleMode = screens.length
+    ? split.direction
+    : adaptive
+      ? adaptiveMode(mode, members.length, bubbleArea, direction.current, maxSize)
+      : mode;
+  direction.current = bubbleMode;
+  const { size, positions } = layout(bubbleMode, members.length, bubbleArea, maxSize);
 
   // Whoever is here when the field first appears is simply there; people who arrive later pop in.
   const known = useRef<Set<string> | null>(null);
