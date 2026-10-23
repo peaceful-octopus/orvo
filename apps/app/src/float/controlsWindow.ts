@@ -48,6 +48,9 @@ async function closeControls() {
   await (await WebviewWindow.getByLabel(CONTROLS_LABEL))?.destroy();
 }
 
+/** Closes the controls window, if there is one, and resolves once it is gone. */
+export const closeControlsWindow = () => enqueue(closeControls);
+
 /**
  * While the floating window is active, runs the separate controls window next to it: keeps it in sync with the
  * call state, performs its actions, and reports whether the pointer is over either window (the bubble window

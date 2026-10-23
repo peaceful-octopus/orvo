@@ -18,7 +18,7 @@ import { SettingsButton } from './SettingsPane';
 import { useSettings } from './settingsStore';
 import { BubbleField, type Member, type ScreenShare } from './float/BubbleField';
 import type { ControlAction } from './float/bridge';
-import { useControlsWindow } from './float/controlsWindow';
+import { closeControlsWindow, useControlsWindow } from './float/controlsWindow';
 import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
 import {
@@ -175,6 +175,7 @@ export function RoomPage({ room }: { room: string }) {
   };
   const leaveCall = async () => {
     await float.exit(); // restore the full window before the page reloads
+    await closeControlsWindow().catch(() => {}); // the reload would otherwise cut its closing short and leave the bar behind
     leave();
     location.assign('/');
   };
