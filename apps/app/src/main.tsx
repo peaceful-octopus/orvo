@@ -16,6 +16,14 @@ const controlsOnly = new URLSearchParams(location.search).get('view') === 'contr
 
 startTheme();
 
+// The desktop app's right-click menu is the web view's (Share, Reload and so on), which means nothing in an app. Text
+// fields keep theirs for cut and paste, and the development build keeps it for Inspect.
+if ('__TAURI_INTERNALS__' in window && !import.meta.env.DEV) {
+  window.addEventListener('contextmenu', (e) => {
+    if (!(e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable="true"]'))) e.preventDefault();
+  });
+}
+
 if (!controlsOnly) {
   void useConfig.getState().refresh();
   telemetry.start();
