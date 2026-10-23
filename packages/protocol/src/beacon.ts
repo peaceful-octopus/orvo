@@ -17,6 +17,8 @@ export const RoomRecord = z.object({
   owner: z.string().optional(),
   /** When true, only people who are signed in may join. */
   signedInOnly: z.boolean(),
+  /** When true, only people who were already in the room (and its owner) can join: no new faces. */
+  locked: z.boolean().default(false),
   createdAt: z.number().int(),
 });
 export type RoomRecord = z.infer<typeof RoomRecord>;
@@ -28,7 +30,9 @@ export type CreateRoomRequest = z.infer<typeof CreateRoomRequest>;
 export const CreateRoomResponse = z.object({ room: z.string(), signedInOnly: z.boolean() });
 export type CreateRoomResponse = z.infer<typeof CreateRoomResponse>;
 
-export const UpdateRoomRequest = z.object({ signedInOnly: z.boolean() });
+export const UpdateRoomRequest = z
+  .object({ signedInOnly: z.boolean().optional(), locked: z.boolean().optional() })
+  .refine((v) => v.signedInOnly !== undefined || v.locked !== undefined, 'Nothing to change.');
 export type UpdateRoomRequest = z.infer<typeof UpdateRoomRequest>;
 
 /** Error codes the beacon uses when the person has to sign in first, so clients can offer a sign-in. */
@@ -36,6 +40,8 @@ export const LOGIN_REQUIRED_TO_CREATE = 'login-required-to-create';
 export const LOGIN_REQUIRED_TO_JOIN = 'login-required-to-join';
 /** The token sent with the request was not accepted (expired, wrong audience, not from the trusted provider). */
 export const INVALID_TOKEN = 'invalid-token';
+/** The room's owner locked it, and this person was not already in it. */
+export const ROOM_LOCKED = 'room-locked';
 
 export const JoinRequest = z.object({
   room: z.string(),
@@ -57,7 +63,7 @@ export const JoinResponse = z.object({
   transport: z.enum(['mesh', 'sfu']),
   tier: Tier,
   /** The room's access rules as the beacon holds them, and whether this person owns the room. */
-  room: z.object({ signedInOnly: z.boolean(), owner: z.boolean() }).optional(),
+  room: z.object({ signedInOnly: z.boolean(), owner: z.boolean(), locked: z.boolean().default(false) }).optional(),
 });
 export type JoinResponse = z.infer<typeof JoinResponse>;
 

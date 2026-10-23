@@ -1,6 +1,7 @@
 import { FakeClock, testKeys } from '@chillcall/testkit';
 import { MemoryPlacementStore } from '@chillcall/placement';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { verifyJoinToken } from '@chillcall/protocol';
 import { createBeaconApp, type BeaconOptions } from './app';
 
 const key = testKeys('beacon-1');
@@ -140,7 +141,7 @@ describe('changing a room afterwards', () => {
 
   it('lets only the signed-in owner change who may join', async () => {
     const made = (await create('token-ann')).json();
-    expect((await patch(made.room, { signedInOnly: true }, 'token-ann')).json()).toEqual({ room: made.room, signedInOnly: true });
+    expect((await patch(made.room, { signedInOnly: true }, 'token-ann')).json()).toEqual({ room: made.room, signedInOnly: true, locked: false });
     expect((await join(made.room)).json().code).toBe('login-required-to-join');
     expect((await patch(made.room, { signedInOnly: false }, 'token-ann')).statusCode).toBe(200);
     expect((await join(made.room)).statusCode).toBe(200);
@@ -179,5 +180,97 @@ describe('plans that come from accounts', () => {
     expect(withPlan.iceServers.some((s: { urls: string | string[] }) => String(s.urls).startsWith('turn:'))).toBe(true);
     expect((await join('other-room-abc12345', 'token-bob')).json().tier).toBe('free');
     expect((await join('third-room-abc12345')).json().tier).toBe('free');
+  });
+});
+
+describe('locking a room', () => {
+  beforeEach(() => start({ auth }));
+
+  const joinWith = (roomId: string, token?: string, resume?: string) =>
+    app.inject({ method: 'POST', url: '/v1/rooms/join', payload: { room: roomId, resume }, headers: as(token) });
+
+  async function lockedRoomWithMembers() {
+    const made = (await create('token-ann')).json();
+    const bob = (await joinWith(made.room, 'token-bob')).json(); // Bob and a guest are in before the lock
+    const guest = (await joinWith(made.room)).json();
+    expect((await patch(made.room, { locked: true }, 'token-ann')).json()).toMatchObject({ locked: true });
+    return { room: made.room, bob, guest };
+  }
+
+  it('keeps out new people, signed in or not, with a reason that says why', async () => {
+    const { room: id } = await lockedRoomWithMembers();
+    for (const token of [undefined, 'token-bob']) {
+      const res = await joinWith(id, token);
+      expect(res.statusCode).toBe(403);
+      expect(res.json().code).toBe('room-locked');
+    }
+    expect((await joinWith('other-room-abc12345')).statusCode).toBe(200); // other rooms are not affected
+  });
+
+  it('lets people who were already in the room come back, even if they are guests', async () => {
+    const { room: id, bob, guest } = await lockedRoomWithMembers();
+    expect((await joinWith(id, 'token-bob', bob.resumeToken)).statusCode).toBe(200);
+    expect((await joinWith(id, undefined, guest.resumeToken)).statusCode).toBe(200); // a guest reconnecting after a drop
+  });
+
+  it('does not accept a resume token from another room, a forged one, or one that ran out', async () => {
+    const { room: id, guest } = await lockedRoomWithMembers();
+    const elsewhere = (await joinWith('other-room-abc12345')).json();
+    expect((await joinWith(id, undefined, elsewhere.resumeToken)).json().code).toBe('room-locked');
+    expect((await joinWith(id, undefined, 'forged.token')).json().code).toBe('room-locked');
+    clock.advance(7 * 3600_000);
+    expect((await joinWith(id, undefined, guest.resumeToken)).json().code).toBe('room-locked');
+  });
+
+  it('always lets the owner in, who is then told they own the room', async () => {
+    const { room: id } = await lockedRoomWithMembers();
+    const res = await joinWith(id, 'token-ann');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().room).toEqual({ signedInOnly: false, owner: true, locked: true });
+  });
+
+  it('opens again when the owner unlocks it', async () => {
+    const { room: id } = await lockedRoomWithMembers();
+    expect((await patch(id, { locked: false }, 'token-ann')).json().locked).toBe(false);
+    expect((await joinWith(id)).statusCode).toBe(200);
+  });
+
+  it('can be changed by the owner and by nobody else', async () => {
+    const made = (await create('token-ann')).json();
+    const bob = await patch(made.room, { locked: true }, 'token-bob');
+    expect(bob.statusCode).toBe(403);
+    expect(bob.json().code).toBe('not-owner');
+    expect((await patch(made.room, { locked: true })).statusCode).toBe(401);
+    expect((await joinWith(made.room)).statusCode).toBe(200); // still open
+  });
+
+  it('can be combined with signed-in only, and one setting is changed without touching the other', async () => {
+    const made = (await create('token-ann', { signedInOnly: true })).json();
+    expect((await patch(made.room, { locked: true }, 'token-ann')).json()).toMatchObject({ signedInOnly: true, locked: true });
+    expect((await patch(made.room, { signedInOnly: false }, 'token-ann')).json()).toMatchObject({ signedInOnly: false, locked: true });
+    expect((await patch(made.room, {}, 'token-ann')).statusCode).toBe(400);
+  });
+
+  it('tells the node who owns the room and which account each joiner is, in the signed join token', async () => {
+    const made = (await create('token-ann')).json();
+    const decode = async (token?: string) => {
+      const res = (await joinWith(made.room, token)).json();
+      const checked = verifyJoinToken(res.joinToken, { keys: key.keys, nodeId: 'node-1', now: clock.now });
+      expect(checked.ok).toBe(true);
+      return checked.ok ? checked.payload : undefined;
+    };
+    expect(await decode('token-ann')).toMatchObject({ owner: true, acct: 'ann' });
+    expect(await decode('token-bob')).toMatchObject({ acct: 'bob' });
+    expect((await decode('token-bob'))?.owner).toBeUndefined();
+    expect(await decode()).toMatchObject({}); // a guest has neither
+    expect((await decode())?.acct).toBeUndefined();
+  });
+
+  it('remembers the lock while the room is in use', async () => {
+    const { room: id } = await lockedRoomWithMembers();
+    clock.advance(23 * 3600_000);
+    expect((await joinWith(id, 'token-ann')).statusCode).toBe(200); // the owner coming back refreshes the record
+    clock.advance(23 * 3600_000);
+    expect((await joinWith(id)).json().code).toBe('room-locked');
   });
 });

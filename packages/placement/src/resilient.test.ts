@@ -113,11 +113,11 @@ describe('ResilientPlacementStore', () => {
 
   it('keeps the owner and access rules of a room usable while the shared store is down', async () => {
     const { resilient, state } = setup();
-    const record = { owner: 'acct-1', signedInOnly: true, createdAt: 1 };
+    const record = { owner: 'acct-1', signedInOnly: true, locked: false, createdAt: 1 };
     expect(await resilient.createRoom('room-abc', record, 60_000)).toEqual(record);
     state.down = true;
     expect(await resilient.getRoom('room-abc')).toEqual(record); // remembered from before the outage
-    const fresh = { signedInOnly: false, createdAt: 2 };
+    const fresh = { signedInOnly: false, locked: false, createdAt: 2 };
     expect(await resilient.createRoom('new-room-abc', fresh, 60_000)).toEqual(fresh); // new rooms still work
     expect(await resilient.updateRoom('room-abc', { ...record, signedInOnly: false }, 60_000)).toBe(true);
     await resilient.touchRoom('room-abc', 60_000); // does not throw

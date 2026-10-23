@@ -14,6 +14,10 @@ export const ErrorCode = z.enum([
   'upgrade-required',
   'rate-limited',
   'bad-request',
+  /** The room's owner removed this person (or the account they joined with). */
+  'kicked',
+  /** Only the room's owner may do that. */
+  'forbidden',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 
@@ -28,6 +32,8 @@ export const ClientMessage = z.discriminatedUnion('type', [
   z.object({ v, type: z.literal('join'), token: z.string().min(1), name }),
   z.object({ v, type: z.literal('signal'), to: peerId, payload: z.unknown() }),
   z.object({ v, type: z.literal('ping') }),
+  /** From the room's owner: remove this person from the room and keep them out. */
+  z.object({ v, type: z.literal('kick'), peerId }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
 
@@ -38,6 +44,8 @@ export const ServerMessage = z.discriminatedUnion('type', [
   z.object({ v, type: z.literal('signal'), from: peerId, payload: z.unknown() }),
   z.object({ v, type: z.literal('error'), code: ErrorCode, message: z.string().max(200).optional() }),
   z.object({ v, type: z.literal('pong') }),
+  /** You were removed from the room by its owner. */
+  z.object({ v, type: z.literal('kicked') }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessage>;
 

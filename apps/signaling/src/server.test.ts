@@ -276,3 +276,123 @@ describe('leaving, resuming and draining', () => {
     expect(text).toContain('# TYPE chillcall_signaling_joins_total counter');
   });
 });
+
+describe('removing people (kicking)', () => {
+  async function joinAs(peerId: string, overrides: Record<string, unknown> = {}) {
+    const client = connect();
+    client.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId, ...overrides }, clock.now), name: peerId });
+    return client;
+  }
+  const owner = (peerId = 'owner') => joinAs(peerId, { owner: true, acct: 'acct-owner' });
+
+  it('lets the owner remove someone: they are told, disconnected, and everyone else is told they left', async () => {
+    await start();
+    const boss = await owner();
+    await boss.next('welcome');
+    const bob = await joinAs('bob');
+    await bob.next('welcome');
+    const cy = await joinAs('cy');
+    await cy.next('welcome');
+    await boss.next('peer-joined');
+    await boss.next('peer-joined');
+
+    boss.send({ type: 'kick', peerId: 'bob' });
+    await bob.next('kicked');
+    expect((await bob.closed).code).toBe(4003);
+    expect(await boss.next('peer-left')).toMatchObject({ id: 'bob' });
+    expect(await cy.next('peer-left')).toMatchObject({ id: 'bob' });
+  });
+
+  it('refuses a kick from anyone but the owner, and removes nobody', async () => {
+    await start();
+    const boss = await owner();
+    await boss.next('welcome');
+    const bob = await joinAs('bob');
+    await bob.next('welcome');
+    const cy = await joinAs('cy');
+    await cy.next('welcome');
+    await boss.next('peer-joined');
+    await boss.next('peer-joined');
+
+    bob.send({ type: 'kick', peerId: 'cy' });
+    expect(await bob.next('error')).toMatchObject({ code: 'forbidden' });
+    // Nothing happened to Cy: still connected, and no one was told they left.
+    cy.send({ type: 'signal', to: 'owner', payload: 'still here' });
+    expect(await boss.next('signal')).toMatchObject({ from: 'cy', payload: 'still here' });
+    expect(boss.messages.some((m) => m.type === 'peer-left')).toBe(false);
+  });
+
+  it('keeps a removed person out under the same peer id, and a removed account out under any peer id', async () => {
+    await start();
+    const boss = await owner();
+    await boss.next('welcome');
+    const bob = await joinAs('bob', { acct: 'acct-bob' });
+    await bob.next('welcome');
+    await boss.next('peer-joined');
+    boss.send({ type: 'kick', peerId: 'bob' });
+    await bob.next('kicked');
+
+    const sameId = await joinAs('bob', { acct: 'acct-bob' });
+    expect(await sameId.next('error')).toMatchObject({ code: 'kicked' });
+    const newId = await joinAs('bob-again', { acct: 'acct-bob' }); // signing in again does not help
+    expect(await newId.next('error')).toMatchObject({ code: 'kicked' });
+    const somebodyElse = await joinAs('dee', { acct: 'acct-dee' });
+    expect(await somebodyElse.next('welcome')).toMatchObject({ peerId: 'dee' });
+  });
+
+  it('cannot tell a guest from the next guest, so a removed guest can only be kept out by their peer id', async () => {
+    await start();
+    const boss = await owner();
+    await boss.next('welcome');
+    const guest = await joinAs('guest-1');
+    await guest.next('welcome');
+    await boss.next('peer-joined');
+    boss.send({ type: 'kick', peerId: 'guest-1' });
+    await guest.next('kicked');
+    const fresh = await joinAs('guest-2'); // a new identity: this is what locking the room is for
+    expect(await fresh.next('welcome')).toMatchObject({ peerId: 'guest-2' });
+  });
+
+  it('removes a member who has dropped and is waiting to reconnect', async () => {
+    await start({ resumeGraceMs: 5_000 });
+    const boss = await owner();
+    await boss.next('welcome');
+    const bob = await joinAs('bob');
+    await bob.next('welcome');
+    await boss.next('peer-joined');
+    bob.ws.terminate();
+    await bob.closed;
+    boss.send({ type: 'kick', peerId: 'bob' });
+    expect(await boss.next('peer-left')).toMatchObject({ id: 'bob' });
+    const back = await joinAs('bob');
+    expect(await back.next('error')).toMatchObject({ code: 'kicked' });
+  });
+
+  it('ignores a kick of someone who is not there, or of oneself', async () => {
+    await start();
+    const boss = await owner();
+    await boss.next('welcome');
+    boss.send({ type: 'kick', peerId: 'nobody' });
+    boss.send({ type: 'kick', peerId: 'owner' });
+    boss.send({ type: 'signal', to: 'nobody', payload: 1 });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(boss.ws.readyState).toBe(WebSocket.OPEN);
+    expect(boss.messages).toEqual([]);
+  });
+
+  it('forgets who was removed once the room has emptied', async () => {
+    await start();
+    const boss = await owner();
+    await boss.next('welcome');
+    const bob = await joinAs('bob');
+    await bob.next('welcome');
+    await boss.next('peer-joined');
+    boss.send({ type: 'kick', peerId: 'bob' });
+    await bob.next('kicked');
+    boss.ws.close(1000);
+    await boss.closed;
+    await new Promise((r) => setTimeout(r, 100));
+    const later = await joinAs('bob');
+    expect(await later.next('welcome')).toMatchObject({ peerId: 'bob' });
+  });
+});

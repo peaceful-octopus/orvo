@@ -10,6 +10,10 @@ export const JoinTokenPayload = z.object({
   nonce: z.string().min(8),
   /** Room size limit set by the beacon, so nodes enforce what the signed config tells clients. */
   maxRoomSize: z.number().int().positive().optional(),
+  /** The room's owner is joining: the node lets this connection remove people from the room. */
+  owner: z.boolean().optional(),
+  /** The signed-in account behind this join, so a removed person can be kept out under any peer id. Guests have none. */
+  acct: z.string().min(1).optional(),
 });
 export type JoinTokenPayload = z.infer<typeof JoinTokenPayload>;
 

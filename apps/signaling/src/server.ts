@@ -39,14 +39,24 @@ interface Conn {
   lastRefill: number;
   room?: string;
   peerId?: string;
+  /** From the join token: this is the room's owner, who may remove people. */
+  owner?: boolean;
   joinTimer?: NodeJS.Timeout;
 }
 
 interface Member {
   peerId: string;
   name: string;
+  /** The signed-in account behind this member, kept so removing them can keep the account out. */
+  acct?: string;
   conn?: Conn;
   leaveTimer?: NodeJS.Timeout;
+}
+
+/** Who the owner has removed from a room: they cannot join it again while it stays in use on this node. */
+interface Bans {
+  peers: Set<string>;
+  accts: Set<string>;
 }
 
 const INTENTIONAL_CLOSE = new Set([1000, 1001]);
@@ -56,6 +66,7 @@ export class SignalingServer {
   readonly metrics: Metrics;
   private m!: ReturnType<SignalingServer['declareMetrics']>;
   private rooms = new Map<string, Map<string, Member>>();
+  private bans = new Map<string, Bans>();
   private conns = new Set<Conn>();
   private nonces = new NonceCache();
   private wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
@@ -128,7 +139,8 @@ export class SignalingServer {
       framesRejected: m.counter('chillcall_signaling_frames_rejected_total', 'Frames rejected as malformed or oversize.'),
       signalsRelayed: m.counter('chillcall_signaling_signals_relayed_total', 'Offers, answers and candidates relayed.'),
       signalsDropped: m.counter('chillcall_signaling_signals_dropped_total', 'Signals for peers that are not connected.'),
-      resumes: m.counter('chillcall_signaling_resumes_total', 'Members that reconnected within the grace period.'),
+      kicks: m.counter('chillcall_signaling_kicks_total', 'People removed from rooms by their owners.'),
+            resumes: m.counter('chillcall_signaling_resumes_total', 'Members that reconnected within the grace period.'),
       joins: m.counter('chillcall_signaling_joins_total', 'Members admitted to rooms.'),
       joinFailures: m.counter('chillcall_signaling_join_failures_total', 'Joins refused, by reason.', ['code'] as const),
     };
@@ -172,6 +184,7 @@ export class SignalingServer {
     if (msg.type === 'ping') return this.send(conn, { type: 'pong' });
     if (msg.type === 'join') return conn.peerId ? this.reject(conn, 'bad-request') : this.onJoin(conn, msg.token, msg.name);
     if (!conn.peerId || !conn.room) return this.reject(conn, 'bad-request');
+    if (msg.type === 'kick') return this.onKick(conn, msg.peerId);
 
     // signal
     const target = this.rooms.get(conn.room)?.get(msg.to);
@@ -190,6 +203,11 @@ export class SignalingServer {
     let room = this.rooms.get(payload.room);
     if (!room && this.isDraining) return this.joinFailed(conn, 'draining');
     if (!room) this.rooms.set(payload.room, (room = new Map()));
+    const banned = this.bans.get(payload.room);
+    if (banned && (banned.peers.has(payload.peerId) || (payload.acct && banned.accts.has(payload.acct)))) {
+      if (room.size === 0) this.rooms.delete(payload.room);
+      return this.joinFailed(conn, 'kicked');
+    }
     const existing = room.get(payload.peerId);
 
     if (existing) {
@@ -200,6 +218,7 @@ export class SignalingServer {
       if (existing.conn) existing.conn.peerId = undefined;
       existing.conn = conn;
       existing.name = name;
+      existing.acct = payload.acct;
       this.m.resumes.inc();
     } else {
       const cap = Math.min(payload.maxRoomSize ?? this.maxRoomSize, this.hardMaxRoomSize);
@@ -207,12 +226,13 @@ export class SignalingServer {
         if (room.size === 0) this.rooms.delete(payload.room);
         return this.joinFailed(conn, 'room-full');
       }
-      room.set(payload.peerId, { peerId: payload.peerId, name, conn });
+      room.set(payload.peerId, { peerId: payload.peerId, name, acct: payload.acct, conn });
     }
 
     clearTimeout(conn.joinTimer);
     conn.room = payload.room;
     conn.peerId = payload.peerId;
+    conn.owner = payload.owner === true;
     this.m.joins.inc();
 
     const others = [...room.values()].filter((m) => m.peerId !== payload.peerId);
@@ -247,10 +267,39 @@ export class SignalingServer {
     else member.leaveTimer = setTimeout(leave, this.resumeGraceMs);
   }
 
+  /**
+   * The owner removes someone: they are told, disconnected at once, dropped from the room for everyone else, and kept
+   * out, by peer id and by account, for as long as the room stays in use here. Only a connection that joined with the
+   * owner's token may do this.
+   */
+  private onKick(conn: Conn, targetId: string) {
+    if (!conn.owner) return this.send(conn, { type: 'error', code: 'forbidden' });
+    const room = this.rooms.get(conn.room!);
+    const target = room?.get(targetId);
+    if (!room || !target || targetId === conn.peerId) return;
+
+    const bans = this.bans.get(conn.room!) ?? { peers: new Set<string>(), accts: new Set<string>() };
+    bans.peers.add(targetId);
+    if (target.acct) bans.accts.add(target.acct);
+    this.bans.set(conn.room!, bans);
+
+    clearTimeout(target.leaveTimer);
+    if (target.conn) {
+      this.send(target.conn, { type: 'kicked' });
+      target.conn.peerId = undefined; // so closing it does not look like a person who may come back
+      target.conn.ws.close(4003, 'kicked');
+    }
+    this.m.kicks.inc();
+    this.removeMember(conn.room!, targetId);
+  }
+
   private removeMember(roomId: string, peerId: string) {
     const room = this.rooms.get(roomId);
     if (!room?.delete(peerId)) return;
-    if (room.size === 0) this.rooms.delete(roomId);
+    if (room.size === 0) {
+      this.rooms.delete(roomId);
+      this.bans.delete(roomId); // an empty room is over, and so are its bans
+    }
     for (const m of room.values()) if (m.conn) this.send(m.conn, { type: 'peer-left', id: peerId });
   }
 

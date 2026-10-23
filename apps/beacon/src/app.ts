@@ -7,6 +7,7 @@ import {
   JoinRequest,
   LOGIN_REQUIRED_TO_CREATE,
   LOGIN_REQUIRED_TO_JOIN,
+  ROOM_LOCKED,
   TelemetryBatch,
   UpdateRoomRequest,
   generateRoomId,
@@ -82,7 +83,8 @@ export interface BeaconOptions {
 }
 
 const JOIN_TOKEN_TTL_MS = 60_000;
-const RESUME_TOKEN_TTL_MS = 15 * 60_000;
+// Also how long someone who has left can come back to a locked room, so long enough to cover a network drop.
+const RESUME_TOKEN_TTL_MS = 6 * 3600_000;
 const ROOM_TIER_TTL_MS = 3600_000;
 const CONFIG_TTL_MS = 3600_000;
 
@@ -229,6 +231,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     owner: identity?.id,
     // A room nobody can sign in to would lock everyone out, so the flag only counts when sign-in exists.
     signedInOnly: Boolean(opts.auth) && (signedInOnly ?? defaultSignedInOnly),
+    locked: false,
     createdAt: now(),
   });
 
@@ -256,9 +259,15 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     const record = await opts.store.getRoom(req.params.room);
     if (!record) return reply.code(404).send({ error: 'That room is not in use.', code: 'room-not-found' });
     if (!record.owner || record.owner !== who.identity.id) return refused(reply, 403, 'Only the person who made this room can change it.', 'not-owner');
-    const updated = { ...record, signedInOnly: body.data.signedInOnly };
+    const { signedInOnly, locked } = body.data;
+    // Requiring sign-in where nobody can sign in would lock everyone out, so it is ignored there.
+    const updated = {
+      ...record,
+      signedInOnly: signedInOnly === undefined ? record.signedInOnly : Boolean(opts.auth) && signedInOnly,
+      locked: locked ?? record.locked,
+    };
     await opts.store.updateRoom(req.params.room, updated, roomRecordTtl);
-    return { room: req.params.room, signedInOnly: updated.signedInOnly };
+    return { room: req.params.room, signedInOnly: updated.signedInOnly, locked: updated.locked };
   });
 
   /** The room's tier: the best of what it already has and what this joiner's entitlement grants. */
@@ -317,6 +326,15 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       return refused(reply, 401, 'This room is for signed-in people. Sign in to join.', LOGIN_REQUIRED_TO_JOIN);
     }
 
+    // A locked room admits only people who were already in it (they hold a resume token for it) and its owner.
+    const t = now();
+    const resumed = body.resume ? verifyResumeToken(body.resume, { keys: { [kid]: publicKey }, now: t, room: body.room }) : null;
+    const isOwner = Boolean(who.identity && record.owner && record.owner === who.identity.id);
+    if (record.locked && !resumed && !isOwner) {
+      done('locked');
+      return refused(reply, 403, 'This room is locked. Only people who were already in it can join.', ROOM_LOCKED);
+    }
+
     let node: NodeInfo;
     try {
       node = await placeRoom(opts.store, body.room);
@@ -329,10 +347,6 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       throw err;
     }
 
-    const t = now();
-    const resumed = body.resume
-      ? verifyResumeToken(body.resume, { keys: { [kid]: publicKey }, now: t, room: body.room })
-      : null;
     const peerId = resumed?.peerId ?? `p${randomId(6)}`;
     const url = opts.nodeUrl?.(node, req) ?? node.url ?? requestOrigin(req).replace(/^http/, 'ws') + '/ws';
 
@@ -344,7 +358,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     const response: JoinResponse = {
       signalingUrl: url,
       joinToken: signJoinToken(
-        { room: body.room, nodeId: node.id, peerId, exp: t + JOIN_TOKEN_TTL_MS, nonce: randomId(12), maxRoomSize },
+        { room: body.room, nodeId: node.id, peerId, exp: t + JOIN_TOKEN_TTL_MS, nonce: randomId(12), maxRoomSize, owner: isOwner || undefined, acct: who.identity?.id },
         kid,
         secretKey,
       ),
@@ -353,7 +367,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       iceServers,
       transport: 'mesh',
       tier,
-      room: { signedInOnly: record.signedInOnly, owner: Boolean(who.identity && record.owner === who.identity.id) },
+      room: { signedInOnly: record.signedInOnly, owner: isOwner, locked: record.locked },
     };
     done('ok');
     m.tiers.inc({ tier });
