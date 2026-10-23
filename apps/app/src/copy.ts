@@ -4,9 +4,9 @@
  */
 export const COPY = {
   mediaDenied: {
-    title: 'ChillCall cannot see your camera or microphone',
+    title: 'Orvo cannot see your camera or microphone',
     body: 'Allow access in your browser or system settings, then try again.',
-    steps: ['Check that the camera and microphone are plugged in and not in use by another app.', 'Allow ChillCall to use them in your privacy settings.'],
+    steps: ['Check that the camera and microphone are plugged in and not in use by another app.', 'Allow Orvo to use them in your privacy settings.'],
     retry: 'Try again',
   },
   alone: {
@@ -20,7 +20,7 @@ export const COPY = {
   devices: 'Devices',
   serverUnreachable: {
     title: 'Cannot reach the server',
-    body: (url: string) => `ChillCall could not connect to ${url}. Open Settings, then Advanced, and check the server address.`,
+    body: (url: string) => `Orvo could not connect to ${url}. Open Settings, then Advanced, and check the server address.`,
     retry: 'Try again',
   },
   account: {
@@ -28,7 +28,7 @@ export const COPY = {
     signOut: 'Sign out',
     signedInAs: 'Signed in as',
     signInToStart: 'Sign in to start a room',
-    guestsHint: 'You are using ChillCall as a guest.',
+    guestsHint: 'You are using Orvo as a guest.',
     onlySignedIn: 'Only signed-in people can join',
     roomForSignedIn: { title: 'This room is for signed-in people', body: 'Sign in to join it.' },
     needsLoginToStart: { title: 'Sign in to start this room', body: 'This server only lets signed-in people start a room. Nobody has started this one yet.' },
@@ -60,7 +60,7 @@ export const COPY = {
     roomAccess: 'Could not change who can join this room.',
     signInFailed: 'Could not reach the sign-in provider. Try again.',
     screenFailed: 'Could not start screen sharing. Try again.',
-    screenBlocked: 'Screen sharing is blocked. Allow screen recording for ChillCall in your system settings.',
+    screenBlocked: 'Screen sharing is blocked. Allow screen recording for Orvo in your system settings.',
     cameraFailed: 'Could not turn your camera on. Check that it is connected and not in use by another app.',
     micFailed: 'Could not turn your microphone on. Check that it is connected and not in use by another app.',
     cameraLost: 'Your camera stopped working, so it has been turned off.',

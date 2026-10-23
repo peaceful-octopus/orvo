@@ -1,7 +1,7 @@
-import { FakeClock, testKeys } from '@chillcall/testkit';
-import { MemoryPlacementStore } from '@chillcall/placement';
+import { FakeClock, testKeys } from '@orvo/testkit';
+import { MemoryPlacementStore } from '@orvo/placement';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { verifyJoinToken } from '@chillcall/protocol';
+import { verifyJoinToken } from '@orvo/protocol';
 import { createBeaconApp, type BeaconOptions } from './app';
 
 const key = testKeys('beacon-1');
@@ -24,8 +24,8 @@ async function start(extra: Partial<BeaconOptions> = {}) {
 afterEach(() => app.close());
 
 const people: Record<string, { id: string; name: string }> = { 'token-ann': { id: 'ann', name: 'Ann' }, 'token-bob': { id: 'bob', name: 'Bob' } };
-const auth = { verify: async (token: string) => people[token], issuer: 'https://id.example', clientId: 'chillcall' };
-const as = (token?: string) => ({ host: 'chill.example.com', ...(token ? { authorization: `Bearer ${token}` } : {}) });
+const auth = { verify: async (token: string) => people[token], issuer: 'https://id.example', clientId: 'orvo' };
+const as = (token?: string) => ({ host: 'orvo.example.com', ...(token ? { authorization: `Bearer ${token}` } : {}) });
 const create = (token?: string, body: object = {}) => app.inject({ method: 'POST', url: '/v1/rooms', payload: body, headers: as(token) });
 const join = (room: string, token?: string) => app.inject({ method: 'POST', url: '/v1/rooms/join', payload: { room }, headers: as(token) });
 const patch = (room: string, body: object, token?: string) => app.inject({ method: 'PATCH', url: `/v1/rooms/${room}`, payload: body, headers: as(token) });
@@ -41,7 +41,7 @@ describe('without an identity provider', () => {
   });
 
   it('publishes no sign-in details', async () => {
-    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'chill.example.com' } });
+    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'orvo.example.com' } });
     expect(res.json().payload.auth).toBeUndefined();
   });
 
@@ -64,8 +64,8 @@ describe('when starting a room needs an account', () => {
   beforeEach(() => start({ auth, roomCreation: 'signed-in' }));
 
   it('publishes how to sign in and that it is needed', async () => {
-    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'chill.example.com' } });
-    expect(res.json().payload.auth).toEqual({ issuer: 'https://id.example', clientId: 'chillcall', scope: 'openid profile email', createRequiresLogin: true });
+    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'orvo.example.com' } });
+    expect(res.json().payload.auth).toEqual({ issuer: 'https://id.example', clientId: 'orvo', scope: 'openid profile email', createRequiresLogin: true });
   });
 
   it('turns guests away from starting a room, and from joining a room nobody has started', async () => {

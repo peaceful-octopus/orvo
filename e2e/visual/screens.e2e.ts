@@ -21,7 +21,7 @@ for (const [palette, mode] of VARIANTS) {
     await context.addInitScript(
       ([p, m]) => {
         localStorage.setItem(
-          'chillcall:settings',
+          'orvo:settings',
           JSON.stringify({ state: { palette: p, mode: m, name: 'Joel', noise: { enabled: false, strength: 60 } }, version: 0 }),
         );
       },

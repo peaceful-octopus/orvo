@@ -1,4 +1,4 @@
-import { roomStatus } from '@chillcall/protocol';
+import { roomStatus } from '@orvo/protocol';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bubble } from './Bubble';

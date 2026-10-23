@@ -1,4 +1,4 @@
-import { TelemetryClient } from '@chillcall/rtc';
+import { TelemetryClient } from '@orvo/rtc';
 import { telemetryAllowed } from './config';
 import { useConfig } from './configStore';
 

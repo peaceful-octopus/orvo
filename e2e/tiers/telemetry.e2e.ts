@@ -16,7 +16,7 @@ async function counter(request: APIRequestContext, name: string, labels: Record<
 const direct = { result: 'connected', route: 'direct' };
 
 test('connection statistics reach the beacon when people leave a call @tiers', async ({ context, request }) => {
-  const before = await counter(request, 'chillcall_client_peer_connections_total', direct);
+  const before = await counter(request, 'orvo_client_peer_connections_total', direct);
   const room = `e2e-telemetry-${Date.now()}`;
   const pages = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
   await expectAllConnected(pages);
@@ -25,17 +25,17 @@ test('connection statistics reach the beacon when people leave a call @tiers', a
   for (const page of pages) await page.goto('about:blank');
 
   // Each side reports the connection it made, as direct, with no names or room ids in the metrics.
-  await expect.poll(() => counter(request, 'chillcall_client_peer_connections_total', direct)).toBeGreaterThanOrEqual(before + 2);
+  await expect.poll(() => counter(request, 'orvo_client_peer_connections_total', direct)).toBeGreaterThanOrEqual(before + 2);
   const text = await (await request.get(`${BEACON}/metrics`)).text();
   expect(text).not.toContain(room);
-  expect(await counter(request, 'chillcall_client_joins_total', { result: 'ok' })).toBeGreaterThanOrEqual(2);
+  expect(await counter(request, 'orvo_client_joins_total', { result: 'ok' })).toBeGreaterThanOrEqual(2);
 });
 
 test('nothing is reported once the user opts out @tiers', async ({ context, request }) => {
-  await context.addInitScript(() => localStorage.setItem('chillcall:telemetry', 'off'));
+  await context.addInitScript(() => localStorage.setItem('orvo:telemetry', 'off'));
   const before = {
-    peers: await counter(request, 'chillcall_client_peer_connections_total', {}),
-    joins: await counter(request, 'chillcall_client_joins_total', {}),
+    peers: await counter(request, 'orvo_client_peer_connections_total', {}),
+    joins: await counter(request, 'orvo_client_joins_total', {}),
   };
 
   const room = `e2e-optout-${Date.now()}`;
@@ -44,6 +44,6 @@ test('nothing is reported once the user opts out @tiers', async ({ context, requ
   for (const page of pages) await page.goto('about:blank');
   await new Promise((r) => setTimeout(r, 3000));
 
-  expect(await counter(request, 'chillcall_client_peer_connections_total', {})).toBe(before.peers);
-  expect(await counter(request, 'chillcall_client_joins_total', {})).toBe(before.joins);
+  expect(await counter(request, 'orvo_client_peer_connections_total', {})).toBe(before.peers);
+  expect(await counter(request, 'orvo_client_joins_total', {})).toBe(before.joins);
 });

@@ -24,7 +24,7 @@ test('switching camera and microphone mid-call keeps everyone connected and is r
       kind,
     );
 
-  const saved = () => ann.evaluate(() => JSON.parse(localStorage.getItem('chillcall:devices') ?? '{}') as Record<string, string>);
+  const saved = () => ann.evaluate(() => JSON.parse(localStorage.getItem('orvo:devices') ?? '{}') as Record<string, string>);
 
   for (const [menu, group, kind, key] of [
     ['Microphone options', 'Microphone', 'audio', 'audioinput'],

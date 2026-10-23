@@ -1,4 +1,4 @@
-import { makeConfig } from '@chillcall/testkit';
+import { makeConfig } from '@orvo/testkit';
 import { describe, expect, it } from 'vitest';
 import { dismissAnnouncement, updateRequired, visibleAnnouncement, type KeyValueStorage } from './configLogic';
 

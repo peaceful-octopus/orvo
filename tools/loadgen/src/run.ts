@@ -1,4 +1,4 @@
-import { generateRoomId } from '@chillcall/protocol';
+import { generateRoomId } from '@orvo/protocol';
 import { SimClient, type SimReporter } from './client';
 import {
   DEFAULT_ROOM_SIZES,
@@ -140,11 +140,11 @@ export async function runLoad(config: LoadConfig): Promise<LoadReport> {
       try {
         const text = await (await fetch(url, { signal: AbortSignal.timeout(5000) })).text();
         const s = scrapes.get(url) ?? { url, maxConnections: 0, maxRooms: 0, maxRssMb: 0, maxEventLoopLagP99Ms: 0, avgCpuPercent: 0 };
-        s.maxConnections = Math.max(s.maxConnections, scrapeValue(text, 'chillcall_signaling_connections') ?? 0);
-        s.maxRooms = Math.max(s.maxRooms, scrapeValue(text, 'chillcall_signaling_rooms') ?? 0);
-        s.maxRssMb = Math.max(s.maxRssMb, (scrapeValue(text, 'chillcall_process_resident_memory_bytes') ?? 0) / 1024 / 1024);
-        s.maxEventLoopLagP99Ms = Math.max(s.maxEventLoopLagP99Ms, (scrapeValue(text, 'chillcall_nodejs_eventloop_lag_p99_seconds') ?? 0) * 1000);
-        const cpu = (scrapeValue(text, 'chillcall_process_cpu_user_seconds_total') ?? 0) + (scrapeValue(text, 'chillcall_process_cpu_system_seconds_total') ?? 0);
+        s.maxConnections = Math.max(s.maxConnections, scrapeValue(text, 'orvo_signaling_connections') ?? 0);
+        s.maxRooms = Math.max(s.maxRooms, scrapeValue(text, 'orvo_signaling_rooms') ?? 0);
+        s.maxRssMb = Math.max(s.maxRssMb, (scrapeValue(text, 'orvo_process_resident_memory_bytes') ?? 0) / 1024 / 1024);
+        s.maxEventLoopLagP99Ms = Math.max(s.maxEventLoopLagP99Ms, (scrapeValue(text, 'orvo_nodejs_eventloop_lag_p99_seconds') ?? 0) * 1000);
+        const cpu = (scrapeValue(text, 'orvo_process_cpu_user_seconds_total') ?? 0) + (scrapeValue(text, 'orvo_process_cpu_system_seconds_total') ?? 0);
         s.cpuFirst ??= cpu;
         s.firstAt ??= Date.now();
         s.cpuLast = cpu;

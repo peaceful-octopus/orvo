@@ -1,5 +1,5 @@
-import { ClientConfig, fromBase64Url, verifyConfig } from '@chillcall/protocol';
-import { makeConfig } from '@chillcall/testkit';
+import { ClientConfig, fromBase64Url, verifyConfig } from '@orvo/protocol';
+import { makeConfig } from '@orvo/testkit';
 import { describe, expect, it } from 'vitest';
 import { run, type Io } from './cli';
 

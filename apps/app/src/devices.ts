@@ -62,7 +62,7 @@ export function validSelection(selection: DeviceSelection, lists: DeviceLists): 
   return next;
 }
 
-const KEY = 'chillcall:devices';
+const KEY = 'orvo:devices';
 
 export function loadSelection(): DeviceSelection {
   try {

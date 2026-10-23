@@ -11,9 +11,9 @@ describe('parseRoomInput', () => {
   });
 
   it('takes the room from a pasted link', () => {
-    expect(parseRoomInput('https://chill.example.com/r/sleepy-creek-star-xuyh5xow')).toBe('sleepy-creek-star-xuyh5xow');
+    expect(parseRoomInput('https://orvo.example.com/r/sleepy-creek-star-xuyh5xow')).toBe('sleepy-creek-star-xuyh5xow');
     expect(parseRoomInput('http://localhost:8080/r/movie-night/?ice=relay#x')).toBe('movie-night');
-    expect(parseRoomInput('chill.example.com/r/Movie-Night')).toBe('movie-night');
+    expect(parseRoomInput('orvo.example.com/r/Movie-Night')).toBe('movie-night');
   });
 
   it('rejects empty, too short, and unusable names', () => {
@@ -25,7 +25,7 @@ describe('parseRoomInput', () => {
 
 describe('roomLink', () => {
   it('builds the address on the server the app uses', () => {
-    expect(roomLink('movie-night', 'https://chill.example.com')).toBe('https://chill.example.com/r/movie-night');
+    expect(roomLink('movie-night', 'https://orvo.example.com')).toBe('https://orvo.example.com/r/movie-night');
     expect(roomLink('movie-night', 'http://localhost:8080')).toBe('http://localhost:8080/r/movie-night');
   });
 });

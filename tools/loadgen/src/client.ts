@@ -3,8 +3,8 @@ import {
   PROTOCOL_VERSION,
   parseServerMessage,
   type ServerMessage,
-} from '@chillcall/protocol';
-import { backoffDelay } from '@chillcall/rtc';
+} from '@orvo/protocol';
+import { backoffDelay } from '@orvo/rtc';
 import WebSocket from 'ws';
 
 /** What a simulated client reports; the runner turns these into statistics. */

@@ -37,7 +37,7 @@ const readBody = (req: IncomingMessage) =>
  * to use (for example http://host.docker.internal:9190); they default to 127.0.0.1 and the address it listens on.
  */
 export async function startFakeIdp(opts: { port?: number; clientId?: string; tokenTtlSec?: number; host?: string; issuer?: string } = {}): Promise<FakeIdp> {
-  const clientId = opts.clientId ?? 'chillcall-test';
+  const clientId = opts.clientId ?? 'orvo-test';
   const ttl = opts.tokenTtlSec ?? 3600;
   const { publicKey, privateKey } = await generateKeyPair('RS256');
   const jwk: JWK = { ...(await exportJWK(publicKey)), kid: 'fake-1', alg: 'RS256', use: 'sig' };

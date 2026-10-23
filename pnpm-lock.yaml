@@ -8,10 +8,10 @@ importers:
 
   .:
     devDependencies:
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:packages/protocol
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:packages/testkit
       '@eslint/js':
@@ -38,13 +38,13 @@ importers:
 
   apps/app:
     dependencies:
-      '@chillcall/effects':
+      '@orvo/effects':
         specifier: workspace:*
         version: link:../../packages/effects
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@chillcall/rtc':
+      '@orvo/rtc':
         specifier: workspace:*
         version: link:../../packages/rtc
       '@fontsource-variable/bricolage-grotesque':
@@ -93,7 +93,7 @@ importers:
         specifier: ^5.0.15
         version: 5.0.15(@types/react@19.3.0)(react@19.3.1)
     devDependencies:
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       '@types/react':
@@ -111,13 +111,13 @@ importers:
 
   apps/beacon:
     dependencies:
-      '@chillcall/metrics':
+      '@orvo/metrics':
         specifier: workspace:*
         version: link:../../packages/metrics
-      '@chillcall/placement':
+      '@orvo/placement':
         specifier: workspace:*
         version: link:../../packages/placement
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       '@fastify/cors':
@@ -139,7 +139,7 @@ importers:
         specifier: ^6.2.13
         version: 6.2.13
     devDependencies:
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       '@types/node':
@@ -157,19 +157,19 @@ importers:
 
   apps/server:
     dependencies:
-      '@chillcall/beacon':
+      '@orvo/beacon':
         specifier: workspace:*
         version: link:../beacon
-      '@chillcall/metrics':
+      '@orvo/metrics':
         specifier: workspace:*
         version: link:../../packages/metrics
-      '@chillcall/placement':
+      '@orvo/placement':
         specifier: workspace:*
         version: link:../../packages/placement
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@chillcall/signaling':
+      '@orvo/signaling':
         specifier: workspace:*
         version: link:../signaling
       fastify:
@@ -179,7 +179,7 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
     devDependencies:
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       '@types/ioredis-mock':
@@ -206,13 +206,13 @@ importers:
 
   apps/signaling:
     dependencies:
-      '@chillcall/metrics':
+      '@orvo/metrics':
         specifier: workspace:*
         version: link:../../packages/metrics
-      '@chillcall/placement':
+      '@orvo/placement':
         specifier: workspace:*
         version: link:../../packages/placement
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       ioredis:
@@ -222,7 +222,7 @@ importers:
         specifier: ^8.22.0
         version: 8.22.0
     devDependencies:
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       '@types/node':
@@ -249,7 +249,7 @@ importers:
 
   packages/placement:
     dependencies:
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../protocol
       ioredis:
@@ -277,17 +277,17 @@ importers:
 
   packages/rtc:
     dependencies:
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:../testkit
 
   packages/testkit:
     dependencies:
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../protocol
       jose:
@@ -303,26 +303,26 @@ importers:
 
   tools/loadgen:
     dependencies:
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@chillcall/rtc':
+      '@orvo/rtc':
         specifier: workspace:*
         version: link:../../packages/rtc
       ws:
         specifier: ^8.22.0
         version: 8.22.0
     devDependencies:
-      '@chillcall/beacon':
+      '@orvo/beacon':
         specifier: workspace:*
         version: link:../../apps/beacon
-      '@chillcall/placement':
+      '@orvo/placement':
         specifier: workspace:*
         version: link:../../packages/placement
-      '@chillcall/signaling':
+      '@orvo/signaling':
         specifier: workspace:*
         version: link:../../apps/signaling
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       '@types/ioredis-mock':
@@ -346,11 +346,11 @@ importers:
 
   tools/sign-config:
     dependencies:
-      '@chillcall/protocol':
+      '@orvo/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
     devDependencies:
-      '@chillcall/testkit':
+      '@orvo/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       '@types/node':

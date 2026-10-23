@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/signaling",
+  "name": "@orvo/signaling",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,14 +11,14 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@chillcall/metrics": "workspace:*",
-    "@chillcall/placement": "workspace:*",
-    "@chillcall/protocol": "workspace:*",
+    "@orvo/metrics": "workspace:*",
+    "@orvo/placement": "workspace:*",
+    "@orvo/protocol": "workspace:*",
     "ioredis": "^6.0.0",
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@chillcall/testkit": "workspace:*",
+    "@orvo/testkit": "workspace:*",
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
     "tsx": "^4.23.15"

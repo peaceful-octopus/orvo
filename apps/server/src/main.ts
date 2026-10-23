@@ -1,7 +1,7 @@
-import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, serveWebApp } from '@chillcall/beacon';
-import { Metrics } from '@chillcall/metrics';
-import { MemoryPlacementStore } from '@chillcall/placement';
-import { SignalingServer } from '@chillcall/signaling';
+import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, serveWebApp } from '@orvo/beacon';
+import { Metrics } from '@orvo/metrics';
+import { MemoryPlacementStore } from '@orvo/placement';
+import { SignalingServer } from '@orvo/signaling';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -48,7 +48,7 @@ app.get('/readyz', async (_req, reply) =>
 if (!(await serveWebApp(app, webDir))) console.warn(`No web app found at ${webDir}; serving the API and signaling only.`);
 
 await app.listen({ port, host: '0.0.0.0' });
-console.log(`ChillCall listening on :${port}`);
+console.log(`Orvo listening on :${port}`);
 
 process.on('SIGTERM', () => {
   signaling.drain();

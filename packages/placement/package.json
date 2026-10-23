@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/placement",
+  "name": "@orvo/placement",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@chillcall/protocol": "workspace:*",
+    "@orvo/protocol": "workspace:*",
     "ioredis": "^6.0.0"
   },
   "devDependencies": {

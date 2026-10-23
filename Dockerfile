@@ -1,10 +1,10 @@
-# All-in-one ChillCall server: web app, beacon API and signaling node in one container.
+# All-in-one Orvo server: web app, beacon API and signaling node in one container.
 FROM node:24-slim AS build
 RUN npm install -g pnpm@12
 WORKDIR /repo
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @chillcall/app build
+RUN pnpm --filter @orvo/app build
 
 FROM node:24-slim
 WORKDIR /repo

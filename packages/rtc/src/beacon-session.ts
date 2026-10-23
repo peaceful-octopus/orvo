@@ -1,4 +1,4 @@
-import { JoinResponse, PROTOCOL_VERSION } from '@chillcall/protocol';
+import { JoinResponse, PROTOCOL_VERSION } from '@orvo/protocol';
 import { BeaconUnavailableError, InvalidTokenError, JoinError, LoginRequiredError, RoomLockedError, UpgradeRequiredError } from './transport';
 
 export interface JoinParams {

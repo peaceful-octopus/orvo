@@ -1,4 +1,4 @@
-import { generateRoomId } from '@chillcall/protocol';
+import { generateRoomId } from '@orvo/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SimClient, type SimReporter } from './client';
 import { runLoad } from './run';

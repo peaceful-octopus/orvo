@@ -1,4 +1,4 @@
-import { TelemetryBatch, type TelemetryEvent } from '@chillcall/protocol';
+import { TelemetryBatch, type TelemetryEvent } from '@orvo/protocol';
 
 export interface TelemetryClientOptions {
   /** Where to send reports: the beacon base URL (the first one that answers is used). */

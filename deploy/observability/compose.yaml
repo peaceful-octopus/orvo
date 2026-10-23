@@ -1,4 +1,4 @@
-# Prometheus and Grafana for a ChillCall deployment, with the alert rules and dashboard preloaded.
+# Prometheus and Grafana for an Orvo deployment, with the alert rules and dashboard preloaded.
 # Put it on the same Docker network as the beacon and nodes (edit `networks` below to match your compose project),
 # adjust the targets in prometheus.yml, then:  docker compose up -d   (Grafana on :3000, Prometheus on :9090;
 # set GRAFANA_PORT or PROMETHEUS_PORT if those ports are taken)

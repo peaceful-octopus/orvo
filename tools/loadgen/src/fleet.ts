@@ -1,4 +1,4 @@
-import { generateKeyPair, toBase64Url } from '@chillcall/protocol';
+import { generateKeyPair, toBase64Url } from '@orvo/protocol';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';

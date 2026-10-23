@@ -1,4 +1,4 @@
-import type { GifMode, GifSource } from '@chillcall/effects';
+import type { GifMode, GifSource } from '@orvo/effects';
 import type { DeviceKind, DeviceLists, DeviceSelection } from '../devices';
 
 /** Events exchanged between the floating bubble window and its separate controls window. */

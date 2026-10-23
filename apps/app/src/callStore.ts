@@ -1,4 +1,4 @@
-import { EffectsController, type GifMode, type GifSource } from '@chillcall/effects';
+import { EffectsController, type GifMode, type GifSource } from '@orvo/effects';
 import {
   InvalidTokenError,
   JoinError,
@@ -11,7 +11,7 @@ import {
   type PeerRoute,
   type PeerState,
   type RoomEvent,
-} from '@chillcall/rtc';
+} from '@orvo/rtc';
 import { create } from 'zustand';
 import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {

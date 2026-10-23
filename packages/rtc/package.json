@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/rtc",
+  "name": "@orvo/rtc",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,9 +9,9 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@chillcall/protocol": "workspace:*"
+    "@orvo/protocol": "workspace:*"
   },
   "devDependencies": {
-    "@chillcall/testkit": "workspace:*"
+    "@orvo/testkit": "workspace:*"
   }
 }

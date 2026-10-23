@@ -33,7 +33,7 @@ fn set_window_border(window: tauri::WebviewWindow, visible: bool) -> Result<(), 
     }
 }
 
-const SIGNED_IN_PAGE: &str = "<!doctype html><meta charset=utf-8><title>ChillCall</title><body style=\"font-family:system-ui,sans-serif;text-align:center;margin-top:20vh\"><h1>You are signed in</h1><p>You can close this tab and go back to ChillCall.</p></body>";
+const SIGNED_IN_PAGE: &str = "<!doctype html><meta charset=utf-8><title>Orvo</title><body style=\"font-family:system-ui,sans-serif;text-align:center;margin-top:20vh\"><h1>You are signed in</h1><p>You can close this tab and go back to Orvo.</p></body>";
 
 /// The path and query of a request line such as `GET /callback?code=1 HTTP/1.1`.
 fn request_target(head: &str) -> Option<String> {
@@ -135,5 +135,5 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![set_window_border, oauth_listen])
         .run(tauri::generate_context!())
-        .expect("error while running ChillCall");
+        .expect("error while running Orvo");
 }

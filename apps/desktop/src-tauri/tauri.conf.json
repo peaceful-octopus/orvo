@@ -1,17 +1,17 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ChillCall",
+  "productName": "Orvo",
   "version": "0.0.0",
-  "identifier": "dev.chillcall.app",
+  "identifier": "dev.orvo.app",
   "build": {
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../app/dist",
-    "beforeBuildCommand": "pnpm --filter @chillcall/app build"
+    "beforeBuildCommand": "pnpm --filter @orvo/app build"
   },
   "app": {
     "windows": [
       {
-        "title": "ChillCall",
+        "title": "Orvo",
         "width": 1000,
         "height": 700,
         "transparent": true

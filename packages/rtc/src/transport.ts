@@ -1,4 +1,4 @@
-import type { DataMessage } from '@chillcall/protocol';
+import type { DataMessage } from '@orvo/protocol';
 
 export interface Participant {
   id: string;
@@ -46,7 +46,7 @@ export class RoomFullError extends Error {
 
 export class UpgradeRequiredError extends Error {
   constructor() {
-    super('Please update ChillCall to join this room.');
+    super('Please update Orvo to join this room.');
   }
 }
 

@@ -1,4 +1,4 @@
-import { RoomRecord, Tier } from '@chillcall/protocol';
+import { RoomRecord, Tier } from '@orvo/protocol';
 import type { Redis } from 'ioredis';
 import type { NodeInfo, PlacementStore } from './types';
 
@@ -28,7 +28,7 @@ return owner
 export class RedisPlacementStore implements PlacementStore {
   constructor(
     private redis: Redis,
-    private prefix = 'chillcall:',
+    private prefix = 'orvo:',
   ) {}
 
   private key = (kind: string, id: string) => `${this.prefix}${kind}:${id}`;

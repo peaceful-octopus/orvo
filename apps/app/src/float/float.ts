@@ -33,7 +33,7 @@ async function setWindowBorder(visible: boolean) {
   await invoke('set_window_border', { visible }).catch(() => {}); // Windows 10 and other systems have no such border
 }
 
-const BUBBLE_KEY = 'chillcall:floatBubble';
+const BUBBLE_KEY = 'orvo:floatBubble';
 /** Resize events this soon after the app's own resize are its own doing, not the person's. */
 const OWN_RESIZE_MS = 700;
 const SAVE_DELAY_MS = 400;

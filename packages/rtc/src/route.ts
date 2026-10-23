@@ -1,4 +1,4 @@
-import type { Tier, VideoTier } from '@chillcall/protocol';
+import type { Tier, VideoTier } from '@orvo/protocol';
 
 export type Route = 'direct' | 'relay' | 'unknown';
 

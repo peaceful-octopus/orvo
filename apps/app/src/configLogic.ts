@@ -1,11 +1,11 @@
-import { PROTOCOL_VERSION, isClientSupported, type ClientConfig } from '@chillcall/protocol';
+import { PROTOCOL_VERSION, isClientSupported, type ClientConfig } from '@orvo/protocol';
 
 export interface KeyValueStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
 }
 
-const DISMISSED_KEY = 'chillcall:dismissed-notices';
+const DISMISSED_KEY = 'orvo:dismissed-notices';
 
 /** True when this build is older than the server's minimum client version or speaks an older protocol. */
 export function updateRequired(config: ClientConfig, clientVersion: string): boolean {

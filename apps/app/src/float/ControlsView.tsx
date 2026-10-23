@@ -1,4 +1,4 @@
-import type { GifMode, GifSource } from '@chillcall/effects';
+import type { GifMode, GifSource } from '@orvo/effects';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { DeviceMenuPanel, menuRows, type MenuKind } from '../DeviceMenu';
 import { noDevices, noSelection } from '../devices';

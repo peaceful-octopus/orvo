@@ -31,6 +31,6 @@ test('the app verifies the beacon config against its signature and caches it @fl
   const page = await joinRoom(context, `fleet-cache-${Date.now()}`, 'ann');
   await expect(page.getByRole('button', { name: 'Leave' })).toBeVisible(); // in the call, so config has loaded
   // The cache is only written after the signature verified against the beacon's keys.
-  const cached = await page.evaluate(() => localStorage.getItem('chillcall:config'));
+  const cached = await page.evaluate(() => localStorage.getItem('orvo:config'));
   expect(JSON.parse(cached!)).toMatchObject({ signed: { kid: 'fleet-test' }, keys: { 'fleet-test': expect.any(String) } });
 });

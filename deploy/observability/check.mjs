@@ -26,7 +26,7 @@ console.log(`${rules.length} alert rules loaded`);
 if (rules.length === 0) problems.push('no alert rules loaded');
 for (const r of rules) if (r.health !== 'ok') problems.push(`rule ${r.name} is ${r.health}: ${r.lastError}`);
 
-const dashboard = JSON.parse(fs.readFileSync(path.join(here, 'grafana/dashboards/chillcall.json'), 'utf8'));
+const dashboard = JSON.parse(fs.readFileSync(path.join(here, 'grafana/dashboards/orvo.json'), 'utf8'));
 let queries = 0;
 let withData = 0;
 for (const panel of dashboard.panels) {

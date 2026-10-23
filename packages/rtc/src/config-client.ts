@@ -7,7 +7,7 @@ import {
   verifyConfig,
   type ClientConfig,
   type KeyRing,
-} from '@chillcall/protocol';
+} from '@orvo/protocol';
 
 export interface KeyValueStorage {
   getItem(key: string): string | null;
@@ -42,7 +42,7 @@ interface CachedConfig {
   keys?: Record<string, string>;
 }
 
-const CACHE_KEY = 'chillcall:config';
+const CACHE_KEY = 'orvo:config';
 const WEEK_MS = 7 * 24 * 3600_000;
 
 /** Config used until a signed one arrives, so the app still works when no beacon can be reached. */

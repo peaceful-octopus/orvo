@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { useConfig } from '../configStore';
 import { authorizeUrl, claimsOf, createPkce, discover, exchangeCode, needsRefresh, randomString, refreshTokens, type Endpoints, type TokenSet } from './oidc';
 
-const SESSION_KEY = 'chillcall:auth';
-const PENDING_KEY = 'chillcall:auth-pending';
+const SESSION_KEY = 'orvo:auth';
+const PENDING_KEY = 'orvo:auth-pending';
 
 export interface User {
   sub: string;

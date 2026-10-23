@@ -49,7 +49,7 @@ export const MAX_MIC_VOLUME = 200;
 /** The name used before settings existed was stored on its own. */
 function legacyName(): string {
   try {
-    return localStorage.getItem('chillcall:name') ?? '';
+    return localStorage.getItem('orvo:name') ?? '';
   } catch {
     return '';
   }
@@ -80,7 +80,7 @@ export const useSettings = create<SettingsState>()(
       setSpeakerVolume: (speakerVolume) => set({ speakerVolume }),
     }),
     {
-      name: 'chillcall:settings',
+      name: 'orvo:settings',
       // Merge nested noise settings so a saved older shape keeps the new defaults.
       merge: (saved, current) => {
         const stored = (saved ?? {}) as Partial<Settings>;

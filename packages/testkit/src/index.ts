@@ -6,7 +6,7 @@ import {
   type JoinTokenPayload,
   type KeyPair,
   type KeyRing,
-} from '@chillcall/protocol';
+} from '@orvo/protocol';
 
 export interface TestKeys extends KeyPair {
   kid: string;

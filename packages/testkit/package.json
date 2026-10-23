@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/testkit",
+  "name": "@orvo/testkit",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "idp": "tsx src/fake-idp-main.ts"
   },
   "dependencies": {
-    "@chillcall/protocol": "workspace:*",
+    "@orvo/protocol": "workspace:*",
     "jose": "^6.2.13"
   },
   "devDependencies": {

@@ -7,7 +7,7 @@ import { effectPixels, fakeGiphy, solidClip } from './helpers';
 // These tests time short-lived effects, so keep the noise filter's CPU use out of them (it has its own tests).
 test.beforeEach(async ({ context }) => {
   await context.addInitScript(() => {
-    localStorage.setItem('chillcall:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
+    localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
   });
 });
 

@@ -1,4 +1,4 @@
-import { pickGifSource, type GifMode, type GifSource } from '@chillcall/effects';
+import { pickGifSource, type GifMode, type GifSource } from '@orvo/effects';
 import type { IGif } from '@giphy/js-types';
 import { Grid, SearchBar, SearchContext, SearchContextManager } from '@giphy/react-components';
 import { useContext, useEffect, useState } from 'react';

@@ -1,14 +1,14 @@
-# Small-team ChillCall: a beacon, two signaling nodes and Redis, behind Caddy for HTTPS.
+# Small-team Orvo: a beacon, two signaling nodes and Redis, behind Caddy for HTTPS.
 # Same image as the personal setup. Scale by adding more `node-*` services.
 #
-#   pnpm --filter @chillcall/sign-config start keygen --kid prod-1
+#   pnpm --filter @orvo/sign-config start keygen --kid prod-1
 #   export SIGNING_KEY=<kid>:<secretKey>          # from keygen; shared by every beacon
-#   export DOMAIN=chill.example.com               # DNS: chill.example.com, n1.chill.example.com, n2.chill.example.com
+#   export DOMAIN=orvo.example.com               # DNS: orvo.example.com, n1.orvo.example.com, n2.orvo.example.com
 #   docker compose up -d
 #
 # Optional relay for paid rooms: set TURN_URLS and TURN_SECRET (coturn with use-auth-secret);
 # without them every room is STUN-only.
-x-chillcall: &chillcall
+x-orvo: &orvo
   build: ../..
   restart: unless-stopped
   depends_on:
@@ -21,7 +21,7 @@ services:
     command: ["redis-server", "--save", "", "--appendonly", "no"]
 
   beacon:
-    <<: *chillcall
+    <<: *orvo
     stop_grace_period: 15s
     working_dir: /repo/apps/beacon
     command: ["node_modules/.bin/tsx", "src/main.ts"]
@@ -42,7 +42,7 @@ services:
       DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
 
   node-1:
-    <<: *chillcall
+    <<: *orvo
     # Longer than DRAIN_MS (30 s) so a stopping node can finish serving before Docker kills it.
     stop_grace_period: 45s
     working_dir: /repo/apps/signaling
@@ -59,7 +59,7 @@ services:
       - beacon
 
   node-2:
-    <<: *chillcall
+    <<: *orvo
     stop_grace_period: 45s
     working_dir: /repo/apps/signaling
     command: ["node_modules/.bin/tsx", "src/main.ts"]

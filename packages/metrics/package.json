@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/metrics",
+  "name": "@orvo/metrics",
   "private": true,
   "version": "0.0.0",
   "type": "module",

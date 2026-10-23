@@ -1,10 +1,10 @@
-# Personal ChillCall: one container, with optional HTTPS (Caddy) and optional self-hosted STUN (coturn).
+# Personal Orvo: one container, with optional HTTPS (Caddy) and optional self-hosted STUN (coturn).
 #
 #   docker compose up -d                                  # http://localhost:8080
-#   DOMAIN=chill.example.com BEHIND_PROXY=1 docker compose --profile https up -d
+#   DOMAIN=orvo.example.com BEHIND_PROXY=1 docker compose --profile https up -d
 #   docker compose --profile stun up -d                   # then set STUN_URLS=stun:<your-host>:3478
 services:
-  chillcall:
+  orvo:
     build: ../..
     restart: unless-stopped
     # Must be longer than DRAIN_MS (5 s): the server keeps serving for that long after SIGTERM, and Docker
@@ -22,7 +22,7 @@ services:
       ROOM_CREATION: ${ROOM_CREATION:-anyone}
       DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
     volumes:
-      - chillcall-data:/data
+      - orvo-data:/data
 
   # Browsers only allow camera access over HTTPS (or on localhost), so friends connecting over the
   # internet need this or your own reverse proxy. Certificates are issued automatically.
@@ -39,7 +39,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
     depends_on:
-      - chillcall
+      - orvo
 
   # STUN only (no relay), so it costs almost no bandwidth. Needs UDP 3478 reachable from the internet.
   coturn:
@@ -50,5 +50,5 @@ services:
     command: ["--stun-only", "--no-tls", "--no-dtls", "--no-cli", "--fingerprint", "--listening-port=3478"]
 
 volumes:
-  chillcall-data:
+  orvo-data:
   caddy-data:

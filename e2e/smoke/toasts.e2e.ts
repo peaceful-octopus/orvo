@@ -32,7 +32,7 @@ test('a screen share that fails says so, while closing the picker stays quiet @s
 test('turning a camera or microphone back on that no longer works says so and leaves it off @smoke', async ({ context }) => {
   // With the noise filter off, the microphone in the call is the device's own track.
   await context.addInitScript(() => {
-    localStorage.setItem('chillcall:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
+    localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
   });
   const ann = await joinRoom(context, `e2e-toast-device-${Date.now()}`, 'ann');
   await expect(ann.getByRole('button', { name: 'Leave' })).toBeVisible();

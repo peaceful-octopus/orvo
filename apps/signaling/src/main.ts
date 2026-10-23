@@ -1,5 +1,5 @@
-import { NodeAgent, RedisPlacementStore } from '@chillcall/placement';
-import { keyRingFromJson, fromBase64Url, type KeyRing } from '@chillcall/protocol';
+import { NodeAgent, RedisPlacementStore } from '@orvo/placement';
+import { keyRingFromJson, fromBase64Url, type KeyRing } from '@orvo/protocol';
 import { Redis } from 'ioredis';
 import http from 'node:http';
 import os from 'node:os';

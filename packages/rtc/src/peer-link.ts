@@ -1,4 +1,4 @@
-import { encodeDataMessage, parseDataMessage, type DataMessage } from '@chillcall/protocol';
+import { encodeDataMessage, parseDataMessage, type DataMessage } from '@orvo/protocol';
 import { routeFromStats, type Route, type SendPolicy, type StatsLike } from './route';
 import type { PeerState } from './transport';
 

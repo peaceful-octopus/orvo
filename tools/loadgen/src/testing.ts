@@ -1,7 +1,7 @@
-import { createBeaconApp } from '@chillcall/beacon';
-import { NodeAgent, RedisPlacementStore, ResilientPlacementStore, type PlacementStore } from '@chillcall/placement';
-import { SignalingServer } from '@chillcall/signaling';
-import { testKeys } from '@chillcall/testkit';
+import { createBeaconApp } from '@orvo/beacon';
+import { NodeAgent, RedisPlacementStore, ResilientPlacementStore, type PlacementStore } from '@orvo/placement';
+import { SignalingServer } from '@orvo/signaling';
+import { testKeys } from '@orvo/testkit';
 import { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import http from 'node:http';

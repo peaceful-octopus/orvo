@@ -41,7 +41,7 @@ export function UpdateRequired() {
     <main>
       <h1>Update required</h1>
       <p>
-        This version of ChillCall ({CLIENT_VERSION}) is too old to talk to the server. Version{' '}
+        This version of Orvo ({CLIENT_VERSION}) is too old to talk to the server. Version{' '}
         {config.minClientVersion} or newer is needed.
       </p>
       {config.updateUrl && (

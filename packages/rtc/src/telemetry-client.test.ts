@@ -1,4 +1,4 @@
-import type { TelemetryEvent } from '@chillcall/protocol';
+import type { TelemetryEvent } from '@orvo/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TelemetryClient } from './telemetry-client';
 
@@ -17,7 +17,7 @@ function setup(extra: { enabled?: boolean; fail?: boolean; maxQueue?: number } =
     return new Response(null, { status: 204 });
   }) as unknown as typeof fetch;
   const client = new TelemetryClient({
-    beaconUrls: () => ['https://chill.example.com', 'https://backup.example.com'],
+    beaconUrls: () => ['https://orvo.example.com', 'https://backup.example.com'],
     enabled: () => state.enabled,
     fetch: impl,
     sendBeacon: (url, body) => (beacons.push(url), void body, true),
@@ -37,7 +37,7 @@ describe('TelemetryClient', () => {
 
     await vi.advanceTimersByTimeAsync(1_000);
     expect(sent).toHaveLength(1);
-    expect(sent[0]!.url).toBe('https://chill.example.com/v1/telemetry');
+    expect(sent[0]!.url).toBe('https://orvo.example.com/v1/telemetry');
     expect(sent[0]!.body.events).toHaveLength(2);
 
     await vi.advanceTimersByTimeAsync(5_000);

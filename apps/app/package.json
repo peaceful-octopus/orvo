@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/app",
+  "name": "@orvo/app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,9 +9,9 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@chillcall/effects": "workspace:*",
-    "@chillcall/protocol": "workspace:*",
-    "@chillcall/rtc": "workspace:*",
+    "@orvo/effects": "workspace:*",
+    "@orvo/protocol": "workspace:*",
+    "@orvo/rtc": "workspace:*",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/dm-sans": "^5.3.0",
     "@giphy/js-fetch-api": "^5.8.0",
@@ -29,7 +29,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@chillcall/testkit": "workspace:*",
+    "@orvo/testkit": "workspace:*",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

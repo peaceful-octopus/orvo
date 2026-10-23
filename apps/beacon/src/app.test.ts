@@ -1,10 +1,10 @@
-import { JoinResponse, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@chillcall/protocol';
-import { FakeClock, testKeys } from '@chillcall/testkit';
+import { JoinResponse, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@orvo/protocol';
+import { FakeClock, testKeys } from '@orvo/testkit';
 import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBeaconApp, type BeaconOptions } from './app';
-import { Metrics } from '@chillcall/metrics';
-import { MemoryPlacementStore, ResilientPlacementStore, type PlacementStore } from '@chillcall/placement';
+import { Metrics } from '@orvo/metrics';
+import { MemoryPlacementStore, ResilientPlacementStore, type PlacementStore } from '@orvo/placement';
 
 const key = testKeys('beacon-1');
 const clock = new FakeClock();
@@ -26,7 +26,7 @@ async function start(extra: Partial<BeaconOptions> = {}) {
 
 afterEach(() => app.close());
 
-const join = (body: object, headers: Record<string, string> = { host: 'chill.example.com' }) =>
+const join = (body: object, headers: Record<string, string> = { host: 'orvo.example.com' }) =>
   app.inject({ method: 'POST', url: '/v1/rooms/join', payload: body, headers });
 
 describe('rooms', () => {
@@ -44,15 +44,15 @@ describe('rooms', () => {
     const body = JoinResponse.parse(res.json());
 
     expect(body).toMatchObject({ transport: 'mesh', tier: 'free', iceServers: [{ urls: ['stun:stun.example.com:3478'] }] });
-    expect(body.signalingUrl).toBe('ws://chill.example.com/ws');
+    expect(body.signalingUrl).toBe('ws://orvo.example.com/ws');
     const checked = verifyJoinToken(body.joinToken, { keys: { [key.kid]: key.publicKey }, nodeId: 'node-1', now: clock.now });
     expect(checked).toMatchObject({ ok: true, payload: { room: 'cozy-room-abc123', peerId: body.peerId } });
   });
 
   it('uses wss behind a TLS-terminating proxy', async () => {
     await start({ trustProxy: true });
-    const res = await join({ room: 'cozy-room-abc123' }, { host: 'chill.example.com', 'x-forwarded-proto': 'https' });
-    expect(res.json().signalingUrl).toBe('wss://chill.example.com/ws');
+    const res = await join({ room: 'cozy-room-abc123' }, { host: 'orvo.example.com', 'x-forwarded-proto': 'https' });
+    expect(res.json().signalingUrl).toBe('wss://orvo.example.com/ws');
   });
 
   it('uses the node url when the node has one', async () => {
@@ -92,11 +92,11 @@ describe('rooms', () => {
 describe('config and keys', () => {
   it('serves a signed config that verifies and points back at the beacon', async () => {
     await start();
-    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'chill.example.com' } });
+    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'orvo.example.com' } });
     const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
     expect(result).toMatchObject({
       ok: true,
-      config: { beaconUrls: ['http://chill.example.com'], ice: { stunUrls: ['stun:stun.example.com:3478'] } },
+      config: { beaconUrls: ['http://orvo.example.com'], ice: { stunUrls: ['stun:stun.example.com:3478'] } },
     });
   });
 
@@ -202,7 +202,7 @@ describe('limits and announcements', () => {
     const announcement = { id: 'maint-1', text: 'Maintenance on Friday.' };
     const videoTiers = [{ maxPeers: 3, maxBitrate: 800_000, scaleResolutionDownBy: 1, maxFramerate: 30 }];
     await start({ limits: { maxRoomSize: 4, warnRoomSize: 3, videoTiers }, announcement, minClientVersion: '1.2.0' });
-    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'chill.example.com' } });
+    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host: 'orvo.example.com' } });
     const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
     expect(result).toMatchObject({
       ok: true,
@@ -246,11 +246,11 @@ describe('metrics', () => {
     await join({ room: 'BAD ROOM' });
     await join({ room: 'cozy-room-abc123', clientVersion: '0.1.0' });
 
-    expect(await metrics.value('chillcall_beacon_join_requests_total', { result: 'ok' })).toBe(2);
-    expect(await metrics.value('chillcall_beacon_join_requests_total', { result: 'bad-request' })).toBe(1);
-    expect(await metrics.value('chillcall_beacon_join_requests_total', { result: 'upgrade-required' })).toBe(1);
-    expect(await metrics.value('chillcall_beacon_joins_by_tier_total', { tier: 'free' })).toBe(2);
-    expect(await metrics.value('chillcall_beacon_join_duration_seconds_count')).toBe(4);
+    expect(await metrics.value('orvo_beacon_join_requests_total', { result: 'ok' })).toBe(2);
+    expect(await metrics.value('orvo_beacon_join_requests_total', { result: 'bad-request' })).toBe(1);
+    expect(await metrics.value('orvo_beacon_join_requests_total', { result: 'upgrade-required' })).toBe(1);
+    expect(await metrics.value('orvo_beacon_joins_by_tier_total', { tier: 'free' })).toBe(2);
+    expect(await metrics.value('orvo_beacon_join_duration_seconds_count')).toBe(4);
   });
 
   it('counts joins by client version, keeping the label set bounded', async () => {
@@ -259,28 +259,28 @@ describe('metrics', () => {
     await join({ room: 'cozy-room-abc123', clientVersion: '1.2.0' });
     await join({ room: 'cozy-room-abc123', clientVersion: '1.2.0' });
     await join({ room: 'cozy-room-abc123', clientVersion: '1.3.1' });
-    expect(await metrics.value('chillcall_beacon_joins_by_client_version_total', { version: '1.2.0' })).toBe(2);
-    expect(await metrics.value('chillcall_beacon_joins_by_client_version_total', { version: '1.3.1' })).toBe(1);
+    expect(await metrics.value('orvo_beacon_joins_by_client_version_total', { version: '1.2.0' })).toBe(2);
+    expect(await metrics.value('orvo_beacon_joins_by_client_version_total', { version: '1.3.1' })).toBe(1);
 
     // Versions are client-supplied, so only a limited number of distinct ones become labels; the rest share one.
     for (let i = 0; i < 60; i++) await join({ room: 'cozy-room-abc123', clientVersion: `9.${i}.0` });
     const text = await metrics.render();
-    expect(text.match(/chillcall_beacon_joins_by_client_version_total\{/g)!.length).toBeLessThanOrEqual(51);
-    expect(await metrics.value('chillcall_beacon_joins_by_client_version_total', { version: 'other' })).toBeGreaterThanOrEqual(10);
+    expect(text.match(/orvo_beacon_joins_by_client_version_total\{/g)!.length).toBeLessThanOrEqual(51);
+    expect(await metrics.value('orvo_beacon_joins_by_client_version_total', { version: 'other' })).toBeGreaterThanOrEqual(10);
   });
 
   it('counts no-nodes failures and reports node gauges', async () => {
     const metrics = new Metrics();
     const store = new MemoryPlacementStore([nodes[0]!, { ...nodes[0]!, id: 'node-2', draining: true }]);
     await start({ metrics, store });
-    expect(await metrics.value('chillcall_beacon_nodes')).toBe(2);
-    expect(await metrics.value('chillcall_beacon_nodes_draining')).toBe(1);
+    expect(await metrics.value('orvo_beacon_nodes')).toBe(2);
+    expect(await metrics.value('orvo_beacon_nodes_draining')).toBe(1);
 
     await app.close();
     const empty = new Metrics();
     await start({ metrics: empty, store: new MemoryPlacementStore([{ ...nodes[0]!, draining: true }]) });
     await join({ room: 'cozy-room-abc123' });
-    expect(await empty.value('chillcall_beacon_join_requests_total', { result: 'no-nodes' })).toBe(1);
+    expect(await empty.value('orvo_beacon_join_requests_total', { result: 'no-nodes' })).toBe(1);
   });
 
   it('reports when joins are being served without the shared store', async () => {
@@ -300,11 +300,11 @@ describe('metrics', () => {
     await start({ metrics, store: new ResilientPlacementStore(flaky) });
 
     expect((await join({ room: 'cozy-room-abc123' })).statusCode).toBe(200);
-    expect(await metrics.value('chillcall_beacon_placement_degraded')).toBe(0);
+    expect(await metrics.value('orvo_beacon_placement_degraded')).toBe(0);
 
     down = true;
     expect((await join({ room: 'cozy-room-abc123' })).statusCode).toBe(200); // still served, from memory
-    expect(await metrics.value('chillcall_beacon_placement_degraded')).toBe(1);
+    expect(await metrics.value('orvo_beacon_placement_degraded')).toBe(1);
   });
 
   it('serves Prometheus text at /metrics, including rooms created', async () => {
@@ -312,8 +312,8 @@ describe('metrics', () => {
     await app.inject({ method: 'POST', url: '/v1/rooms' });
     const res = await app.inject({ method: 'GET', url: '/metrics' });
     expect(res.headers['content-type']).toContain('text/plain');
-    expect(res.body).toContain('chillcall_beacon_rooms_created_total 1');
-    expect(res.body).toContain('# TYPE chillcall_beacon_join_duration_seconds histogram');
+    expect(res.body).toContain('orvo_beacon_rooms_created_total 1');
+    expect(res.body).toContain('# TYPE orvo_beacon_join_duration_seconds histogram');
   });
 });
 
@@ -336,13 +336,13 @@ describe('telemetry', () => {
     );
     expect(res.statusCode).toBe(204);
 
-    expect(await metrics.value('chillcall_client_joins_total', { result: 'ok' })).toBe(1);
-    expect(await metrics.value('chillcall_client_peer_connections_total', { result: 'connected', route: 'direct' })).toBe(2);
-    expect(await metrics.value('chillcall_client_peer_connections_total', { result: 'connected', route: 'relay' })).toBe(1);
-    expect(await metrics.value('chillcall_client_peer_connections_total', { result: 'unreachable' })).toBe(1);
-    expect(await metrics.value('chillcall_client_peer_connect_seconds_count', { route: 'direct' })).toBe(2);
-    expect(await metrics.value('chillcall_client_peer_connect_seconds_sum', { route: 'direct' })).toBeCloseTo(1.0);
-    expect(await metrics.value('chillcall_client_signaling_reconnects_total', { ok: 'true' })).toBe(1);
+    expect(await metrics.value('orvo_client_joins_total', { result: 'ok' })).toBe(1);
+    expect(await metrics.value('orvo_client_peer_connections_total', { result: 'connected', route: 'direct' })).toBe(2);
+    expect(await metrics.value('orvo_client_peer_connections_total', { result: 'connected', route: 'relay' })).toBe(1);
+    expect(await metrics.value('orvo_client_peer_connections_total', { result: 'unreachable' })).toBe(1);
+    expect(await metrics.value('orvo_client_peer_connect_seconds_count', { route: 'direct' })).toBe(2);
+    expect(await metrics.value('orvo_client_peer_connect_seconds_sum', { route: 'direct' })).toBeCloseTo(1.0);
+    expect(await metrics.value('orvo_client_signaling_reconnects_total', { ok: 'true' })).toBe(1);
   });
 
   it('rejects malformed, oversize and too-large batches', async () => {
@@ -365,7 +365,7 @@ describe('telemetry', () => {
       headers: { 'content-type': 'text/plain;charset=UTF-8' },
     });
     expect(res.statusCode).toBe(204);
-    expect(await metrics.value('chillcall_client_joins_total', { result: 'ok' })).toBe(1);
+    expect(await metrics.value('orvo_client_joins_total', { result: 'ok' })).toBe(1);
   });
 
   it('ignores identifying fields rather than recording them', async () => {

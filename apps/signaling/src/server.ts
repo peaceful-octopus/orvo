@@ -9,10 +9,10 @@ import {
   type ErrorCode,
   type KeyRing,
   type ServerMessageBody,
-} from '@chillcall/protocol';
+} from '@orvo/protocol';
 import type http from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
-import { Metrics, type MetricsOptions } from '@chillcall/metrics';
+import { Metrics, type MetricsOptions } from '@orvo/metrics';
 
 export interface SignalingOptions {
   nodeId: string;
@@ -127,22 +127,22 @@ export class SignalingServer {
 
   private declareMetrics() {
     const m = this.metrics;
-    m.gauge('chillcall_signaling_connections', 'Open signaling WebSocket connections.', () => this.conns.size);
-    m.gauge('chillcall_signaling_rooms', 'Rooms hosted on this node.', () => this.rooms.size);
-    m.gauge('chillcall_signaling_members', 'Participants in hosted rooms, including dropped ones in their grace period.', () =>
+    m.gauge('orvo_signaling_connections', 'Open signaling WebSocket connections.', () => this.conns.size);
+    m.gauge('orvo_signaling_rooms', 'Rooms hosted on this node.', () => this.rooms.size);
+    m.gauge('orvo_signaling_members', 'Participants in hosted rooms, including dropped ones in their grace period.', () =>
       [...this.rooms.values()].reduce((n, room) => n + room.size, 0),
     );
-    m.gauge('chillcall_signaling_draining', '1 while the node is draining and refusing new rooms.', () => (this.isDraining ? 1 : 0));
+    m.gauge('orvo_signaling_draining', '1 while the node is draining and refusing new rooms.', () => (this.isDraining ? 1 : 0));
     return {
-      connections: m.counter('chillcall_signaling_connections_total', 'WebSocket connections accepted.'),
-      rateLimited: m.counter('chillcall_signaling_rate_limited_total', 'Connections closed for sending too fast.'),
-      framesRejected: m.counter('chillcall_signaling_frames_rejected_total', 'Frames rejected as malformed or oversize.'),
-      signalsRelayed: m.counter('chillcall_signaling_signals_relayed_total', 'Offers, answers and candidates relayed.'),
-      signalsDropped: m.counter('chillcall_signaling_signals_dropped_total', 'Signals for peers that are not connected.'),
-      kicks: m.counter('chillcall_signaling_kicks_total', 'People removed from rooms by their owners.'),
-            resumes: m.counter('chillcall_signaling_resumes_total', 'Members that reconnected within the grace period.'),
-      joins: m.counter('chillcall_signaling_joins_total', 'Members admitted to rooms.'),
-      joinFailures: m.counter('chillcall_signaling_join_failures_total', 'Joins refused, by reason.', ['code'] as const),
+      connections: m.counter('orvo_signaling_connections_total', 'WebSocket connections accepted.'),
+      rateLimited: m.counter('orvo_signaling_rate_limited_total', 'Connections closed for sending too fast.'),
+      framesRejected: m.counter('orvo_signaling_frames_rejected_total', 'Frames rejected as malformed or oversize.'),
+      signalsRelayed: m.counter('orvo_signaling_signals_relayed_total', 'Offers, answers and candidates relayed.'),
+      signalsDropped: m.counter('orvo_signaling_signals_dropped_total', 'Signals for peers that are not connected.'),
+      kicks: m.counter('orvo_signaling_kicks_total', 'People removed from rooms by their owners.'),
+            resumes: m.counter('orvo_signaling_resumes_total', 'Members that reconnected within the grace period.'),
+      joins: m.counter('orvo_signaling_joins_total', 'Members admitted to rooms.'),
+      joinFailures: m.counter('orvo_signaling_join_failures_total', 'Joins refused, by reason.', ['code'] as const),
     };
   }
 

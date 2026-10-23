@@ -1,5 +1,5 @@
-import { signConfig, toBase64Url } from '@chillcall/protocol';
-import { makeConfig, testKeys, type TestKeys } from '@chillcall/testkit';
+import { signConfig, toBase64Url } from '@orvo/protocol';
+import { makeConfig, testKeys, type TestKeys } from '@orvo/testkit';
 import { describe, expect, it } from 'vitest';
 import { ConfigClient, defaultConfig, type KeyValueStorage } from './config-client';
 
@@ -71,7 +71,7 @@ describe('ConfigClient with embedded keys', () => {
       'https://cached.example': { config: signed(keys, { version: 2, beaconUrls: ['https://cached.example'] }) },
     });
     const { make, storage } = client(net, { trustedKeys: keys.keys });
-    storage.setItem('chillcall:config', JSON.stringify({ signed: signed(keys, { version: 1, beaconUrls: ['https://cached.example'] }) }));
+    storage.setItem('orvo:config', JSON.stringify({ signed: signed(keys, { version: 1, beaconUrls: ['https://cached.example'] }) }));
 
     const result = await make().load();
     expect(result).toMatchObject({ source: 'network', config: { version: 2 } });

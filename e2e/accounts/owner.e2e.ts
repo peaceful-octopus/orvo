@@ -23,9 +23,9 @@ async function person(browser: Browser, who?: string): Promise<Person> {
   const context = await browser.newContext({ permissions: ['camera', 'microphone'] });
   opened.push(context);
   await context.addInitScript((server) => {
-    localStorage.setItem('chillcall:server', server);
-    if (!localStorage.getItem('chillcall:settings')) {
-      localStorage.setItem('chillcall:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
+    localStorage.setItem('orvo:server', server);
+    if (!localStorage.getItem('orvo:settings')) {
+      localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
     }
   }, SERVER);
   const page = await context.newPage();
@@ -43,7 +43,7 @@ async function signIn(page: Page, who: string) {
     .first()
     .click();
   await expect
-    .poll(() => page.evaluate(() => Boolean(localStorage.getItem('chillcall:auth')) && !location.pathname.startsWith('/auth/')).catch(() => false))
+    .poll(() => page.evaluate(() => Boolean(localStorage.getItem('orvo:auth')) && !location.pathname.startsWith('/auth/')).catch(() => false))
     .toBe(true);
 }
 

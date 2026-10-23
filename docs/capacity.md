@@ -7,8 +7,8 @@ What the signaling layer was measured to handle, how it was measured, and what w
 
 ```
 pnpm load:fleet                                   # 1,000 users, local beacon and three nodes
-pnpm --filter @chillcall/loadgen start --fleet 3 --users 10000 --ramp 60 --hold 30
-pnpm --filter @chillcall/loadgen start --fleet 1 --users 15000 --ramp 90 --hold 30
+pnpm --filter @orvo/loadgen start --fleet 3 --users 10000 --ramp 60 --hold 30
+pnpm --filter @orvo/loadgen start --fleet 1 --users 15000 --ramp 90 --hold 30
 ```
 
 ## Results
@@ -34,7 +34,7 @@ The `SignalingConnectionsHigh` alert fires at 8,000 connections per node, about 
 Peak join rates are within what one beacon process handled in the 10,000-user run (about 170 per second), so the beacon count is for availability: run at least three. Scaling is adding nodes (and beacons); no code changes.
 
 ## What this does not tell you
-- **Media and relays.** Nothing here carries video. Relay cost depends on how many connections fail to go direct. The beacon's `chillcall_client_peer_connections_total` metric reports that rate from real clients; size relays from it, not from guesses. At 0.8 Mbps per relayed video stream, every 1% of 100,000 users' connections that needs a relay is on the order of hundreds of Mbps.
+- **Media and relays.** Nothing here carries video. Relay cost depends on how many connections fail to go direct. The beacon's `orvo_client_peer_connections_total` metric reports that rate from real clients; size relays from it, not from guesses. At 0.8 Mbps per relayed video stream, every 1% of 100,000 users' connections that needs a relay is on the order of hundreds of Mbps.
 - **Redis.** The fleet runs used the beacon's in-memory store. A shared Redis adds a few round trips per join; measure it with `REDIS_URL` set on a staging deployment.
 - **Real networks.** Loopback has no latency, loss or TLS. Terminating TLS in front of nodes costs CPU and memory per connection.
 - **Real browsers.** The simulated signal bursts approximate ICE traffic but real browsers vary (more candidates on multi-homed machines, restarts after network changes).

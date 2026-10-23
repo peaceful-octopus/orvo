@@ -1,5 +1,5 @@
-import { MAX_FRAME_BYTES, parseServerMessage, type ServerMessage } from '@chillcall/protocol';
-import { FakeClock, makeJoinToken, testKeys } from '@chillcall/testkit';
+import { MAX_FRAME_BYTES, parseServerMessage, type ServerMessage } from '@orvo/protocol';
+import { FakeClock, makeJoinToken, testKeys } from '@orvo/testkit';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -114,7 +114,7 @@ describe('joining', () => {
     const late = connect();
     late.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: 'late' }, clock.now), name: 'late' });
     expect(await late.next('error')).toMatchObject({ code: 'room-full' });
-    expect(await signaling.metrics.value('chillcall_signaling_join_failures_total', { code: 'room-full' })).toBe(1);
+    expect(await signaling.metrics.value('orvo_signaling_join_failures_total', { code: 'room-full' })).toBe(1);
   });
 
   it('enforces the room cap carried in the join token, but never above the hard limit', async () => {
@@ -175,7 +175,7 @@ describe('relay and limits', () => {
 
     a.client.send({ type: 'signal', to: 'nobody', payload: {} });
     await new Promise((r) => setTimeout(r, 50));
-    expect(await signaling.metrics.value('chillcall_signaling_signals_dropped_total')).toBe(1);
+    expect(await signaling.metrics.value('orvo_signaling_signals_dropped_total')).toBe(1);
   });
 
   it('closes connections that send oversize frames', async () => {
@@ -227,7 +227,7 @@ describe('leaving, resuming and draining', () => {
     expect(again.welcome.resumed).toBe(true);
     await new Promise((r) => setTimeout(r, 100));
     expect(a.client.messages.filter((m) => m.type === 'peer-left' || m.type === 'peer-joined')).toEqual([]);
-    expect(await signaling.metrics.value('chillcall_signaling_resumes_total')).toBe(1);
+    expect(await signaling.metrics.value('orvo_signaling_resumes_total')).toBe(1);
   });
 
   it('while draining refuses new rooms but keeps serving existing ones, including new and returning members', async () => {
@@ -269,11 +269,11 @@ describe('leaving, resuming and draining', () => {
     await start();
     await join('a');
     const text = await signaling.renderMetrics();
-    expect(text).toContain('chillcall_signaling_connections 1');
-    expect(text).toContain('chillcall_signaling_rooms 1');
-    expect(text).toContain('chillcall_signaling_joins_total 1');
-    expect(text).toContain('chillcall_signaling_members 1');
-    expect(text).toContain('# TYPE chillcall_signaling_joins_total counter');
+    expect(text).toContain('orvo_signaling_connections 1');
+    expect(text).toContain('orvo_signaling_rooms 1');
+    expect(text).toContain('orvo_signaling_joins_total 1');
+    expect(text).toContain('orvo_signaling_members 1');
+    expect(text).toContain('# TYPE orvo_signaling_joins_total counter');
   });
 });
 

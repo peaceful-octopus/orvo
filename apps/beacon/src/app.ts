@@ -25,9 +25,9 @@ import {
   type RoomRecord,
   type Tier,
   type VideoTierRule,
-} from '@chillcall/protocol';
-import { LATENCY_BUCKETS, Metrics } from '@chillcall/metrics';
-import { NoNodesError, placeRoom, type NodeInfo, type PlacementStore } from '@chillcall/placement';
+} from '@orvo/protocol';
+import { LATENCY_BUCKETS, Metrics } from '@orvo/metrics';
+import { NoNodesError, placeRoom, type NodeInfo, type PlacementStore } from '@orvo/placement';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
@@ -118,27 +118,27 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
 
   const metrics = opts.metrics ?? new Metrics();
   const m = {
-    joins: metrics.counter('chillcall_beacon_join_requests_total', 'Join requests, by outcome.', ['result'] as const),
-    joinSeconds: metrics.histogram('chillcall_beacon_join_duration_seconds', 'Time to answer a join request.', LATENCY_BUCKETS),
-    authRefusals: metrics.counter('chillcall_beacon_auth_refusals_total', 'Requests refused for sign-in reasons, by code.', ['code'] as const),
-    tiers: metrics.counter('chillcall_beacon_joins_by_tier_total', 'Successful joins, by room tier.', ['tier'] as const),
-    rooms: metrics.counter('chillcall_beacon_rooms_created_total', 'Rooms created.'),
-    versions: metrics.counter('chillcall_beacon_joins_by_client_version_total', 'Successful joins, by client version (bounded; extras are "other").', ['version'] as const),
-    configs: metrics.counter('chillcall_beacon_config_requests_total', 'Config requests served.'),
+    joins: metrics.counter('orvo_beacon_join_requests_total', 'Join requests, by outcome.', ['result'] as const),
+    joinSeconds: metrics.histogram('orvo_beacon_join_duration_seconds', 'Time to answer a join request.', LATENCY_BUCKETS),
+    authRefusals: metrics.counter('orvo_beacon_auth_refusals_total', 'Requests refused for sign-in reasons, by code.', ['code'] as const),
+    tiers: metrics.counter('orvo_beacon_joins_by_tier_total', 'Successful joins, by room tier.', ['tier'] as const),
+    rooms: metrics.counter('orvo_beacon_rooms_created_total', 'Rooms created.'),
+    versions: metrics.counter('orvo_beacon_joins_by_client_version_total', 'Successful joins, by client version (bounded; extras are "other").', ['version'] as const),
+    configs: metrics.counter('orvo_beacon_config_requests_total', 'Config requests served.'),
   };
   // What clients report about their own connections, aggregated here and never stored per user.
   const client = {
-    joins: metrics.counter('chillcall_client_joins_total', 'Client-reported room joins, by result.', ['result'] as const),
-    joinSeconds: metrics.histogram('chillcall_client_join_seconds', 'Client-measured time to join a room.', LATENCY_BUCKETS),
-    peers: metrics.counter('chillcall_client_peer_connections_total', 'Client-reported peer connections, by result and route.', ['result', 'route'] as const),
-    peerSeconds: metrics.histogram('chillcall_client_peer_connect_seconds', 'Client-measured time to connect to a peer.', LATENCY_BUCKETS, ['route'] as const),
-    reconnects: metrics.counter('chillcall_client_signaling_reconnects_total', 'Signaling reconnections, by outcome.', ['ok'] as const),
+    joins: metrics.counter('orvo_client_joins_total', 'Client-reported room joins, by result.', ['result'] as const),
+    joinSeconds: metrics.histogram('orvo_client_join_seconds', 'Client-measured time to join a room.', LATENCY_BUCKETS),
+    peers: metrics.counter('orvo_client_peer_connections_total', 'Client-reported peer connections, by result and route.', ['result', 'route'] as const),
+    peerSeconds: metrics.histogram('orvo_client_peer_connect_seconds', 'Client-measured time to connect to a peer.', LATENCY_BUCKETS, ['route'] as const),
+    reconnects: metrics.counter('orvo_client_signaling_reconnects_total', 'Signaling reconnections, by outcome.', ['ok'] as const),
   };
-  metrics.gauge('chillcall_beacon_nodes', 'Signaling nodes currently registered.', async () => (await opts.store.listNodes()).length);
-  metrics.gauge('chillcall_beacon_placement_degraded', '1 while the shared placement store is unreachable and answers come from memory.', () =>
+  metrics.gauge('orvo_beacon_nodes', 'Signaling nodes currently registered.', async () => (await opts.store.listNodes()).length);
+  metrics.gauge('orvo_beacon_placement_degraded', '1 while the shared placement store is unreachable and answers come from memory.', () =>
     (opts.store as { degraded?: boolean }).degraded ? 1 : 0,
   );
-  metrics.gauge('chillcall_beacon_nodes_draining', 'Registered signaling nodes that are draining.', async () =>
+  metrics.gauge('orvo_beacon_nodes_draining', 'Registered signaling nodes that are draining.', async () =>
     (await opts.store.listNodes()).filter((n) => n.draining).length,
   );
 
@@ -301,7 +301,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     );
     if (!supported) {
       done('upgrade-required');
-      return reply.code(426).send({ error: 'Please update ChillCall.', code: 'upgrade-required' });
+      return reply.code(426).send({ error: 'Please update Orvo.', code: 'upgrade-required' });
     }
 
     const who = await whoIs(req);

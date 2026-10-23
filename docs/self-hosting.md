@@ -10,12 +10,12 @@ cd deploy/personal
 docker compose up -d          # http://localhost:8080
 ```
 
-State lives in the `chillcall-data` volume: a generated signing key (`keys.json`) so restarts keep tokens and cached config valid. Delete it to rotate the key.
+State lives in the `orvo-data` volume: a generated signing key (`keys.json`) so restarts keep tokens and cached config valid. Delete it to rotate the key.
 
 **Friends over the internet need HTTPS.** Browsers only allow camera access on `localhost` or over HTTPS. Either put your own reverse proxy in front (it must pass WebSocket upgrades on `/ws`, and set `BEHIND_PROXY=1` so the server builds `wss://` URLs), or use the bundled Caddy:
 
 ```
-DOMAIN=chill.example.com BEHIND_PROXY=1 docker compose --profile https up -d
+DOMAIN=orvo.example.com BEHIND_PROXY=1 docker compose --profile https up -d
 ```
 
 **STUN.** By default clients use Google's public STUN server. To run your own (almost no bandwidth), `docker compose --profile stun up -d`, open UDP 3478, and set `STUN_URLS=stun:your-host:3478`.
@@ -26,11 +26,11 @@ DOMAIN=chill.example.com BEHIND_PROXY=1 docker compose --profile https up -d
 
 **Accounts (optional; nothing to do if you don't want them).** The defaults are unchanged: with no sign-in provider configured, everyone is a guest, anyone can start and join rooms, and no sign-in appears in the app. The personal setup stays one container with no database.
 
-If you do want accounts, for example so only you and your family can start rooms, ChillCall uses an OpenID Connect provider that you run or already use (Google, Keycloak, Authentik, Auth0 and so on) and stores no passwords. Put the settings in the environment or in a `.env` file next to `compose.yaml`, which compose passes through:
+If you do want accounts, for example so only you and your family can start rooms, Orvo uses an OpenID Connect provider that you run or already use (Google, Keycloak, Authentik, Auth0 and so on) and stores no passwords. Put the settings in the environment or in a `.env` file next to `compose.yaml`, which compose passes through:
 
 ```
 OIDC_ISSUER=https://id.example.com/realms/home
-OIDC_CLIENT_ID=chillcall
+OIDC_CLIENT_ID=orvo
 ROOM_CREATION=signed-in        # only signed-in people can start rooms; guests can still join open ones
 DEFAULT_ROOM_ACCESS=anyone     # or signed-in, to make new rooms signed-in only unless their creator chooses otherwise
 ```
@@ -46,7 +46,7 @@ Details, the exact behavior and provider setup: [accounts.md](accounts.md).
 
 Configuration (environment variables): `PORT` (8080), `DATA_DIR` (`/data`), `STUN_URLS` (comma separated), `CORS_ORIGIN` (any), `BEHIND_PROXY`, `GIPHY_API_KEY`, `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_AUDIENCE` / `OIDC_SCOPE`, `ROOM_CREATION` (`anyone` or `signed-in`), `DEFAULT_ROOM_ACCESS` (`anyone` or `signed-in`), `DRAIN_MS` (5000, delay before shutdown so clients can finish), `MAX_ROOM_SIZE` / `WARN_ROOM_SIZE` (10 / 6), `MIN_CLIENT_VERSION` (refuse older apps), `ANNOUNCEMENT` and `ANNOUNCEMENT_ID` (a dismissible notice shown to everyone; change the id to show a new one).
 
-Without Docker: `pnpm install`, `pnpm --filter @chillcall/app build`, `pnpm --filter @chillcall/server start`.
+Without Docker: `pnpm install`, `pnpm --filter @orvo/app build`, `pnpm --filter @orvo/server start`.
 
 ## 2. Small team: beacon, signaling nodes and Redis
 `deploy/team/compose.yaml` runs a beacon, two signaling nodes, Redis and Caddy from the same image. Nodes register themselves in Redis and keep their rooms' leases alive; the beacon places each room on one node and every participant of that room is sent to it.
@@ -55,7 +55,7 @@ Without Docker: `pnpm install`, `pnpm --filter @chillcall/app build`, `pnpm --fi
 cd tools/sign-config && pnpm exec tsx src/main.ts keygen --kid prod-1    # prints the signing key pair
 cd ../../deploy/team
 export SIGNING_KEY=prod-1:<secretKey>     # shared by every beacon; nodes fetch the public key from the beacon
-export DOMAIN=chill.example.com           # DNS for chill.example.com, n1.chill.example.com, n2.chill.example.com
+export DOMAIN=orvo.example.com           # DNS for orvo.example.com, n1.orvo.example.com, n2.orvo.example.com
 docker compose up -d
 ```
 
@@ -78,4 +78,4 @@ The personal image, the personal compose file (with and without the HTTPS profil
 Many signaling nodes behind the beacon fleet with a shared Redis, signed config on a CDN, regional TURN. Everything in profile 2 scales horizontally: more nodes, several beacons sharing one Redis and one `SIGNING_KEY`. For a CDN-hosted config, sign it with `tools/sign-config` (`sign config.json --key <kid>:<secret> --out signed.json`), upload it, point `CONFIG_FILE` at it or serve it directly, and build the app with `VITE_TRUSTED_KEYS='{"<kid>":"<publicKey>"}'` so clients pin the key. Still planned: multi-region pools and Redis clustering; see `docs/architecture.md`.
 
 ## Using the desktop app with your server
-Open the app, expand **Server** on the home screen and enter your server address (`https://chill.example.com`). Leave it empty to use the default.
+Open the app, expand **Server** on the home screen and enter your server address (`https://orvo.example.com`). Leave it empty to use the default.

@@ -50,7 +50,7 @@ export function startTheme() {
   window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', apply);
   // Only the look follows other windows. Other settings, such as the name, belong to each window's own call.
   window.addEventListener('storage', (e) => {
-    if (e.key !== 'chillcall:settings' || !e.newValue) return;
+    if (e.key !== 'orvo:settings' || !e.newValue) return;
     try {
       const { palette, mode } = (JSON.parse(e.newValue) as { state?: { palette?: string; mode?: ModePreference } }).state ?? {};
       const now = useSettings.getState();

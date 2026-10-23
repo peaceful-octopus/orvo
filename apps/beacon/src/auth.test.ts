@@ -1,11 +1,11 @@
-import { startFakeIdp, type FakeIdp } from '@chillcall/testkit/src/fake-idp';
+import { startFakeIdp, type FakeIdp } from '@orvo/testkit/src/fake-idp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createOidcVerifier } from './auth';
 import { authSettingsFromEnv } from './auth-env';
 
 let idp: FakeIdp;
 beforeAll(async () => {
-  idp = await startFakeIdp({ clientId: 'chillcall-test' });
+  idp = await startFakeIdp({ clientId: 'orvo-test' });
 });
 afterAll(() => idp.close());
 
@@ -30,7 +30,7 @@ describe('createOidcVerifier', () => {
     expect(await verify('not.a.token')).toBeUndefined();
     expect(await verify('')).toBeUndefined();
 
-    const other = await startFakeIdp({ clientId: 'chillcall-test' });
+    const other = await startFakeIdp({ clientId: 'orvo-test' });
     try {
       // Same client id and issuer claim, but a different key pair.
       const forged = await other.sign({}, { issuer: idp.issuer });

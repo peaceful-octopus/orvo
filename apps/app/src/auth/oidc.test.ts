@@ -40,12 +40,12 @@ describe('discover', () => {
 describe('authorizeUrl', () => {
   it('asks for a code with PKCE and carries the state and nonce back', () => {
     const url = new URL(
-      authorizeUrl({ endpoint: 'https://id.example/auth', clientId: 'app', redirectUri: 'https://chill.example/auth/callback', scope: 'openid profile', state: 's1', challenge: 'c1', nonce: 'n1' }),
+      authorizeUrl({ endpoint: 'https://id.example/auth', clientId: 'app', redirectUri: 'https://orvo.example/auth/callback', scope: 'openid profile', state: 's1', challenge: 'c1', nonce: 'n1' }),
     );
     expect(Object.fromEntries(url.searchParams)).toEqual({
       response_type: 'code',
       client_id: 'app',
-      redirect_uri: 'https://chill.example/auth/callback',
+      redirect_uri: 'https://orvo.example/auth/callback',
       scope: 'openid profile',
       state: 's1',
       nonce: 'n1',

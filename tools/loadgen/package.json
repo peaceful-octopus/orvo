@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/loadgen",
+  "name": "@orvo/loadgen",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,15 +9,15 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@chillcall/protocol": "workspace:*",
-    "@chillcall/rtc": "workspace:*",
+    "@orvo/protocol": "workspace:*",
+    "@orvo/rtc": "workspace:*",
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@chillcall/beacon": "workspace:*",
-    "@chillcall/placement": "workspace:*",
-    "@chillcall/signaling": "workspace:*",
-    "@chillcall/testkit": "workspace:*",
+    "@orvo/beacon": "workspace:*",
+    "@orvo/placement": "workspace:*",
+    "@orvo/signaling": "workspace:*",
+    "@orvo/testkit": "workspace:*",
     "@types/ioredis-mock": "^8.2.8",
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",

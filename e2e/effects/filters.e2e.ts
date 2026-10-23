@@ -8,8 +8,8 @@ test.beforeEach(async ({ context }) => {
   await context.addInitScript(() => {
     (window as unknown as { __visionDelegate: string }).__visionDelegate = 'CPU'; // headless test machines have no real GPU
     // Only the first page of the test gets this, so choices made during the test carry over to later pages.
-    if (!localStorage.getItem('chillcall:settings')) {
-      localStorage.setItem('chillcall:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
+    if (!localStorage.getItem('orvo:settings')) {
+      localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
     }
   });
 });

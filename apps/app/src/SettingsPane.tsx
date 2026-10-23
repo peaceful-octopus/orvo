@@ -1,4 +1,4 @@
-import { MAX_NAME_LENGTH } from '@chillcall/protocol';
+import { MAX_NAME_LENGTH } from '@orvo/protocol';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { AccountButton, AccountSection } from './auth/AccountUi';
 import { useCall } from './callStore';

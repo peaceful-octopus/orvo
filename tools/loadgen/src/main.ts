@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { startLocalFleet } from './fleet';
 import { formatReport, runLoad } from './run';
 
-const USAGE = `chillcall-loadgen: simulated signaling load, no media
+const USAGE = `orvo-loadgen: simulated signaling load, no media
 
   --users <n>          people to simulate (default 1000)
   --ramp <seconds>     time over which rooms start joining (default 30)

@@ -1,5 +1,5 @@
-import type { ClientConfig } from '@chillcall/protocol';
-import { defaultConfig, type ConfigSource } from '@chillcall/rtc';
+import type { ClientConfig } from '@orvo/protocol';
+import { defaultConfig, type ConfigSource } from '@orvo/rtc';
 import { create } from 'zustand';
 import { getServerUrl, loadClientConfig } from './config';
 

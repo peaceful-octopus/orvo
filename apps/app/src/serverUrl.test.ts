@@ -7,14 +7,14 @@ describe('normalizeServerUrl', () => {
   });
 
   it('adds https for public hosts and http for local addresses', () => {
-    expect(normalizeServerUrl('chill.example.com')).toBe('https://chill.example.com');
+    expect(normalizeServerUrl('orvo.example.com')).toBe('https://orvo.example.com');
     expect(normalizeServerUrl('localhost:8080')).toBe('http://localhost:8080');
     expect(normalizeServerUrl('192.168.1.20:8080')).toBe('http://192.168.1.20:8080');
   });
 
   it('keeps an explicit scheme and drops paths and trailing slashes', () => {
-    expect(normalizeServerUrl('http://chill.example.com/')).toBe('http://chill.example.com');
-    expect(normalizeServerUrl('https://chill.example.com/some/path')).toBe('https://chill.example.com');
+    expect(normalizeServerUrl('http://orvo.example.com/')).toBe('http://orvo.example.com');
+    expect(normalizeServerUrl('https://orvo.example.com/some/path')).toBe('https://orvo.example.com');
   });
 
   it('rejects other schemes and garbage', () => {

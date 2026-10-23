@@ -1,4 +1,4 @@
-import { isValidRoomSlug } from '@chillcall/protocol';
+import { isValidRoomSlug } from '@orvo/protocol';
 import { useState } from 'react';
 import { AuthCallback, SignInCard, useSignIn } from './auth/AccountUi';
 import { useAuth } from './auth/authStore';
@@ -53,7 +53,7 @@ function Home() {
       <SettingsButton />
       <div className="home">
         <div>
-          <h1>ChillCall</h1>
+          <h1>Orvo</h1>
           <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
           {unreachable && (
             <section className="state-card" role="alert">

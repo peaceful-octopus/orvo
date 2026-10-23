@@ -1,4 +1,4 @@
-import type { RoomRecord, Tier } from '@chillcall/protocol';
+import type { RoomRecord, Tier } from '@orvo/protocol';
 
 export interface NodeInfo {
   id: string;

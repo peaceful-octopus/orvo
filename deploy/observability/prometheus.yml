@@ -1,4 +1,4 @@
-# Prometheus scrape configuration for a ChillCall deployment. Edit the targets to match your hosts.
+# Prometheus scrape configuration for an Orvo deployment. Edit the targets to match your hosts.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -7,12 +7,12 @@ rule_files:
   - alerts.yml
 
 scrape_configs:
-  - job_name: chillcall-beacon
+  - job_name: orvo-beacon
     metrics_path: /metrics
     static_configs:
       - targets: ["beacon:8080"]
 
-  - job_name: chillcall-signaling
+  - job_name: orvo-signaling
     metrics_path: /metrics
     static_configs:
       - targets: ["node-1:9000", "node-2:9000"]

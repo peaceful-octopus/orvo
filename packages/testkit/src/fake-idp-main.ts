@@ -1,5 +1,5 @@
 import { startFakeIdp } from './fake-idp';
 
 // Runs the fake sign-in provider on its own, for end-to-end tests: `tsx src/fake-idp-main.ts` (PORT, CLIENT_ID, HOST, ISSUER).
-const idp = await startFakeIdp({ port: Number(process.env.PORT ?? 9190), clientId: process.env.CLIENT_ID ?? 'chillcall-e2e', host: process.env.HOST, issuer: process.env.ISSUER });
+const idp = await startFakeIdp({ port: Number(process.env.PORT ?? 9190), clientId: process.env.CLIENT_ID ?? 'orvo-e2e', host: process.env.HOST, issuer: process.env.ISSUER });
 console.log(`fake identity provider on ${idp.issuer} for client ${idp.clientId}`);

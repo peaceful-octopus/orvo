@@ -1,8 +1,8 @@
-import { createBeaconApp } from '@chillcall/beacon';
-import { Metrics } from '@chillcall/metrics';
-import { MemoryPlacementStore } from '@chillcall/placement';
-import { SignalingServer } from '@chillcall/signaling';
-import { testKeys } from '@chillcall/testkit';
+import { createBeaconApp } from '@orvo/beacon';
+import { Metrics } from '@orvo/metrics';
+import { MemoryPlacementStore } from '@orvo/placement';
+import { SignalingServer } from '@orvo/signaling';
+import { testKeys } from '@orvo/testkit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +24,7 @@ interface Rule {
 
 const alerts = parse(read('deploy/observability/alerts.yml')) as { groups: { name: string; rules: Rule[] }[] };
 const rules = alerts.groups.flatMap((g) => g.rules);
-const dashboard = JSON.parse(read('deploy/observability/grafana/dashboards/chillcall.json')) as {
+const dashboard = JSON.parse(read('deploy/observability/grafana/dashboards/orvo.json')) as {
   panels: { id: number; title: string; datasource: { uid: string }; targets: { expr: string; datasource: { uid: string } }[] }[];
 };
 
@@ -50,9 +50,9 @@ beforeAll(async () => {
 
 afterAll(() => closeApp());
 
-/** `chillcall_*` metric names an expression refers to, with histogram suffixes folded into the family name. */
+/** `orvo_*` metric names an expression refers to, with histogram suffixes folded into the family name. */
 function referenced(expr: string): string[] {
-  const names = expr.match(/chillcall_[a-z0-9_]+/g) ?? [];
+  const names = expr.match(/orvo_[a-z0-9_]+/g) ?? [];
   return names.map((n) => (known.has(n) ? n : n.replace(/_(bucket|sum|count)$/, '')));
 }
 

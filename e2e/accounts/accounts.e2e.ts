@@ -21,9 +21,9 @@ async function newPerson(browser: Browser): Promise<BrowserContext> {
   const context = await browser.newContext({ permissions: ['camera', 'microphone'] });
   opened.push(context);
   await context.addInitScript((server) => {
-    localStorage.setItem('chillcall:server', server);
-    if (!localStorage.getItem('chillcall:settings')) {
-      localStorage.setItem('chillcall:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
+    localStorage.setItem('orvo:server', server);
+    if (!localStorage.getItem('orvo:settings')) {
+      localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
     }
   }, SERVER);
   return context;
@@ -35,7 +35,7 @@ async function signInAs(page: Page, who: string, button = 'Sign in') {
   await page.getByRole('button', { name: button }).first().click();
   // The page leaves for the provider and comes back; signed in means the tokens are stored and we are on the app again.
   await expect
-    .poll(() => page.evaluate(() => Boolean(localStorage.getItem('chillcall:auth')) && !location.pathname.startsWith('/auth/')).catch(() => false), {
+    .poll(() => page.evaluate(() => Boolean(localStorage.getItem('orvo:auth')) && !location.pathname.startsWith('/auth/')).catch(() => false), {
       message: 'signed in and back on the app',
     })
     .toBe(true);
@@ -120,18 +120,18 @@ test('a sign-in that is about to run out is renewed without asking again @accoun
   const page = await context.newPage();
   await page.goto('/');
   await signInAs(page, 'ann', 'Sign in to start a room');
-  const before = await page.evaluate(() => (JSON.parse(localStorage.getItem('chillcall:auth')!) as { expiresAt: number }).expiresAt);
+  const before = await page.evaluate(() => (JSON.parse(localStorage.getItem('orvo:auth')!) as { expiresAt: number }).expiresAt);
 
   // Pretend the token has nearly run out.
   await page.evaluate(() => {
-    const tokens = JSON.parse(localStorage.getItem('chillcall:auth')!);
+    const tokens = JSON.parse(localStorage.getItem('orvo:auth')!);
     tokens.expiresAt = Date.now() + 5_000;
-    localStorage.setItem('chillcall:auth', JSON.stringify(tokens));
+    localStorage.setItem('orvo:auth', JSON.stringify(tokens));
   });
   await page.reload();
   await page.getByRole('button', { name: 'Start a room' }).click(); // asks the server for a room, which renews the token first
   await expect(page).toHaveURL(/\/r\//);
-  const after = await page.evaluate(() => (JSON.parse(localStorage.getItem('chillcall:auth')!) as { expiresAt: number }).expiresAt);
+  const after = await page.evaluate(() => (JSON.parse(localStorage.getItem('orvo:auth')!) as { expiresAt: number }).expiresAt);
   expect(after).toBeGreaterThan(before - 1000);
   expect(after).toBeGreaterThan(Date.now() + 60_000);
 });
@@ -146,16 +146,16 @@ test('a sign-in the server does not accept is cleared and the person is asked to
 
   // Break the token while keeping it looking valid to the app.
   await page.evaluate(() => {
-    const tokens = JSON.parse(localStorage.getItem('chillcall:auth')!);
+    const tokens = JSON.parse(localStorage.getItem('orvo:auth')!);
     const [head, body] = tokens.idToken.split('.');
     tokens.idToken = `${head}.${body}.forged-signature`;
-    localStorage.setItem('chillcall:auth', JSON.stringify(tokens));
+    localStorage.setItem('orvo:auth', JSON.stringify(tokens));
   });
   await page.reload();
   await page.getByPlaceholder('Your name').fill('Ann');
   await page.getByRole('button', { name: 'Join', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Your sign-in ran out' })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('chillcall:auth'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('orvo:auth'))).toBeNull();
 });
 
 test('signing out returns to being a guest, and Settings shows who is signed in @accounts', async ({ browser }) => {
@@ -167,7 +167,7 @@ test('signing out returns to being a guest, and Settings shows who is signed in 
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog.getByText('Bob', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Sign out' }).click();
-  await expect(dialog.getByText('You are using ChillCall as a guest.')).toBeVisible();
+  await expect(dialog.getByText('You are using Orvo as a guest.')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Sign in to start a room' })).toBeVisible();
 });
@@ -175,11 +175,11 @@ test('signing out returns to being a guest, and Settings shows who is signed in 
 test('the server that does not offer accounts shows no sign-in anywhere @accounts', async ({ browser }) => {
   // Point the app at the ordinary server (no provider); nothing about accounts should appear.
   const context = await browser.newContext({ permissions: ['camera', 'microphone'] });
-  await context.addInitScript(() => localStorage.setItem('chillcall:server', 'http://localhost:8080'));
+  await context.addInitScript(() => localStorage.setItem('orvo:server', 'http://localhost:8080'));
   const page = await context.newPage();
   const reachable = await page.request.get('http://localhost:8080/healthz').then((r) => r.ok(), () => false);
   test.skip(Boolean(process.env.ACCOUNTS_SERVER), 'only for the servers the config starts');
-  test.skip(!reachable, 'needs the ordinary server on :8080 (pnpm --filter @chillcall/server start)');
+  test.skip(!reachable, 'needs the ordinary server on :8080 (pnpm --filter @orvo/server start)');
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Start a room' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Sign in/ })).toHaveCount(0);

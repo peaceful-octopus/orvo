@@ -1,5 +1,5 @@
 {
-  "name": "@chillcall/beacon",
+  "name": "@orvo/beacon",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,9 +8,9 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@chillcall/metrics": "workspace:*",
-    "@chillcall/placement": "workspace:*",
-    "@chillcall/protocol": "workspace:*",
+    "@orvo/metrics": "workspace:*",
+    "@orvo/placement": "workspace:*",
+    "@orvo/protocol": "workspace:*",
     "@fastify/cors": "^11.3.1",
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/static": "^10.1.6",
@@ -19,7 +19,7 @@
     "jose": "^6.2.13"
   },
   "devDependencies": {
-    "@chillcall/testkit": "workspace:*",
+    "@orvo/testkit": "workspace:*",
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15"
   },

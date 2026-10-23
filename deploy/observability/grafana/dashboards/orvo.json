@@ -1,6 +1,6 @@
 {
-  "title": "ChillCall",
-  "uid": "chillcall-overview",
+  "title": "Orvo",
+  "uid": "orvo-overview",
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
@@ -10,7 +10,7 @@
     "to": "now"
   },
   "tags": [
-    "chillcall"
+    "orvo"
   ],
   "templating": {
     "list": []
@@ -40,7 +40,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(chillcall_signaling_connections)",
+          "expr": "sum(orvo_signaling_connections)",
           "legendFormat": ""
         }
       ],
@@ -71,7 +71,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(chillcall_signaling_rooms)",
+          "expr": "sum(orvo_signaling_rooms)",
           "legendFormat": ""
         }
       ],
@@ -102,7 +102,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(chillcall_signaling_members)",
+          "expr": "sum(orvo_signaling_members)",
           "legendFormat": ""
         }
       ],
@@ -133,7 +133,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "chillcall_beacon_nodes",
+          "expr": "orvo_beacon_nodes",
           "legendFormat": ""
         }
       ],
@@ -165,7 +165,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_client_peer_connections_total{result=\"connected\",route=\"direct\"}[1h])) / sum(rate(chillcall_client_peer_connections_total{result=\"connected\"}[1h]))",
+          "expr": "sum(rate(orvo_client_peer_connections_total{result=\"connected\",route=\"direct\"}[1h])) / sum(rate(orvo_client_peer_connections_total{result=\"connected\"}[1h]))",
           "legendFormat": ""
         }
       ],
@@ -199,7 +199,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_client_peer_connections_total{result=\"unreachable\"}[1h])) / sum(rate(chillcall_client_peer_connections_total[1h]))",
+          "expr": "sum(rate(orvo_client_peer_connections_total{result=\"unreachable\"}[1h])) / sum(rate(orvo_client_peer_connections_total[1h]))",
           "legendFormat": ""
         }
       ],
@@ -233,7 +233,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "chillcall_signaling_connections",
+          "expr": "orvo_signaling_connections",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -264,7 +264,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (result) (rate(chillcall_beacon_join_requests_total[5m]))",
+          "expr": "sum by (result) (rate(orvo_beacon_join_requests_total[5m]))",
           "legendFormat": "{{result}}"
         }
       ],
@@ -297,7 +297,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(chillcall_beacon_join_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(orvo_beacon_join_duration_seconds_bucket[5m])))",
           "legendFormat": "p50"
         },
         {
@@ -306,7 +306,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(chillcall_beacon_join_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(orvo_beacon_join_duration_seconds_bucket[5m])))",
           "legendFormat": "p99"
         }
       ],
@@ -339,7 +339,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(chillcall_client_join_seconds_bucket[15m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(orvo_client_join_seconds_bucket[15m])))",
           "legendFormat": "p50"
         },
         {
@@ -348,7 +348,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(chillcall_client_join_seconds_bucket[15m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(orvo_client_join_seconds_bucket[15m])))",
           "legendFormat": "p99"
         }
       ],
@@ -382,7 +382,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (route, result) (rate(chillcall_client_peer_connections_total[15m]))",
+          "expr": "sum by (route, result) (rate(orvo_client_peer_connections_total[15m]))",
           "legendFormat": "{{result}} / {{route}}"
         }
       ],
@@ -413,7 +413,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.5, sum by (le, route) (rate(chillcall_client_peer_connect_seconds_bucket[15m])))",
+          "expr": "histogram_quantile(0.5, sum by (le, route) (rate(orvo_client_peer_connect_seconds_bucket[15m])))",
           "legendFormat": "p50 {{route}}"
         },
         {
@@ -422,7 +422,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum by (le, route) (rate(chillcall_client_peer_connect_seconds_bucket[15m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, route) (rate(orvo_client_peer_connect_seconds_bucket[15m])))",
           "legendFormat": "p99 {{route}}"
         }
       ],
@@ -455,7 +455,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_signaling_signals_relayed_total[5m]))",
+          "expr": "sum(rate(orvo_signaling_signals_relayed_total[5m]))",
           "legendFormat": "relayed"
         },
         {
@@ -464,7 +464,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_signaling_signals_dropped_total[5m]))",
+          "expr": "sum(rate(orvo_signaling_signals_dropped_total[5m]))",
           "legendFormat": "dropped (peer gone)"
         }
       ],
@@ -495,7 +495,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_client_signaling_reconnects_total[5m]))",
+          "expr": "sum(rate(orvo_client_signaling_reconnects_total[5m]))",
           "legendFormat": "client reconnects"
         },
         {
@@ -504,7 +504,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_signaling_resumes_total[5m]))",
+          "expr": "sum(rate(orvo_signaling_resumes_total[5m]))",
           "legendFormat": "resumed within grace"
         }
       ],
@@ -535,7 +535,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "chillcall_process_resident_memory_bytes{job=\"chillcall-signaling\"}",
+          "expr": "orvo_process_resident_memory_bytes{job=\"orvo-signaling\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -568,7 +568,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(chillcall_process_cpu_seconds_total{job=\"chillcall-signaling\"}[1m])",
+          "expr": "rate(orvo_process_cpu_seconds_total{job=\"orvo-signaling\"}[1m])",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -602,7 +602,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "chillcall_nodejs_eventloop_lag_p99_seconds{job=\"chillcall-signaling\"}",
+          "expr": "orvo_nodejs_eventloop_lag_p99_seconds{job=\"orvo-signaling\"}",
           "legendFormat": "{{instance}}"
         }
       ],
@@ -635,7 +635,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (code) (rate(chillcall_signaling_join_failures_total[5m]))",
+          "expr": "sum by (code) (rate(orvo_signaling_join_failures_total[5m]))",
           "legendFormat": "join refused: {{code}}"
         },
         {
@@ -644,7 +644,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_signaling_rate_limited_total[5m]))",
+          "expr": "sum(rate(orvo_signaling_rate_limited_total[5m]))",
           "legendFormat": "rate limited"
         },
         {
@@ -653,7 +653,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chillcall_signaling_frames_rejected_total[5m]))",
+          "expr": "sum(rate(orvo_signaling_frames_rejected_total[5m]))",
           "legendFormat": "bad frames"
         }
       ],
@@ -684,7 +684,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "chillcall_beacon_placement_degraded",
+          "expr": "orvo_beacon_placement_degraded",
           "legendFormat": "degraded (1 = Redis unreachable)"
         },
         {
@@ -693,7 +693,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "chillcall_beacon_nodes_draining",
+          "expr": "orvo_beacon_nodes_draining",
           "legendFormat": "draining nodes"
         }
       ],

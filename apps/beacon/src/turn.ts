@@ -1,4 +1,4 @@
-import type { IceServer } from '@chillcall/protocol';
+import type { IceServer } from '@orvo/protocol';
 import { createHmac } from 'node:crypto';
 
 /** A coturn pool using REST-style shared-secret auth (`use-auth-secret`). */

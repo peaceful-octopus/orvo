@@ -31,21 +31,21 @@ describe('Samples', () => {
 
 describe('scrapeValue', () => {
   const text = [
-    '# HELP chillcall_signaling_connections Open connections.',
-    '# TYPE chillcall_signaling_connections gauge',
-    'chillcall_signaling_connections 42',
-    'chillcall_signaling_join_failures_total{code="room-full"} 3',
-    'chillcall_process_resident_memory_bytes 123456789',
+    '# HELP orvo_signaling_connections Open connections.',
+    '# TYPE orvo_signaling_connections gauge',
+    'orvo_signaling_connections 42',
+    'orvo_signaling_join_failures_total{code="room-full"} 3',
+    'orvo_process_resident_memory_bytes 123456789',
   ].join('\n');
 
   it('reads plain and labeled series by name', () => {
-    expect(scrapeValue(text, 'chillcall_signaling_connections')).toBe(42);
-    expect(scrapeValue(text, 'chillcall_signaling_join_failures_total')).toBe(3);
-    expect(scrapeValue(text, 'chillcall_process_resident_memory_bytes')).toBe(123456789);
+    expect(scrapeValue(text, 'orvo_signaling_connections')).toBe(42);
+    expect(scrapeValue(text, 'orvo_signaling_join_failures_total')).toBe(3);
+    expect(scrapeValue(text, 'orvo_process_resident_memory_bytes')).toBe(123456789);
   });
 
   it('does not confuse a name with a longer one, and ignores comments', () => {
-    expect(scrapeValue(text, 'chillcall_signaling_conn')).toBeUndefined();
+    expect(scrapeValue(text, 'orvo_signaling_conn')).toBeUndefined();
     expect(scrapeValue(text, 'missing_metric')).toBeUndefined();
   });
 });

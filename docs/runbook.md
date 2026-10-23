@@ -1,6 +1,6 @@
 # Runbook
 
-For operators of a ChillCall deployment (the small-team or platform profiles in `docs/self-hosting.md`). A personal single container needs none of this beyond `docker compose logs`.
+For operators of an Orvo deployment (the small-team or platform profiles in `docs/self-hosting.md`). A personal single container needs none of this beyond `docker compose logs`.
 
 ## What you are running
 - **Beacon** (stateless, run several): answers `join` requests, signs tokens and config, keeps room-to-node placement.
@@ -55,7 +55,7 @@ More than 5% of joins end in `no-nodes` or `error`. `no-nodes` points at the sam
 The 99th percentile of beacon join time is over a second. The beacon makes a few store lookups and signs two tokens per join, so look at Redis latency and beacon CPU. If Redis is slow, the beacon's resilient store will fall back to memory only on errors, not on slowness: restart or fail over Redis.
 
 ### SignalingEventLoopLagging
-A node's event loop is delayed more than 200 ms. The node is CPU-bound (one thread). Check `chillcall_signaling_connections` for that node, and recent growth in `chillcall_signaling_signals_relayed_total`. Add nodes: new rooms spread over them. Do not restart a loaded node as a first resort: everyone it hosts reconnects at once.
+A node's event loop is delayed more than 200 ms. The node is CPU-bound (one thread). Check `orvo_signaling_connections` for that node, and recent growth in `orvo_signaling_signals_relayed_total`. Add nodes: new rooms spread over them. Do not restart a loaded node as a first resort: everyone it hosts reconnects at once.
 
 ### SignalingConnectionsHigh
 A node holds over 8,000 connections. Measured capacity is in `docs/capacity.md`; 8,000 is a planning threshold well below where a node degrades. Add nodes before it matters. New rooms go to the least loaded by hashing; existing rooms do not move, so a skewed node drains only as rooms end.
@@ -64,7 +64,7 @@ A node holds over 8,000 connections. Measured capacity is in `docs/capacity.md`;
 A node uses over 1.5 GB. Measured memory per connection is in `docs/capacity.md`; usage far above that for the current connection count suggests a leak or a flood of connections. Compare connections to memory on the dashboard. Drain and restart the node (`SIGTERM`); capture a heap snapshot first if it recurs.
 
 ### SignalingRateLimiting
-Clients are being disconnected for sending signals too fast. One abusive client is closed and may reconnect and repeat; many suggests a buggy client version. Check `chillcall_beacon_joins_by_client_version_total` on the beacon to see which client versions are joining, and consider `MIN_CLIENT_VERSION`.
+Clients are being disconnected for sending signals too fast. One abusive client is closed and may reconnect and repeat; many suggests a buggy client version. Check `orvo_beacon_joins_by_client_version_total` on the beacon to see which client versions are joining, and consider `MIN_CLIENT_VERSION`.
 
 ### PlacementStoreDegraded
 A beacon cannot reach Redis and is placing rooms from memory. Running calls are unaffected, rooms stay on their nodes, and new joins still succeed. Risk: two beacons may place the *same new room* on different nodes until Redis returns, splitting that room. Restore Redis; the beacon recovers by itself. Rooms split during the outage correct themselves when members next reconnect.
@@ -97,7 +97,7 @@ Connected calls are untouched. A client whose signaling connection drops cannot 
 Clients use their cached signed config (valid up to a week past its expiry, never older than the newest config they have seen) and then built-in defaults. New installs without any cached config use defaults and the beacon address baked into the build.
 
 ## Load testing
-`pnpm load:fleet` starts a beacon and three nodes locally and simulates people (default 1,000, 30 s ramp). For a deployment: `pnpm load --target https://chill.example.com --scrape https://n1.example.com/metrics,https://n2.example.com/metrics --users 10000 --ramp 120 --hold 60`. It simulates signaling only (join, offers, answers, candidates, reconnects), not media. Do it against a staging deployment, and set `RATE_LIMIT_PER_MINUTE=0` on its beacon because every simulated user shares one address. Measured results and how to read them are in `docs/capacity.md`.
+`pnpm load:fleet` starts a beacon and three nodes locally and simulates people (default 1,000, 30 s ramp). For a deployment: `pnpm load --target https://orvo.example.com --scrape https://n1.example.com/metrics,https://n2.example.com/metrics --users 10000 --ramp 120 --hold 60`. It simulates signaling only (join, offers, answers, candidates, reconnects), not media. Do it against a staging deployment, and set `RATE_LIMIT_PER_MINUTE=0` on its beacon because every simulated user shares one address. Measured results and how to read them are in `docs/capacity.md`.
 
 ### Checking a deployment
 `node deploy/observability/check.mjs http://prometheus:9090` verifies that every scrape target is up, every alert rule loaded and evaluates, and every Grafana panel query is valid. `deploy/team/compose.test.yaml` and `deploy/observability/compose.test.yaml` run the small-team and monitoring stacks on one machine (no DNS or HTTPS) so you can rehearse a node crash (`docker kill`) and watch `SignalingNodeDown` fire.

@@ -1,4 +1,4 @@
-# ChillCall
+# Orvo
 
 Open-source casual video calls with floating face bubbles, GIF reactions and mood filters. Peer-to-peer over WebRTC.
 
@@ -34,7 +34,7 @@ pnpm test:all        # every unit test
 pnpm test:e2e        # smoke + layout, about 20 s; also test:e2e:effects, test:e2e:resilience, test:e2e:tiers, test:e2e:fleet, test:e2e:scale
 pnpm test:integration   # multi-node fleet scenarios and failure drills (set REDIS_URL to use a real Redis)
 pnpm load:fleet         # local beacon + 3 nodes under simulated load (see docs/runbook.md)
-pnpm --filter @chillcall/desktop dev   # desktop app; run `pnpm dev` first
+pnpm --filter @orvo/desktop dev   # desktop app; run `pnpm dev` first
 pnpm typecheck
 pnpm lint
 ```

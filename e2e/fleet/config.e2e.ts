@@ -1,5 +1,5 @@
-import { fromBase64Url, signConfig, type ClientConfig } from '@chillcall/protocol';
-import { makeConfig } from '@chillcall/testkit';
+import { fromBase64Url, signConfig, type ClientConfig } from '@orvo/protocol';
+import { makeConfig } from '@orvo/testkit';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { expectAllConnected, joinRoom } from '../helpers';
 import { FLEET_KID, FLEET_SECRET } from './keys';
@@ -33,7 +33,7 @@ test('an announcement shows once and stays dismissed @fleet', async ({ page }) =
   await expect(banner).toBeHidden();
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'ChillCall' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Orvo' })).toBeVisible();
   await expect(banner).toBeHidden();
 });
 

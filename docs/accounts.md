@@ -1,6 +1,6 @@
 # Accounts and room access
 
-ChillCall works without accounts: anyone can start or join a room as a guest. A server can also let people sign in, and
+Orvo works without accounts: anyone can start or join a room as a guest. A server can also let people sign in, and
 then choose who may start rooms; a room can choose whether guests may join it.
 
 ## Settings
@@ -18,7 +18,7 @@ nobody could then sign in.
 
 ## How it works
 
-- **The provider does the signing in.** ChillCall never sees a password and sends no email. The app uses the
+- **The provider does the signing in.** Orvo never sees a password and sends no email. The app uses the
   authorization-code flow with PKCE, so there is no client secret. It sends the provider's **ID token** to the server
   as a bearer token on `POST /v1/rooms`, `POST /v1/rooms/join` and `PATCH /v1/rooms/:room`.
 - **The server checks every token** against the provider's published keys (found through discovery): signature,
@@ -69,7 +69,7 @@ reconnect). After that the name is free: anyone can start it again, under the se
 
 ## Setting up a provider
 
-Register ChillCall as a public client (no secret) with the authorization-code flow and PKCE, and allow these redirect URIs:
+Register Orvo as a public client (no secret) with the authorization-code flow and PKCE, and allow these redirect URIs:
 
 - **Web:** `https://<your server>/auth/callback`.
 - **Desktop app:** `http://127.0.0.1:*/callback`. The desktop app signs in through the system browser and listens on a
@@ -79,7 +79,7 @@ Register ChillCall as a public client (no secret) with the authorization-code fl
 Then run the server with the provider's address and the client id:
 
 ```
-OIDC_ISSUER=https://id.example.com/realms/chill OIDC_CLIENT_ID=chillcall ROOM_CREATION=signed-in pnpm --filter @chillcall/server start
+OIDC_ISSUER=https://id.example.com/realms/chill OIDC_CLIENT_ID=orvo ROOM_CREATION=signed-in pnpm --filter @orvo/server start
 ```
 
 Keycloak, Authentik, Auth0, Okta, Google and any other OpenID Connect provider that publishes
@@ -87,7 +87,7 @@ Keycloak, Authentik, Auth0, Okta, Google and any other OpenID Connect provider t
 
 ## Where tokens live
 
-The tokens are kept in the app's local storage (`chillcall:auth`), like the rest of its settings, and renewed with the
+The tokens are kept in the app's local storage (`orvo:auth`), like the rest of its settings, and renewed with the
 refresh token shortly before the ID token runs out. Signing out removes them from the app; it does not sign the person
 out of the provider.
 

@@ -3,7 +3,7 @@ import { Counter, Gauge, Histogram, Registry, collectDefaultMetrics } from 'prom
 export interface MetricsOptions {
   /** Share one registry between components that run in the same process (the all-in-one server). */
   registry?: Registry;
-  /** Also export process metrics: CPU, memory, file descriptors, event-loop lag (prefixed `chillcall_`). */
+  /** Also export process metrics: CPU, memory, file descriptors, event-loop lag (prefixed `orvo_`). */
   defaultMetrics?: boolean;
 }
 
@@ -15,7 +15,7 @@ export class Metrics {
   constructor(opts: MetricsOptions = {}) {
     this.registry = opts.registry ?? new Registry();
     this.contentType = this.registry.contentType;
-    if (opts.defaultMetrics) collectDefaultMetrics({ register: this.registry, prefix: 'chillcall_' });
+    if (opts.defaultMetrics) collectDefaultMetrics({ register: this.registry, prefix: 'orvo_' });
   }
 
   counter<L extends string = never>(name: string, help: string, labelNames: readonly L[] = []) {

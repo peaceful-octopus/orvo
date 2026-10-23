@@ -5,7 +5,7 @@ import {
   signConfig,
   toBase64Url,
   verifyConfig,
-} from '@chillcall/protocol';
+} from '@orvo/protocol';
 
 export interface Io {
   readFile(path: string): string;
@@ -15,7 +15,7 @@ export interface Io {
   out(line: string): void;
 }
 
-export const USAGE = `chillcall-sign-config <command>
+export const USAGE = `orvo-sign-config <command>
 
   keygen [--kid <id>]
       Print a new signing key. Keep "secretKey" private (SIGNING_KEY=<kid>:<secretKey> for the beacon);

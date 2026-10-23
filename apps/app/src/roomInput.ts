@@ -1,4 +1,4 @@
-import { isValidRoomSlug } from '@chillcall/protocol';
+import { isValidRoomSlug } from '@orvo/protocol';
 
 /**
  * Reads a room from what someone typed or pasted: a room name, or a link ending in /r/<name>.

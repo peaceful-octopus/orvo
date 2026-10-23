@@ -4,7 +4,7 @@ import {
   ResilientPlacementStore,
   type NodeInfo,
   type PlacementStore,
-} from '@chillcall/placement';
+} from '@orvo/placement';
 import { Redis } from 'ioredis';
 import fs from 'node:fs';
 import { createBeaconApp } from './app';

@@ -1,7 +1,7 @@
-import { ConfigClient, parseTrustedKeys, type LoadedConfig } from '@chillcall/rtc';
+import { ConfigClient, parseTrustedKeys, type LoadedConfig } from '@orvo/rtc';
 import { normalizeServerUrl } from './serverUrl';
 
-const STORAGE_KEY = 'chillcall:server';
+const STORAGE_KEY = 'orvo:server';
 
 // A packaged Tauri app is served from tauri.localhost, so the page's own origin is not the server.
 const inTauri = '__TAURI_INTERNALS__' in window;
@@ -36,7 +36,7 @@ export function setServerUrl(input: string): boolean {
   return true;
 }
 
-const TELEMETRY_KEY = 'chillcall:telemetry';
+const TELEMETRY_KEY = 'orvo:telemetry';
 
 /** Whether the user allows anonymous connection statistics (on unless they turned it off). */
 export function telemetryAllowed(): boolean {

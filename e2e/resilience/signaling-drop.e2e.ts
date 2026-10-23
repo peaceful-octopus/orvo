@@ -34,14 +34,14 @@ test('media keeps flowing and the room recovers when the signaling socket drops 
   const bobSeesAnnTime = () =>
     bob.locator('.bubble video').evaluateAll((videos) => (videos[1] as HTMLVideoElement).currentTime);
   const before = await bobSeesAnnTime();
-  const resumesBefore = await counter(request, 'chillcall_signaling_resumes_total');
+  const resumesBefore = await counter(request, 'orvo_signaling_resumes_total');
 
   // Cut the signaling connection from both ends.
   for (const route of routes) void route.close();
   for (const server of servers) void server.close();
 
   // Ann reconnects under the same peer id, so the node records a resume and Bob never sees her leave.
-  await expect.poll(() => counter(request, 'chillcall_signaling_resumes_total')).toBeGreaterThan(resumesBefore);
+  await expect.poll(() => counter(request, 'orvo_signaling_resumes_total')).toBeGreaterThan(resumesBefore);
   await expect(annPage.locator('.banner', { hasText: 'Reconnecting' })).toBeHidden();
   await expect(bob.locator('.bubble')).toHaveCount(2);
   await expect.poll(bobSeesAnnTime).toBeGreaterThan(before);

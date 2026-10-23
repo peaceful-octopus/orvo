@@ -8,5 +8,5 @@ interface UiState {
 }
 
 export const useUi = create<UiState>()(
-  persist((set) => ({ mode: 'campfire', setMode: (mode) => set({ mode }) }), { name: 'chillcall:ui' }),
+  persist((set) => ({ mode: 'campfire', setMode: (mode) => set({ mode }) }), { name: 'orvo:ui' }),
 );

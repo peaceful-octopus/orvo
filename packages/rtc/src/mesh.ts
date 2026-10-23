@@ -9,7 +9,7 @@ import {
   type VideoTierRule,
   type DataMessage,
   type ServerMessage,
-} from '@chillcall/protocol';
+} from '@orvo/protocol';
 import { requestJoin } from './beacon-session';
 import { backoffDelay } from './backoff';
 import { PeerLink, type SignalPayload } from './peer-link';
@@ -28,7 +28,7 @@ import {
 } from './transport';
 
 export interface MeshOptions {
-  /** Beacon base URLs in preference order, for example `['https://chill.example.com']`; later ones are fallbacks. */
+  /** Beacon base URLs in preference order, for example `['https://orvo.example.com']`; later ones are fallbacks. */
   beaconUrls: string[];
   clientVersion?: string;
   /** Video quality by room size; defaults to the built-in tiers until a config supplies its own. */

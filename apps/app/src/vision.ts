@@ -1,4 +1,4 @@
-import type { FaceBox, PersonMask, VisionProvider } from '@chillcall/effects';
+import type { FaceBox, PersonMask, VisionProvider } from '@orvo/effects';
 
 /**
  * Face detection and person segmentation with MediaPipe, for keeping you in frame and blurring what is behind you.

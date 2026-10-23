@@ -1,4 +1,4 @@
-import { MOOD_FILTERS, NO_FILTER } from '@chillcall/effects';
+import { MOOD_FILTERS, NO_FILTER } from '@orvo/effects';
 import { usePopover } from './DeviceMenu';
 import { SparklesIcon } from './float/icons';
 

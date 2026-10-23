@@ -4,7 +4,7 @@ import {
   publicKeyFromSecret,
   toBase64Url,
   type KeyPair,
-} from '@chillcall/protocol';
+} from '@orvo/protocol';
 import fs from 'node:fs';
 import path from 'node:path';
 

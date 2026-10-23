@@ -12,7 +12,7 @@ const FLEET_PORT = 8180;
 
 const fleetServers = [
   {
-    command: 'pnpm --filter @chillcall/beacon start',
+    command: 'pnpm --filter @orvo/beacon start',
     url: `http://localhost:${FLEET_PORT}/healthz`,
     reuseExistingServer: false,
     env: {
@@ -29,7 +29,7 @@ const fleetServers = [
     ['n1', 9101],
     ['n2', 9102],
   ].map(([id, port]) => ({
-    command: 'pnpm --filter @chillcall/signaling start',
+    command: 'pnpm --filter @orvo/signaling start',
     url: `http://localhost:${port}/healthz`,
     reuseExistingServer: false,
     env: { PORT: String(port), NODE_ID: String(id), TRUSTED_KEYS: JSON.stringify({ [FLEET_KID]: FLEET_PUBLIC }) },
@@ -44,24 +44,24 @@ const ACCOUNTS_PORT = 8181;
 
 const accountServers = [
   {
-    command: 'pnpm --filter @chillcall/testkit idp',
+    command: 'pnpm --filter @orvo/testkit idp',
     url: `http://127.0.0.1:${IDP_PORT}/.well-known/openid-configuration`,
     reuseExistingServer: false,
-    env: { PORT: String(IDP_PORT), CLIENT_ID: 'chillcall-e2e' },
+    env: { PORT: String(IDP_PORT), CLIENT_ID: 'orvo-e2e' },
   },
   {
-    command: 'pnpm --filter @chillcall/server start',
+    command: 'pnpm --filter @orvo/server start',
     url: `http://localhost:${ACCOUNTS_PORT}/healthz`,
     reuseExistingServer: false,
     env: {
       PORT: String(ACCOUNTS_PORT),
       DATA_DIR: './data-e2e-accounts',
       OIDC_ISSUER: `http://127.0.0.1:${IDP_PORT}`,
-      OIDC_CLIENT_ID: 'chillcall-e2e',
+      OIDC_CLIENT_ID: 'orvo-e2e',
       ROOM_CREATION: 'signed-in',
     },
   },
-  { command: 'pnpm --filter @chillcall/app dev', url: 'http://localhost:5173', reuseExistingServer: true, env: { VITE_GIPHY_API_KEY: '' } },
+  { command: 'pnpm --filter @orvo/app dev', url: 'http://localhost:5173', reuseExistingServer: true, env: { VITE_GIPHY_API_KEY: '' } },
 ];
 
 export default defineConfig({
@@ -105,14 +105,14 @@ export default defineConfig({
       ? undefined
       : [
           {
-            command: 'pnpm --filter @chillcall/server start',
+            command: 'pnpm --filter @orvo/server start',
             url: 'http://localhost:8080/healthz',
             reuseExistingServer: true,
             // A made-up key: the effects tests answer the Giphy API themselves, so no real key or network is used.
             env: { GIPHY_API_KEY: 'e2e-giphy-key' },
           },
           {
-            command: 'pnpm --filter @chillcall/app dev',
+            command: 'pnpm --filter @orvo/app dev',
             url: 'http://localhost:5173',
             reuseExistingServer: true,
             // Keep a developer's own Giphy key (apps/app/.env.local) out of the tests; they use the server's made-up one.

@@ -1,4 +1,4 @@
-import { verifyConfig, verifyJoinToken } from '@chillcall/protocol';
+import { verifyConfig, verifyJoinToken } from '@orvo/protocol';
 import { describe, expect, it } from 'vitest';
 import { FakeClock, makeJoinToken, makeSignedConfig, testKeys } from './index';
 
