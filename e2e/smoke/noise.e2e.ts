@@ -48,6 +48,7 @@ test('bob keeps receiving a live audio track from ann while the filter runs @smo
 });
 
 test('the filter really removes steady hiss and key-click bursts @smoke', async ({ page }) => {
+  test.skip(Boolean(process.env.E2E_BASE_URL), 'imports the source modules, so it needs the development server');
   await page.goto('/');
   const result = await page.evaluate(async () => {
     const { createMicProcessor } = await import('/src/noise.ts');

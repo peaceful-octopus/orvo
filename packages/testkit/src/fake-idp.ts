@@ -32,7 +32,11 @@ const readBody = (req: IncomingMessage) =>
     req.on('end', () => resolve(data));
   });
 
-export async function startFakeIdp(opts: { port?: number; clientId?: string; tokenTtlSec?: number } = {}): Promise<FakeIdp> {
+/**
+ * `host` is the address to listen on (use 0.0.0.0 so a container can reach it) and `issuer` the address clients are told
+ * to use (for example http://host.docker.internal:9190); they default to 127.0.0.1 and the address it listens on.
+ */
+export async function startFakeIdp(opts: { port?: number; clientId?: string; tokenTtlSec?: number; host?: string; issuer?: string } = {}): Promise<FakeIdp> {
   const clientId = opts.clientId ?? 'chillcall-test';
   const ttl = opts.tokenTtlSec ?? 3600;
   const { publicKey, privateKey } = await generateKeyPair('RS256');
@@ -123,9 +127,9 @@ export async function startFakeIdp(opts: { port?: number; clientId?: string; tok
       .sign(privateKey);
   }
 
-  await new Promise<void>((resolve) => server.listen(opts.port ?? 0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => server.listen(opts.port ?? 0, opts.host ?? '127.0.0.1', resolve));
   const port = (server.address() as { port: number }).port;
-  issuer = `http://127.0.0.1:${port}`;
+  issuer = opts.issuer ?? `http://127.0.0.1:${port}`;
 
   return {
     issuer,

@@ -47,7 +47,8 @@ test('every colour in the stylesheet comes from the palette @smoke', async ({ pa
     const found: string[] = [];
     for (const sheet of Array.from(document.styleSheets)) {
       for (const rule of Array.from(sheet.cssRules)) {
-        const text = rule.cssText.replace(/url\([^)]*\)/g, '');
+        // `transparent` is not a palette colour; a minified build writes it as rgba(0, 0, 0, 0).
+        const text = rule.cssText.replace(/url\([^)]*\)/g, '').replace(/rgba\(0, 0, 0, 0\)/g, 'transparent');
         // Colours written out in a rule, other than the transparent keyword and the fallbacks inside var().
         for (const m of text.matchAll(/#[0-9a-f]{3,8}\b|rgba?\(/gi)) {
           if (!/var\([^)]*$/.test(text.slice(0, m.index))) found.push(`${rule.cssText.slice(0, 60)} -> ${m[0]}`);

@@ -31,6 +31,7 @@ test('the speaker slider sets the volume of other people, and the microphone sli
 });
 
 test('the microphone volume stage scales the level that is sent @smoke', async ({ page }) => {
+  test.skip(Boolean(process.env.E2E_BASE_URL), 'imports the source modules, so it needs the development server');
   await page.goto('/');
   const levels = await page.evaluate(async () => {
     const { createMicProcessor } = await import('/src/noise.ts');

@@ -75,7 +75,13 @@ export default defineConfig({
     ignoreHTTPSErrors: Boolean(process.env.E2E_INSECURE_TLS),
     launchOptions: {
       // --mute-audio silences remote audio so multi-peer tests with the fake device make no sound.
-      args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--mute-audio'],
+      args: [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+        '--mute-audio',
+        // Lets the browser reach a sign-in provider on this machine by the name a container uses for it.
+        '--host-resolver-rules=MAP host.docker.internal 127.0.0.1',
+      ],
     },
   },
   // One project per suite so a run can target just the affected slice (`--project=smoke`).

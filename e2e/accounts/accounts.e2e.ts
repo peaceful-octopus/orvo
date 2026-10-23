@@ -4,8 +4,12 @@ import { expectAllConnected } from '../helpers';
 // These run against a server that needs an account to start a room (see playwright.config.ts) and a fake sign-in
 // provider that approves at once; `/__user?name=bob` chooses who it signs in next.
 
-const SERVER = 'http://localhost:8181';
-const IDP = 'http://127.0.0.1:9190';
+// By default these run against the servers the config starts. Set ACCOUNTS_SERVER and ACCOUNTS_IDP (and E2E_BASE_URL, so
+// the app is the one that server serves) to run them against a container instead.
+const SERVER = process.env.ACCOUNTS_SERVER ?? 'http://localhost:8181';
+const IDP = process.env.ACCOUNTS_IDP ?? 'http://127.0.0.1:9190';
+// Where the tests themselves reach the provider to choose who signs in next (this machine, even when the app's name for it differs).
+const IDP_CONTROL = process.env.ACCOUNTS_IDP_CONTROL ?? IDP;
 
 async function newPerson(browser: Browser): Promise<BrowserContext> {
   const context = await browser.newContext({ permissions: ['camera', 'microphone'] });
@@ -20,7 +24,7 @@ async function newPerson(browser: Browser): Promise<BrowserContext> {
 
 /** Signs in as `who` through the provider and lands back where the person was. */
 async function signInAs(page: Page, who: string, button = 'Sign in') {
-  await page.request.get(`${IDP}/__user?name=${who}`);
+  await page.request.get(`${IDP_CONTROL}/__user?name=${who}`);
   await page.getByRole('button', { name: button }).first().click();
   // The page leaves for the provider and comes back; signed in means the tokens are stored and we are on the app again.
   await expect
@@ -162,6 +166,7 @@ test('the server that does not offer accounts shows no sign-in anywhere @account
   await context.addInitScript(() => localStorage.setItem('chillcall:server', 'http://localhost:8080'));
   const page = await context.newPage();
   const reachable = await page.request.get('http://localhost:8080/healthz').then((r) => r.ok(), () => false);
+  test.skip(Boolean(process.env.ACCOUNTS_SERVER), 'only for the servers the config starts');
   test.skip(!reachable, 'needs the ordinary server on :8080 (pnpm --filter @chillcall/server start)');
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Start a room' })).toBeVisible();
