@@ -37,7 +37,7 @@ import {
   VideoIcon,
   VideoOffIcon,
 } from './float/icons';
-import { LAYOUT_MODES } from './float/layouts';
+import { LAYOUT_MODES, UNCAPPED } from './float/layouts';
 import { unreachableNotice } from './unreachable';
 import { useUi } from './uiStore';
 import type { DeviceKind, DeviceLists, DeviceSelection } from './devices';
@@ -168,7 +168,7 @@ export function RoomPage({ room }: { room: string }) {
     else if (a.type === 'gif') sendGif(a.source, a.mode).catch(() => {}); // the store already shows a message
     else if (a.type === 'device') void selectDevice(a.kind, a.id);
     else if (a.type === 'filter') setMoodFilter(a.id);
-    else if (a.type === 'share') void (screen ? stopScreen() : shareScreen());
+    else if (a.type === 'share') void (screen ? stopScreen() : float.withRoomyWindow(shareScreen));
     else if (a.type === 'look') toggleLook(a.which, a.on);
     else if (a.type === 'leave') void leaveCall();
     else void float.exit();
@@ -311,6 +311,7 @@ export function RoomPage({ room }: { room: string }) {
       <BubbleField
         members={members}
         mode={mode}
+        maxSize={UNCAPPED}
         screens={screens}
         onStopSharing={stopScreen}
         onKick={roomAccess?.owner ? (id, who) => setKicking({ id, name: who }) : undefined}

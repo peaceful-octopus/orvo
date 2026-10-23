@@ -37,6 +37,8 @@ const BUBBLE_KEY = 'orvo:floatBubble';
 /** Resize events this soon after the app's own resize are its own doing, not the person's. */
 const OWN_RESIZE_MS = 700;
 const SAVE_DELAY_MS = 400;
+/** Room a system dialog needs, such as the screen picker, which is drawn inside the window that asked for it. */
+const DIALOG_ROOM = { w: 544, h: 480 };
 
 function loadBubble(): number {
   try {
@@ -128,6 +130,28 @@ export function useFloat(mode: LayoutMode, count: number) {
     setActive(false);
   }, [kind, saved, pip]);
 
+  /**
+   * Runs `task` with the floating window made big enough to hold a system dialog (the screen picker is drawn inside
+   * the window and is unusable in a few bubbles' worth of space), then puts the window back as it was.
+   */
+  const withRoomyWindow = useCallback(
+    async <T,>(task: () => Promise<T>): Promise<T> => {
+      if (kind !== 'tauri' || !active) return task();
+      const { LogicalSize } = await import('@tauri-apps/api/dpi');
+      const win = await tauriWindow();
+      const before = (await win.innerSize()).toLogical(await win.scaleFactor());
+      ownResizeAt.current = Date.now();
+      await win.setSize(new LogicalSize(Math.max(before.width, DIALOG_ROOM.w), Math.max(before.height, DIALOG_ROOM.h)));
+      try {
+        return await task();
+      } finally {
+        ownResizeAt.current = Date.now();
+        await win.setSize(new LogicalSize(before.width, before.height));
+      }
+    },
+    [kind, active],
+  );
+
   // Keep the floating window fitted to the layout as people come and go.
   useEffect(() => {
     if (!active) return;
@@ -179,7 +203,7 @@ export function useFloat(mode: LayoutMode, count: number) {
     };
   }, [active, kind, mode, count]);
 
-  return { kind, active, pip, enter, exit };
+  return { kind, active, pip, enter, exit, withRoomyWindow };
 }
 
 export async function startWindowDrag() {
