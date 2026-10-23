@@ -38,8 +38,8 @@ const BUBBLE_KEY = 'orvo:floatBubble';
 const OWN_RESIZE_MS = 700;
 const SAVE_DELAY_MS = 400;
 /**
- * Room a system dialog needs, such as the screen picker, which is drawn inside the window that asked for it. This is
- * the size at 100% display scaling; the dialog grows with the scaling, so the window is made that much larger too.
+ * Room a system dialog needs, such as the screen picker, which is drawn inside the window that asked for it. In
+ * logical pixels, so the window already grows with the display scaling.
  */
 const DIALOG_ROOM = { w: 640, h: 460 };
 
@@ -142,10 +142,9 @@ export function useFloat(mode: LayoutMode, count: number) {
       if (kind !== 'tauri' || !active) return task();
       const { LogicalSize } = await import('@tauri-apps/api/dpi');
       const win = await tauriWindow();
-      const scale = await win.scaleFactor();
-      const before = (await win.innerSize()).toLogical(scale);
+      const before = (await win.innerSize()).toLogical(await win.scaleFactor());
       ownResizeAt.current = Date.now();
-      await win.setSize(new LogicalSize(Math.max(before.width, DIALOG_ROOM.w * scale), Math.max(before.height, DIALOG_ROOM.h * scale)));
+      await win.setSize(new LogicalSize(Math.max(before.width, DIALOG_ROOM.w), Math.max(before.height, DIALOG_ROOM.h)));
       try {
         return await task();
       } finally {
