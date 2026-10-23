@@ -1,5 +1,8 @@
 import { isValidRoomSlug } from '@chillcall/protocol';
 import { useState } from 'react';
+import { AuthCallback, SignInCard, useSignIn } from './auth/AccountUi';
+import { useAuth } from './auth/authStore';
+import { COPY } from './copy';
 import { CLIENT_VERSION, getServerUrl } from './config';
 import { updateRequired } from './configLogic';
 import { useConfig } from './configStore';
@@ -13,11 +16,28 @@ function Home() {
   const maxRoomSize = useConfig((s) => s.config.limits.maxRoomSize);
   const [error, setError] = useState<string>();
   const [roomName, setRoomName] = useState('');
+  const [signedInOnly, setSignedInOnly] = useState(false);
+  const auth = useConfig((s) => s.config.auth);
+  const signedIn = useAuth((s) => Boolean(s.session));
+  const signIn = useSignIn();
+  const [needsSignIn, setNeedsSignIn] = useState(false);
 
   const startRoom = async () => {
     setError(undefined);
+    if (auth?.createRequiresLogin && !signedIn) return signIn();
     try {
-      const res = await fetch(new URL('/v1/rooms', getServerUrl()), { method: 'POST' });
+      const token = await useAuth.getState().token();
+      const res = await fetch(new URL('/v1/rooms', getServerUrl()), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ signedInOnly }),
+      });
+      if (res.status === 401) {
+        // The server wants an account first, or the one we had ran out.
+        useAuth.getState().signOut();
+        setNeedsSignIn(true);
+        return;
+      }
       if (!res.ok) throw new Error(String(res.status));
       const { room } = (await res.json()) as { room: string };
       location.assign(`/r/${room}`);
@@ -35,8 +55,15 @@ function Home() {
           <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
           <div className="home-actions">
             <button className="primary big" onClick={() => void startRoom()}>
-              Start a room
+              {auth?.createRequiresLogin && !signedIn ? COPY.account.signInToStart : 'Start a room'}
             </button>
+            {auth && (
+              <label className="toggle">
+                <input type="checkbox" checked={signedInOnly} onChange={(e) => setSignedInOnly(e.target.checked)} />
+                {COPY.account.onlySignedIn}
+              </label>
+            )}
+            {needsSignIn && <SignInCard title={COPY.account.expired.title} body={COPY.account.expired.body} />}
             <form
               className="join-room"
               onSubmit={(e) => {
@@ -88,6 +115,8 @@ function Ring() {
 export function App() {
   const config = useConfig((s) => s.config);
   if (updateRequired(config, CLIENT_VERSION)) return <UpdateRequired />;
+
+  if (location.pathname === '/auth/callback') return <AuthCallback />;
 
   const room = location.pathname.match(/^\/r\/([^/]+)$/)?.[1];
   return (

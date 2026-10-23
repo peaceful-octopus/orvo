@@ -16,7 +16,9 @@ import { PeerLink, type SignalPayload } from './peer-link';
 import { sendPolicy, type Route } from './route';
 import {
   BeaconUnavailableError,
+  InvalidTokenError,
   JoinError,
+  LoginRequiredError,
   RoomFullError,
   UpgradeRequiredError,
   type RoomEvent,
@@ -33,6 +35,8 @@ export interface MeshOptions {
   relayVideoTier?: VideoTier;
   /** `relay` makes every connection use a relay or fail; for testing that a room has (or lacks) one. */
   iceTransportPolicy?: RTCIceTransportPolicy;
+  /** Supplies the signed-in person's ID token for each request to the beacon, refreshed if needed; guests return undefined. */
+  getAuthToken?: () => Promise<string | undefined>;
   /** Receives anonymous connection statistics (see `TelemetryClient`); omitted when the user opted out. */
   telemetry?: (event: TelemetryEvent) => void;
 }
@@ -74,6 +78,11 @@ export class MeshTransport implements RoomTransport {
   private resumeToken?: string;
 
   constructor(private opts: MeshOptions) {}
+
+  /** The room's access rules as the server reported them when we joined, and whether we own the room. */
+  get roomAccess(): { signedInOnly: boolean; owner: boolean } | undefined {
+    return this.session?.room;
+  }
 
   async join(room: string, name: string, local: MediaStream): Promise<void> {
     this.room = room;
@@ -144,6 +153,7 @@ export class MeshTransport implements RoomTransport {
       room: this.room,
       clientVersion: this.opts.clientVersion ?? '0.0.0',
       resume: this.resumeToken,
+      authToken: await this.opts.getAuthToken?.(),
     });
     this.resumeToken = session.resumeToken;
     return session;
@@ -243,7 +253,7 @@ export class MeshTransport implements RoomTransport {
           this.flushOutbox();
           return;
         } catch (err) {
-          if (err instanceof RoomFullError || err instanceof UpgradeRequiredError) {
+          if (err instanceof RoomFullError || err instanceof UpgradeRequiredError || err instanceof LoginRequiredError || err instanceof InvalidTokenError) {
             this.opts.telemetry?.({ type: 'reconnect', ok: false, attempts: attempt + 1 });
             this.emit({ type: 'connection', state: 'closed', reason: err.message });
             return;

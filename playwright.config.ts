@@ -36,6 +36,34 @@ const fleetServers = [
   })),
 ];
 
+// E2E_ACCOUNTS=1 runs the accounts suite: a fake sign-in provider, and a server that needs an account to start a
+// room and trusts that provider. The app (dev server) is pointed at it by each test.
+const accounts = Boolean(process.env.E2E_ACCOUNTS);
+const IDP_PORT = 9190;
+const ACCOUNTS_PORT = 8181;
+
+const accountServers = [
+  {
+    command: 'pnpm --filter @chillcall/testkit idp',
+    url: `http://127.0.0.1:${IDP_PORT}/.well-known/openid-configuration`,
+    reuseExistingServer: false,
+    env: { PORT: String(IDP_PORT), CLIENT_ID: 'chillcall-e2e' },
+  },
+  {
+    command: 'pnpm --filter @chillcall/server start',
+    url: `http://localhost:${ACCOUNTS_PORT}/healthz`,
+    reuseExistingServer: false,
+    env: {
+      PORT: String(ACCOUNTS_PORT),
+      DATA_DIR: './data-e2e-accounts',
+      OIDC_ISSUER: `http://127.0.0.1:${IDP_PORT}`,
+      OIDC_CLIENT_ID: 'chillcall-e2e',
+      ROOM_CREATION: 'signed-in',
+    },
+  },
+  { command: 'pnpm --filter @chillcall/app dev', url: 'http://localhost:5173', reuseExistingServer: true, env: { VITE_GIPHY_API_KEY: '' } },
+];
+
 export default defineConfig({
   testDir: 'e2e',
   testMatch: '**/*.e2e.ts',
@@ -56,6 +84,7 @@ export default defineConfig({
     { name: 'layout', testDir: 'e2e/layout', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'resilience', testDir: 'e2e/resilience', timeout: 90_000, expect: { timeout: 30_000 } },
     { name: 'tiers', testDir: 'e2e/tiers', timeout: 90_000, expect: { timeout: 45_000 } },
+    { name: 'accounts', testDir: 'e2e/accounts', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'visual', testDir: 'e2e/visual', timeout: 90_000, expect: { timeout: 20_000 } },
     { name: 'effects', testDir: 'e2e/effects', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'fleet', testDir: 'e2e/fleet', timeout: 90_000, expect: { timeout: 30_000 } },
@@ -64,7 +93,9 @@ export default defineConfig({
   ],
   webServer: fleet
     ? fleetServers
-    : external
+    : accounts
+      ? accountServers
+      : external
       ? undefined
       : [
           {

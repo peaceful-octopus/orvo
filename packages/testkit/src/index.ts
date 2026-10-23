@@ -69,5 +69,3 @@ export function makeJoinToken(keys: TestKeys, overrides: Partial<JoinTokenPayloa
     keys.secretKey,
   );
 }
-
-export { startFakeIdp, type FakeIdp } from './fake-idp';

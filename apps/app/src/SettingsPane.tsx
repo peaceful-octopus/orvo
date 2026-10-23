@@ -1,5 +1,6 @@
 import { MAX_NAME_LENGTH } from '@chillcall/protocol';
 import { useEffect, useState, type CSSProperties } from 'react';
+import { AccountButton, AccountSection } from './auth/AccountUi';
 import { useCall } from './callStore';
 import { defaultServerUrl, getServerUrl, giphyApiKey, setServerUrl, setTelemetryAllowed, telemetryAllowed } from './config';
 import { useConfig } from './configStore';
@@ -139,6 +140,8 @@ function SettingsPane({ onClose }: { onClose(): void }) {
       <div className="modal settings" role="dialog" aria-modal="true" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
         <h2>Settings</h2>
 
+        <AccountSection />
+
         <label className="setting">
           <span className="setting-label">Your name</span>
           <input value={name} maxLength={MAX_NAME_LENGTH} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
@@ -247,9 +250,12 @@ export function SettingsButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button className="icon settings-gear" aria-label="Settings" title="Settings" onClick={() => setOpen(true)}>
-        <GearIcon />
-      </button>
+      <div className="corner">
+        <AccountButton onOpenSettings={() => setOpen(true)} />
+        <button className="icon" aria-label="Settings" title="Settings" onClick={() => setOpen(true)}>
+          <GearIcon />
+        </button>
+      </div>
       {open && <SettingsPane onClose={() => setOpen(false)} />}
     </>
   );

@@ -56,6 +56,8 @@ export const JoinResponse = z.object({
   iceServers: z.array(IceServer),
   transport: z.enum(['mesh', 'sfu']),
   tier: Tier,
+  /** The room's access rules as the beacon holds them, and whether this person owns the room. */
+  room: z.object({ signedInOnly: z.boolean(), owner: z.boolean() }).optional(),
 });
 export type JoinResponse = z.infer<typeof JoinResponse>;
 

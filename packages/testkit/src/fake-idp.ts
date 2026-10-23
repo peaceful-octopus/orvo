@@ -39,6 +39,8 @@ export async function startFakeIdp(opts: { port?: number; clientId?: string; tok
   const jwk: JWK = { ...(await exportJWK(publicKey)), kid: 'fake-1', alg: 'RS256', use: 'sig' };
   const codes = new Map<string, Pending>();
   const refreshTokens = new Map<string, string>();
+  /** Who signs in next when the request does not say: tests change it with GET /__user?name=bob. */
+  let nextUser = 'ann';
 
   let issuer = '';
   const server: Server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -65,13 +67,17 @@ export async function startFakeIdp(opts: { port?: number; clientId?: string; tok
       });
     }
     if (url.pathname === '/jwks') return send(200, { keys: [jwk] });
+    if (url.pathname === '/__user') {
+      nextUser = (url.searchParams.get('name') ?? 'ann').toLowerCase();
+      return send(200, { user: nextUser });
+    }
 
     if (url.pathname === '/authorize') {
       const redirectUri = url.searchParams.get('redirect_uri');
       const challenge = url.searchParams.get('code_challenge');
       if (url.searchParams.get('client_id') !== clientId || !redirectUri || !challenge) return send(400, { error: 'invalid_request' });
       const code = randomBytes(12).toString('hex');
-      codes.set(code, { user: url.searchParams.get('login_hint') ?? 'ann', challenge, redirectUri, nonce: url.searchParams.get('nonce') ?? undefined });
+      codes.set(code, { user: url.searchParams.get('login_hint') ?? nextUser, challenge, redirectUri, nonce: url.searchParams.get('nonce') ?? undefined });
       const back = new URL(redirectUri);
       back.searchParams.set('code', code);
       const state = url.searchParams.get('state');

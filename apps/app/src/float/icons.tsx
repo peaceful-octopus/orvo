@@ -3,6 +3,8 @@ import {
   ChevronDown,
   LogOut,
   Link,
+  Lock,
+  LockOpen,
   Maximize2,
   Mic,
   MicOff,
@@ -30,6 +32,8 @@ export const LeaveIcon = () => <LogOut size={SIZE} strokeWidth={STROKE} aria-hid
 export const ChevronIcon = () => <ChevronDown size={14} strokeWidth={3} aria-hidden />;
 export const GearIcon = () => <Settings size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LinkIcon = () => <Link size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const LockIcon = () => <Lock size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const LockOpenIcon = () => <LockOpen size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const CheckIcon = () => <Check size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ScreenShareIcon = () => <ScreenShare size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ScreenShareOffIcon = () => <ScreenShareOff size={SIZE} strokeWidth={STROKE} aria-hidden />;

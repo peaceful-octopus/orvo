@@ -1,6 +1,8 @@
 import { EffectsController, type GifMode, type GifSource } from '@chillcall/effects';
 import {
+  InvalidTokenError,
   JoinError,
+  LoginRequiredError,
   MeshTransport,
   RoomFullError,
   UpgradeRequiredError,
@@ -9,7 +11,7 @@ import {
   type RoomEvent,
 } from '@chillcall/rtc';
 import { create } from 'zustand';
-import { CLIENT_VERSION, loadClientConfig } from './config';
+import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {
   deviceConstraint,
   loadSelection,
@@ -24,6 +26,7 @@ import {
 import { createMicProcessor, noiseSupported, type MicProcessor } from './noise';
 import { createVision, visionSupported } from './vision';
 import { useSettings } from './settingsStore';
+import { useAuth } from './auth/authStore';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { toast } from './toastStore';
 import { telemetry } from './telemetry';
@@ -57,6 +60,11 @@ interface CallState {
   /** The cameras, microphones and speakers the system offers, and which of them are chosen. */
   devices: DeviceLists;
   selected: DeviceSelection;
+  /** The room being joined or in, and who may join it. `owner` means you can change that. */
+  roomId?: string;
+  roomAccess?: { signedInOnly: boolean; owner: boolean };
+  /** Why joining needs a sign-in, when it does: to start this room, to enter it, or because the old sign-in ran out. */
+  loginRequired?: 'create' | 'join' | 'expired';
   /** Your own shared screen, while you are sharing. */
   screen?: MediaStream;
   /** Whether background noise suppression is running on your microphone. */
@@ -68,6 +76,7 @@ interface CallState {
   join(room: string, name: string): Promise<void>;
   toggleAudio(): Promise<void>;
   toggleVideo(): Promise<void>;
+  setRoomAccess(signedInOnly: boolean): Promise<void>;
   shareScreen(): Promise<void>;
   stopScreen(): void;
   applyNoise(): Promise<void>;
@@ -342,7 +351,7 @@ export const useCall = create<CallState>((set, get) => {
     async join(room, name) {
       const { local } = get();
       if (!local) return;
-      set({ phase: 'joining', error: undefined });
+      set({ phase: 'joining', error: undefined, loginRequired: undefined, roomId: room });
       await get().applyNoise(); // the call starts with the cleaned-up microphone
       const { config } = await loadClientConfig();
       transport = new MeshTransport({
@@ -352,6 +361,7 @@ export const useCall = create<CallState>((set, get) => {
         relayVideoTier: config.limits.relayVideoTier,
         // `?ice=relay` forces every connection through a relay, to check whether a room has one.
         telemetry: (event) => telemetry.record(event),
+        getAuthToken: () => useAuth.getState().token(),
         iceTransportPolicy: new URLSearchParams(location.search).get('ice') === 'relay' ? 'relay' : undefined,
       });
       unsubscribe = transport.on(onEvent);
@@ -368,14 +378,16 @@ export const useCall = create<CallState>((set, get) => {
         });
         void effects.setFilter(useSettings.getState().moodFilter);
         void effects.setLook(lookFromSettings());
-        set({ phase: 'in-call' });
+        set({ phase: 'in-call', roomAccess: transport.roomAccess });
         broadcastState();
       } catch (err) {
         transport.leave();
         unsubscribe();
         transport = undefined;
+        if (err instanceof InvalidTokenError) useAuth.getState().signOut(); // the sign-in ran out; the person signs in again
+        const loginRequired = err instanceof LoginRequiredError ? err.reason : err instanceof InvalidTokenError ? 'expired' : undefined;
         const known = err instanceof RoomFullError || err instanceof UpgradeRequiredError || err instanceof JoinError;
-        set({ phase: 'lobby', error: known ? err.message : 'Could not join the room.' });
+        set({ phase: 'lobby', loginRequired, error: loginRequired ? undefined : known ? err.message : 'Could not join the room.' });
       }
     },
 
@@ -385,6 +397,23 @@ export const useCall = create<CallState>((set, get) => {
       get().local?.getAudioTracks().forEach((t) => (t.enabled = audio));
       set({ audio });
       broadcastState();
+    },
+
+    async setRoomAccess(signedInOnly) {
+      const { roomId } = get();
+      if (!roomId) return;
+      try {
+        const token = await useAuth.getState().token();
+        const res = await fetch(new URL(`/v1/rooms/${roomId}`, getServerUrl()), {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ signedInOnly }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        set({ roomAccess: { signedInOnly, owner: true } });
+      } catch {
+        toast.error(COPY.toasts.roomAccess);
+      }
     },
 
     async shareScreen() {
@@ -455,7 +484,7 @@ export const useCall = create<CallState>((set, get) => {
       micProcessor = undefined;
       micRaw?.stop();
       micRaw = undefined;
-      set({ noiseStatus: 'off', phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
+      set({ roomAccess: undefined, noiseStatus: 'off', phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
     },
   };
 });

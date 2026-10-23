@@ -6,6 +6,8 @@ import { useCall } from './callStore';
 import { getServerUrl, giphyApiKey } from './config';
 import { useConfig } from './configStore';
 import { copyText, roomLink } from './roomInput';
+import { SignInCard } from './auth/AccountUi';
+import { useAuth } from './auth/authStore';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
 import { FilterButton } from './FilterMenu';
@@ -26,6 +28,8 @@ import {
   FloatIcon,
   LeaveIcon,
   LinkIcon,
+  LockIcon,
+  LockOpenIcon,
   MicIcon,
   MicOffIcon,
   RowIcon,
@@ -66,8 +70,12 @@ export function RoomPage({ room }: { room: string }) {
     screen,
     shareScreen,
     stopScreen,
+    loginRequired,
+    roomAccess,
+    setRoomAccess,
     leave,
   } = useCall();
+  const accountName = useAuth((s) => s.session?.user.name ?? s.session?.user.email);
   const canShare = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia);
   const outputs = canSelectOutput();
   const copyInvite = () =>
@@ -122,6 +130,11 @@ export function RoomPage({ room }: { room: string }) {
     ],
     [screen, name, remotes],
   );
+
+  // Someone who is signed in does not have to type their name: the account's is the starting point.
+  useEffect(() => {
+    if (!name && accountName) setName(accountName);
+  }, [name, accountName, setName]);
 
   const float = useFloat(mode, members.length);
 
@@ -179,6 +192,9 @@ export function RoomPage({ room }: { room: string }) {
                 {phase === 'joining' ? 'Joining...' : 'Join'}
               </button>
             </form>
+            {loginRequired === 'join' && <SignInCard title={COPY.account.roomForSignedIn.title} body={COPY.account.roomForSignedIn.body} />}
+            {loginRequired === 'create' && <SignInCard title={COPY.account.needsLoginToStart.title} body={COPY.account.needsLoginToStart.body} />}
+            {loginRequired === 'expired' && <SignInCard title={COPY.account.expired.title} body={COPY.account.expired.body} />}
             {error === MEDIA_DENIED_MESSAGE ? (
               <section className="state-card" role="alert">
                 <h2>{COPY.mediaDenied.title}</h2>
@@ -286,6 +302,17 @@ export function RoomPage({ room }: { room: string }) {
             {video ? <VideoIcon /> : <VideoOffIcon />}
           </button>
         </DeviceButton>
+        {roomAccess?.owner && (
+          <button
+            className={`icon${roomAccess.signedInOnly ? ' on' : ''}`}
+            aria-label={COPY.account.onlySignedIn}
+            aria-pressed={roomAccess.signedInOnly}
+            title={roomAccess.signedInOnly ? 'Only signed-in people can join. Click to let guests in.' : 'Anyone with the link can join. Click to allow only signed-in people.'}
+            onClick={() => void setRoomAccess(!roomAccess.signedInOnly)}
+          >
+            {roomAccess.signedInOnly ? <LockIcon /> : <LockOpenIcon />}
+          </button>
+        )}
         <FilterButton look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
         {canShare && (
           <button

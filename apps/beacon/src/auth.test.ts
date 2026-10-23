@@ -1,4 +1,4 @@
-import { startFakeIdp, type FakeIdp } from '@chillcall/testkit';
+import { startFakeIdp, type FakeIdp } from '@chillcall/testkit/src/fake-idp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createOidcVerifier } from './auth';
 import { authSettingsFromEnv } from './auth-env';

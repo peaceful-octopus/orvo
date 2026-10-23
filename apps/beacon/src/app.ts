@@ -353,6 +353,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       iceServers,
       transport: 'mesh',
       tier,
+      room: { signedInOnly: record.signedInOnly, owner: Boolean(who.identity && record.owner === who.identity.id) },
     };
     done('ok');
     m.tiers.inc({ tier });

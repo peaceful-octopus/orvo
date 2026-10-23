@@ -960,11 +960,26 @@ button.chevron {
   color: var(--muted);
 }
 
-.settings-gear {
+.corner {
   position: fixed;
   top: 0.75rem;
   right: 0.75rem;
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+button.icon.account {
+  font-family: var(--font-display);
+  font-weight: 700;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.account-line {
+  margin: 0;
 }
 
 .settings {

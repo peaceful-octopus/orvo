@@ -1,5 +1,5 @@
 import { JoinResponse, PROTOCOL_VERSION } from '@chillcall/protocol';
-import { BeaconUnavailableError, JoinError, UpgradeRequiredError } from './transport';
+import { BeaconUnavailableError, InvalidTokenError, JoinError, LoginRequiredError, UpgradeRequiredError } from './transport';
 
 export interface JoinParams {
   room: string;
@@ -7,6 +7,8 @@ export interface JoinParams {
   resume?: string;
   /** Reserved for a future billing service. */
   entitlement?: string;
+  /** The signed-in person's ID token, sent as a bearer token; absent for guests. */
+  authToken?: string;
 }
 
 /**
@@ -20,14 +22,15 @@ export async function requestJoin(
   fetchImpl: typeof fetch = (...args) => fetch(...args),
   timeoutMs = 8_000,
 ): Promise<JoinResponse> {
+  const { authToken, ...body } = params;
   let failure = 'Could not reach the server.';
   for (const base of beaconUrls) {
     let res: Response;
     try {
       res = await fetchImpl(new URL('/v1/rooms/join', base), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...params, protocol: PROTOCOL_VERSION }),
+        headers: { 'content-type': 'application/json', ...(authToken ? { authorization: `Bearer ${authToken}` } : {}) },
+        body: JSON.stringify({ ...body, protocol: PROTOCOL_VERSION }),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {
@@ -39,6 +42,12 @@ export async function requestJoin(
       continue;
     }
     if (res.status >= 500) continue;
+    if (res.status === 401) {
+      const code = ((await res.json().catch(() => ({}))) as { code?: string }).code;
+      if (code === 'login-required-to-create') throw new LoginRequiredError('create');
+      if (code === 'login-required-to-join') throw new LoginRequiredError('join');
+      throw new InvalidTokenError();
+    }
     if (!res.ok) throw new JoinError('Could not join the room.');
     return JoinResponse.parse(await res.json());
   }

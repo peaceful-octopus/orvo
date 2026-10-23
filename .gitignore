@@ -9,3 +9,4 @@ playwright-report
 apps/desktop/src-tauri/gen
 data
 *.local
+data-e2e-accounts

@@ -50,3 +50,17 @@ export class JoinError extends Error {}
 
 /** No beacon answered usefully (all unreachable or failing), as opposed to a node refusing or being unreachable. */
 export class BeaconUnavailableError extends JoinError {}
+
+/** The server wants the person signed in first: to start a room, or to join this one. */
+export class LoginRequiredError extends Error {
+  constructor(readonly reason: 'create' | 'join') {
+    super(reason === 'create' ? 'Sign in to start a room.' : 'This room is for signed-in people. Sign in to join.');
+  }
+}
+
+/** The sign-in sent with a request was not accepted, for instance because it ran out; signing in again fixes it. */
+export class InvalidTokenError extends Error {
+  constructor() {
+    super('Your sign-in has expired. Sign in again.');
+  }
+}
