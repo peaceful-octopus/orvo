@@ -1,7 +1,8 @@
 # Design
 
 The look is "warm evening": a charcoal-brown background with cream text and one orange accent, in light and dark
-versions. A second palette, "Midnight" (the earlier violet look), ships beside it to show that palettes swap freely.
+versions. Two more palettes ship beside it to show that palettes swap freely: "Midnight" (the earlier violet look) and "Beach Day"
+(teal, light green, peach, berry and plum, from [this Coolors palette](https://coolors.co/6dd3ce-c8e9a0-f7a278-a13d63-351e29)).
 
 ## Rules
 

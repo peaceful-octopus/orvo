@@ -30,8 +30,15 @@ test('Settings switches between light, dark and palettes, and remembers the choi
   await expect.poll(async () => (await root(page)).palette).toBe('midnight');
   expect((await root(page)).accent).toBe('#5A4BEF');
 
+  await dialog.getByLabel('Colour palette').selectOption('beach');
+  await expect.poll(async () => (await root(page)).palette).toBe('beach');
+  expect((await root(page)).accent).toBe('#A13D63'); // Beach Day's berry, in light mode
+  await expect(dialog.getByLabel('Colour palette').locator('option', { hasText: 'Beach Day' })).toHaveCount(1);
+  await dialog.getByRole('button', { name: 'Dark' }).click();
+  await expect.poll(async () => (await root(page)).accent).toBe('#F7A278'); // and its peach in dark mode
+
   await page.reload();
-  expect(await root(page)).toMatchObject({ mode: 'light', palette: 'midnight' });
+  expect(await root(page)).toMatchObject({ mode: 'dark', palette: 'beach' });
 });
 
 test('every colour in the stylesheet comes from the palette @smoke', async ({ page }) => {

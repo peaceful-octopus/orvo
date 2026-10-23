@@ -8,6 +8,8 @@ const VARIANTS = [
   ['evening', 'light'],
   ['midnight', 'dark'],
   ['midnight', 'light'],
+  ['beach', 'dark'],
+  ['beach', 'light'],
 ] as const;
 
 for (const [palette, mode] of VARIANTS) {
