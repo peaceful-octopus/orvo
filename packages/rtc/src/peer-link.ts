@@ -113,9 +113,12 @@ export class PeerLink {
 
   /** Starts or stops sending a shared screen to this peer, alongside the camera. */
   setScreen(screen: MediaStream | undefined) {
+    // Stop the old screen's transceivers rather than only removing their tracks. A removed track leaves its m-line in
+    // every later offer with all its codecs, so each share would make the offer bigger until the signaling server
+    // refused it; a stopped one is recycled by the next share.
     for (const sender of this.screenSenders) {
       try {
-        this.pc.removeTrack(sender);
+        this.pc.getTransceivers().find((t) => t.sender === sender)?.stop();
       } catch {
         // The connection may already be closing.
       }

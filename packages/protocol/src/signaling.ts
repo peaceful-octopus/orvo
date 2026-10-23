@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { PROTOCOL_VERSION } from './version';
 
 /** Largest signaling frame a node accepts; SDP offers fit well below this. */
-export const MAX_FRAME_BYTES = 16 * 1024;
+/** Offers carrying a camera, a microphone and a shared screen run to about 11 KB, so this leaves room to grow. */
+export const MAX_FRAME_BYTES = 32 * 1024;
 export const MAX_NAME_LENGTH = 40;
 
 export const ErrorCode = z.enum([
