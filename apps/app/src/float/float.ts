@@ -38,7 +38,7 @@ const BUBBLE_KEY = 'orvo:floatBubble';
 const OWN_RESIZE_MS = 700;
 const SAVE_DELAY_MS = 400;
 /** Room a system dialog needs, such as the screen picker, which is drawn inside the window that asked for it. */
-const DIALOG_ROOM = { w: 544, h: 480 };
+const DIALOG_ROOM = { w: 960, h: 620 };
 
 function loadBubble(): number {
   try {
