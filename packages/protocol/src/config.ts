@@ -30,6 +30,17 @@ export const ClientConfig = z.object({
   ice: z.object({ stunUrls: z.array(z.string()) }),
   /** Third-party services the app can use. Keys here reach every client, so only publish keys meant for browsers. */
   integrations: z.object({ giphyApiKey: z.string().min(1).optional() }).optional(),
+  /** Present when the server lets people sign in (OpenID Connect). Guests can still join unless a room says otherwise. */
+  auth: z
+    .object({
+      issuer: z.url(),
+      /** The id this app is registered under at the provider. */
+      clientId: z.string().min(1),
+      scope: z.string().default('openid profile email'),
+      /** When true, starting a room needs a signed-in account. */
+      createRequiresLogin: z.boolean(),
+    })
+    .optional(),
   regions: z.array(z.object({ id: z.string(), name: z.string() })),
   announcement: z.object({ id: z.string(), text: z.string().max(280) }).optional(),
   updateUrl: z.url().optional(),

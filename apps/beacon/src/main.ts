@@ -8,6 +8,7 @@ import {
 import { Redis } from 'ioredis';
 import fs from 'node:fs';
 import { createBeaconApp } from './app';
+import { authSettingsFromEnv } from './auth-env';
 import { loadOrCreateSigningKey } from './keys';
 import type { TurnPool } from './turn';
 import { serveWebApp } from './web';
@@ -23,6 +24,9 @@ import { serveWebApp } from './web';
 //   MIN_CLIENT_VERSION, MAX_ROOM_SIZE, WARN_ROOM_SIZE, ANNOUNCEMENT(_ID)   published in the signed config
 //   RATE_LIMIT_PER_MINUTE   per client address (default 120; 0 disables)
 //   GIPHY_API_KEY    a Giphy Web SDK key, published to clients so they can offer a GIF picker
+//   OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_AUDIENCE, OIDC_SCOPE   let people sign in with an OpenID Connect provider
+//   ROOM_CREATION    `anyone` (default) or `signed-in`: who may start a room
+//   DEFAULT_ROOM_ACCESS   `anyone` (default) or `signed-in`: who may join a new room unless its creator chose otherwise
 //   WEB_DIR          also serve the built web app from this directory
 function pool(urls: string | undefined, secret: string | undefined): TurnPool | undefined {
   return urls && secret ? { urls: urls.split(',').filter(Boolean), secret } : undefined;
@@ -47,6 +51,7 @@ if (process.env.REDIS_URL) {
 }
 
 const app = await createBeaconApp({
+  ...authSettingsFromEnv(process.env),
   signingKey: loadOrCreateSigningKey(process.env.DATA_DIR ?? './data'),
   previousPublicKeys: process.env.PREVIOUS_PUBLIC_KEYS ? JSON.parse(process.env.PREVIOUS_PUBLIC_KEYS) : undefined,
   store,

@@ -75,6 +75,35 @@ export function describeStoreContract(name: string, make: () => Promise<StoreHar
       expect(await h.store.getLease('free-room')).toBe('b');
     });
 
+    it('creates a room once, and the first record wins', async () => {
+      const first = { owner: 'acct-1', signedInOnly: true, createdAt: 1 };
+      expect(await h.store.getRoom('r1')).toBeUndefined();
+      expect(await h.store.createRoom('r1', first, 5_000)).toEqual(first);
+      const second = { signedInOnly: false, createdAt: 2 };
+      expect(await h.store.createRoom('r1', second, 5_000)).toEqual(first); // the later creator reads the winner's record
+      expect(await h.store.getRoom('r1')).toEqual(first);
+    });
+
+    it('lets a room record expire, keeps it alive when touched, and frees the name afterwards', async () => {
+      await h.store.createRoom('r1', { signedInOnly: true, createdAt: 1 }, 2_000);
+      await h.advance(1_500);
+      await h.store.touchRoom('r1', 2_000);
+      await h.advance(1_500);
+      expect(await h.store.getRoom('r1')).toBeDefined();
+      await h.advance(1_000);
+      expect(await h.store.getRoom('r1')).toBeUndefined();
+      const fresh = { signedInOnly: false, createdAt: 9 };
+      expect(await h.store.createRoom('r1', fresh, 2_000)).toEqual(fresh);
+    });
+
+    it('updates a room only while it exists', async () => {
+      expect(await h.store.updateRoom('gone', { signedInOnly: true, createdAt: 1 }, 2_000)).toBe(false);
+      expect(await h.store.getRoom('gone')).toBeUndefined();
+      await h.store.createRoom('r1', { owner: 'a', signedInOnly: false, createdAt: 1 }, 5_000);
+      expect(await h.store.updateRoom('r1', { owner: 'a', signedInOnly: true, createdAt: 1 }, 5_000)).toBe(true);
+      expect((await h.store.getRoom('r1'))?.signedInOnly).toBe(true);
+    });
+
     it('remembers a room tier until it expires', async () => {
       expect(await h.store.getRoomTier('r1')).toBeUndefined();
       await h.store.setRoomTier('r1', 'full', 2_000);

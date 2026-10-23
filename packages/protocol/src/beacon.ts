@@ -11,7 +11,31 @@ export type IceServer = z.infer<typeof IceServer>;
 export const Tier = z.enum(['free', 'relay-lite', 'full']);
 export type Tier = z.infer<typeof Tier>;
 
-export const CreateRoomResponse = z.object({ room: z.string() });
+/** What the server remembers about a room while it is in use. */
+export const RoomRecord = z.object({
+  /** The account that made the room; absent when a guest did. Only the owner can change the room's access. */
+  owner: z.string().optional(),
+  /** When true, only people who are signed in may join. */
+  signedInOnly: z.boolean(),
+  createdAt: z.number().int(),
+});
+export type RoomRecord = z.infer<typeof RoomRecord>;
+
+/** Anyone can ask for a signed-in-only room; only a signed-in owner can change it afterwards. */
+export const CreateRoomRequest = z.object({ signedInOnly: z.boolean().optional() });
+export type CreateRoomRequest = z.infer<typeof CreateRoomRequest>;
+
+export const CreateRoomResponse = z.object({ room: z.string(), signedInOnly: z.boolean() });
+export type CreateRoomResponse = z.infer<typeof CreateRoomResponse>;
+
+export const UpdateRoomRequest = z.object({ signedInOnly: z.boolean() });
+export type UpdateRoomRequest = z.infer<typeof UpdateRoomRequest>;
+
+/** Error codes the beacon uses when the person has to sign in first, so clients can offer a sign-in. */
+export const LOGIN_REQUIRED_TO_CREATE = 'login-required-to-create';
+export const LOGIN_REQUIRED_TO_JOIN = 'login-required-to-join';
+/** The token sent with the request was not accepted (expired, wrong audience, not from the trusted provider). */
+export const INVALID_TOKEN = 'invalid-token';
 
 export const JoinRequest = z.object({
   room: z.string(),

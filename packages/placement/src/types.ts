@@ -1,4 +1,4 @@
-import type { Tier } from '@chillcall/protocol';
+import type { RoomRecord, Tier } from '@chillcall/protocol';
 
 export interface NodeInfo {
   id: string;
@@ -30,6 +30,15 @@ export interface PlacementStore {
   /** Rooms with a paid entitlement keep it for everyone in the room, because a relay helps whole pairs. */
   getRoomTier(room: string): Promise<Tier | undefined>;
   setRoomTier(room: string, tier: Tier, ttlMs: number): Promise<void>;
+
+  /** The room's owner and access rules, if it exists. Rooms are ephemeral: the record expires when the room goes quiet. */
+  getRoom(room: string): Promise<RoomRecord | undefined>;
+  /** Creates the room unless it exists, and returns the record in force either way (so two creators cannot both win). */
+  createRoom(room: string, record: RoomRecord, ttlMs: number): Promise<RoomRecord>;
+  /** Keeps a room's record alive while people keep joining. */
+  touchRoom(room: string, ttlMs: number): Promise<void>;
+  /** Replaces the record of an existing room; returns false when the room has expired. */
+  updateRoom(room: string, record: RoomRecord, ttlMs: number): Promise<boolean>;
 }
 
 export class NoNodesError extends Error {

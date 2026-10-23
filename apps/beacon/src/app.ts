@@ -2,8 +2,13 @@ import {
   DEFAULT_VIDEO_TIERS,
   MAX_ROOM_SIZE,
   WARN_ROOM_SIZE,
+  CreateRoomRequest,
+  INVALID_TOKEN,
   JoinRequest,
+  LOGIN_REQUIRED_TO_CREATE,
+  LOGIN_REQUIRED_TO_JOIN,
   TelemetryBatch,
+  UpdateRoomRequest,
   generateRoomId,
   isClientSupported,
   isValidRoomSlug,
@@ -16,6 +21,7 @@ import {
   type ClientConfig,
   type IceServer,
   type JoinResponse,
+  type RoomRecord,
   type Tier,
   type VideoTierRule,
 } from '@chillcall/protocol';
@@ -23,7 +29,8 @@ import { LATENCY_BUCKETS, Metrics } from '@chillcall/metrics';
 import { NoNodesError, placeRoom, type NodeInfo, type PlacementStore } from '@chillcall/placement';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import type { AuthOptions, Identity } from './auth';
 import type { SigningKey } from './keys';
 import { turnCredentials, type TurnPool } from './turn';
 
@@ -32,6 +39,9 @@ import { turnCredentials, type TurnPool } from './turn';
  * return `relay-lite` or `full` for a valid token, `undefined` otherwise. Without a verifier every room is free.
  */
 export type EntitlementVerifier = (token: string, room: string) => Promise<Exclude<Tier, 'free'> | undefined>;
+
+/** What a signed-in person's plan grants a room they join, for when entitlements come from accounts rather than tokens. */
+export type PlanLookup = (identity: Identity, room: string) => Promise<Exclude<Tier, 'free'> | undefined>;
 
 export interface BeaconOptions {
   signingKey: SigningKey;
@@ -42,6 +52,15 @@ export interface BeaconOptions {
   /** TURN pools by tier. Only entitled rooms receive credentials for them; `free` rooms get STUN only. */
   turn?: { 'relay-lite'?: TurnPool; full?: TurnPool };
   entitlements?: EntitlementVerifier;
+  planFor?: PlanLookup;
+  /** Lets people sign in with an OpenID Connect provider. Without it everyone is a guest. */
+  auth?: AuthOptions;
+  /** Who may start a room. `signed-in` needs `auth`. Defaults to `anyone`. */
+  roomCreation?: 'anyone' | 'signed-in';
+  /** Whether new rooms admit guests unless their creator says otherwise. Needs `auth` to be `signed-in`. */
+  defaultRoomAccess?: 'anyone' | 'signed-in';
+  /** How long a room's owner and access rules are remembered after the last join. Default one day. */
+  roomRecordTtlMs?: number;
   /** Public WebSocket URL for a node. Defaults to the node's own `url`, else the request's host (single container). */
   nodeUrl?: (node: NodeInfo, req: FastifyRequest) => string;
   minClientVersion?: string;
@@ -79,6 +98,12 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   const app = Fastify({ trustProxy: opts.trustProxy ?? false });
   const maxRoomSize = opts.limits?.maxRoomSize ?? MAX_ROOM_SIZE;
   const warnRoomSize = opts.limits?.warnRoomSize ?? WARN_ROOM_SIZE;
+  const roomCreation = opts.roomCreation ?? 'anyone';
+  const defaultSignedInOnly = (opts.defaultRoomAccess ?? 'anyone') === 'signed-in';
+  const roomRecordTtl = opts.roomRecordTtlMs ?? 24 * 3600_000;
+  if ((roomCreation === 'signed-in' || defaultSignedInOnly) && !opts.auth) {
+    throw new Error('Requiring sign-in needs an identity provider: configure `auth` (OIDC_ISSUER and OIDC_CLIENT_ID).');
+  }
 
   // sendBeacon with a text/plain body avoids a CORS preflight, which a closing page cannot wait for.
   app.addContentTypeParser('text/plain', { parseAs: 'string' }, (_req, body, done) => {
@@ -93,6 +118,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   const m = {
     joins: metrics.counter('chillcall_beacon_join_requests_total', 'Join requests, by outcome.', ['result'] as const),
     joinSeconds: metrics.histogram('chillcall_beacon_join_duration_seconds', 'Time to answer a join request.', LATENCY_BUCKETS),
+    authRefusals: metrics.counter('chillcall_beacon_auth_refusals_total', 'Requests refused for sign-in reasons, by code.', ['code'] as const),
     tiers: metrics.counter('chillcall_beacon_joins_by_tier_total', 'Successful joins, by room tier.', ['tier'] as const),
     rooms: metrics.counter('chillcall_beacon_rooms_created_total', 'Rooms created.'),
     versions: metrics.counter('chillcall_beacon_joins_by_client_version_total', 'Successful joins, by client version (bounded; extras are "other").', ['version'] as const),
@@ -123,7 +149,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     return version;
   };
 
-  await app.register(cors, { origin: opts.corsOrigin ?? true });
+  await app.register(cors, { origin: opts.corsOrigin ?? true, methods: ['GET', 'HEAD', 'POST', 'PATCH', 'OPTIONS'] });
   // Limits apply only to the API routes below, not to static files served by the all-in-one server.
   await app.register(rateLimit, { global: false });
   const limited =
@@ -158,6 +184,9 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       regions: [{ id: 'default', name: 'Default' }],
       announcement: opts.announcement,
       integrations: opts.integrations?.giphyApiKey ? { giphyApiKey: opts.integrations.giphyApiKey } : undefined,
+      auth: opts.auth
+        ? { issuer: opts.auth.issuer, clientId: opts.auth.clientId, scope: opts.auth.scope ?? 'openid profile email', createRequiresLogin: roomCreation === 'signed-in' }
+        : undefined,
     };
     return reply.header('cache-control', 'max-age=60').send(signConfig(config, kid, secretKey));
   });
@@ -179,18 +208,67 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     return reply.code(204).send();
   });
 
-  app.post('/v1/rooms', limited, async () => {
+  /**
+   * Who is asking: a guest (no token), a signed-in person, or someone whose token was refused. A token sent to a server
+   * with no identity provider is ignored, so a client that is signed in elsewhere still works as a guest here.
+   */
+  async function whoIs(req: FastifyRequest): Promise<{ ok: true; identity?: Identity } | { ok: false }> {
+    const header = req.headers.authorization;
+    if (!header || !opts.auth) return { ok: true };
+    const token = /^Bearer\s+(.+)$/i.exec(header)?.[1];
+    const identity = token ? await opts.auth.verify(token) : undefined;
+    return identity ? { ok: true, identity } : { ok: false };
+  }
+
+  const refused = (reply: FastifyReply, status: number, error: string, code: string) => {
+    m.authRefusals.inc({ code });
+    return reply.code(status).send({ error, code });
+  };
+
+  const newRecord = (identity: Identity | undefined, signedInOnly: boolean | undefined): RoomRecord => ({
+    owner: identity?.id,
+    // A room nobody can sign in to would lock everyone out, so the flag only counts when sign-in exists.
+    signedInOnly: Boolean(opts.auth) && (signedInOnly ?? defaultSignedInOnly),
+    createdAt: now(),
+  });
+
+  app.post('/v1/rooms', limited, async (req, reply) => {
+    const who = await whoIs(req);
+    if (!who.ok) return refused(reply, 401, 'Your sign-in was not accepted. Sign in again.', INVALID_TOKEN);
+    if (roomCreation === 'signed-in' && !who.identity) {
+      return refused(reply, 401, 'Sign in to start a room.', LOGIN_REQUIRED_TO_CREATE);
+    }
+    const body = CreateRoomRequest.safeParse(req.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: 'Invalid request.', code: 'bad-request' });
     m.rooms.inc();
-    return { room: generateRoomId() };
+    const room = generateRoomId();
+    const record = await opts.store.createRoom(room, newRecord(who.identity, body.data.signedInOnly), roomRecordTtl);
+    return { room, signedInOnly: record.signedInOnly };
+  });
+
+  /** Only the signed-in owner of a room can change who may join it. */
+  app.patch<{ Params: { room: string } }>('/v1/rooms/:room', limited, async (req, reply) => {
+    const who = await whoIs(req);
+    if (!who.ok) return refused(reply, 401, 'Your sign-in was not accepted. Sign in again.', INVALID_TOKEN);
+    if (!who.identity) return refused(reply, 401, 'Sign in to change a room.', 'login-required');
+    const body = UpdateRoomRequest.safeParse(req.body);
+    if (!body.success || !isValidRoomSlug(req.params.room)) return reply.code(400).send({ error: 'Invalid request.', code: 'bad-request' });
+    const record = await opts.store.getRoom(req.params.room);
+    if (!record) return reply.code(404).send({ error: 'That room is not in use.', code: 'room-not-found' });
+    if (!record.owner || record.owner !== who.identity.id) return refused(reply, 403, 'Only the person who made this room can change it.', 'not-owner');
+    const updated = { ...record, signedInOnly: body.data.signedInOnly };
+    await opts.store.updateRoom(req.params.room, updated, roomRecordTtl);
+    return { room: req.params.room, signedInOnly: updated.signedInOnly };
   });
 
   /** The room's tier: the best of what it already has and what this joiner's entitlement grants. */
-  async function tierFor(room: string, entitlement: string | undefined): Promise<Tier> {
+  async function tierFor(room: string, entitlement: string | undefined, identity: Identity | undefined): Promise<Tier> {
     let tier: Tier = (await opts.store.getRoomTier(room)) ?? 'free';
-    if (entitlement && opts.entitlements) {
-      const granted = await opts.entitlements(entitlement, room);
-      if (granted && TIER_RANK[granted] > TIER_RANK[tier]) tier = granted;
-    }
+    const grants = [
+      entitlement && opts.entitlements ? await opts.entitlements(entitlement, room) : undefined,
+      identity && opts.planFor ? await opts.planFor(identity, room) : undefined,
+    ];
+    for (const granted of grants) if (granted && TIER_RANK[granted] > TIER_RANK[tier]) tier = granted;
     // Entitled rooms stay entitled for everyone in them, and the grant is refreshed while people keep joining.
     if (tier !== 'free') await opts.store.setRoomTier(room, tier, ROOM_TIER_TTL_MS);
     return tier;
@@ -217,6 +295,28 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       return reply.code(426).send({ error: 'Please update ChillCall.', code: 'upgrade-required' });
     }
 
+    const who = await whoIs(req);
+    if (!who.ok) {
+      done('invalid-token');
+      return refused(reply, 401, 'Your sign-in was not accepted. Sign in again.', INVALID_TOKEN);
+    }
+
+    // A room nobody has used lately does not exist, so joining it starts it, under the server's rules for starting rooms.
+    let record = await opts.store.getRoom(body.room);
+    if (!record) {
+      if (roomCreation === 'signed-in' && !who.identity) {
+        done('login-required');
+        return refused(reply, 401, 'Sign in to start a room.', LOGIN_REQUIRED_TO_CREATE);
+      }
+      record = await opts.store.createRoom(body.room, newRecord(who.identity, undefined), roomRecordTtl);
+    } else {
+      await opts.store.touchRoom(body.room, roomRecordTtl);
+    }
+    if (record.signedInOnly && !who.identity) {
+      done('login-required');
+      return refused(reply, 401, 'This room is for signed-in people. Sign in to join.', LOGIN_REQUIRED_TO_JOIN);
+    }
+
     let node: NodeInfo;
     try {
       node = await placeRoom(opts.store, body.room);
@@ -236,7 +336,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     const peerId = resumed?.peerId ?? `p${randomId(6)}`;
     const url = opts.nodeUrl?.(node, req) ?? node.url ?? requestOrigin(req).replace(/^http/, 'ws') + '/ws';
 
-    const tier = await tierFor(body.room, body.entitlement);
+    const tier = await tierFor(body.room, body.entitlement, who.identity);
     const iceServers: IceServer[] = opts.stunUrls.length ? [{ urls: opts.stunUrls }] : [];
     const pool = tier === 'free' ? undefined : opts.turn?.[tier];
     if (pool) iceServers.push(turnCredentials(pool, peerId, t));

@@ -1,4 +1,4 @@
-import { Tier } from '@chillcall/protocol';
+import { RoomRecord, Tier } from '@chillcall/protocol';
 import type { Redis } from 'ioredis';
 import type { NodeInfo, PlacementStore } from './types';
 
@@ -83,5 +83,30 @@ export class RedisPlacementStore implements PlacementStore {
 
   async setRoomTier(room: string, tier: string, ttlMs: number) {
     await this.redis.set(this.key('tier', room), tier, 'PX', ttlMs);
+  }
+
+  async getRoom(room: string) {
+    const raw = await this.redis.get(this.key('room', room));
+    if (!raw) return undefined;
+    try {
+      const parsed = RoomRecord.safeParse(JSON.parse(raw));
+      return parsed.success ? parsed.data : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async createRoom(room: string, record: RoomRecord, ttlMs: number) {
+    // NX: when two people create the same room at once, one record wins and both read it back.
+    await this.redis.set(this.key('room', room), JSON.stringify(record), 'PX', ttlMs, 'NX');
+    return (await this.getRoom(room)) ?? record;
+  }
+
+  async touchRoom(room: string, ttlMs: number) {
+    await this.redis.pexpire(this.key('room', room), ttlMs);
+  }
+
+  async updateRoom(room: string, record: RoomRecord, ttlMs: number) {
+    return (await this.redis.set(this.key('room', room), JSON.stringify(record), 'PX', ttlMs, 'XX')) === 'OK';
   }
 }

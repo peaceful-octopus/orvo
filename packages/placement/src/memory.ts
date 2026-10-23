@@ -1,4 +1,4 @@
-import type { Tier } from '@chillcall/protocol';
+import type { RoomRecord, Tier } from '@chillcall/protocol';
 import type { NodeInfo, PlacementStore } from './types';
 
 interface Expiring<T> {
@@ -11,6 +11,7 @@ export class MemoryPlacementStore implements PlacementStore {
   private nodes = new Map<string, Expiring<NodeInfo>>();
   private leases = new Map<string, Expiring<string>>();
   private tiers = new Map<string, Expiring<Tier>>();
+  private rooms = new Map<string, Expiring<RoomRecord>>();
 
   constructor(
     initialNodes: NodeInfo[] = [],
@@ -60,6 +61,28 @@ export class MemoryPlacementStore implements PlacementStore {
 
   async setRoomTier(room: string, tier: Tier, ttlMs: number) {
     this.tiers.set(room, { value: tier, expires: this.now() + ttlMs });
+  }
+
+  async getRoom(room: string) {
+    return this.live(this.rooms, room);
+  }
+
+  async createRoom(room: string, record: RoomRecord, ttlMs: number) {
+    const existing = this.live(this.rooms, room);
+    if (existing) return existing;
+    this.rooms.set(room, { value: record, expires: this.now() + ttlMs });
+    return record;
+  }
+
+  async touchRoom(room: string, ttlMs: number) {
+    const entry = this.rooms.get(room);
+    if (entry && entry.expires > this.now()) entry.expires = this.now() + ttlMs;
+  }
+
+  async updateRoom(room: string, record: RoomRecord, ttlMs: number) {
+    if (!this.live(this.rooms, room)) return false;
+    this.rooms.set(room, { value: record, expires: this.now() + ttlMs });
+    return true;
   }
 
   private live<T>(map: Map<string, Expiring<T>>, key: string): T | undefined {

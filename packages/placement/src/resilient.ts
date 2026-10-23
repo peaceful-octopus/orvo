@@ -1,4 +1,4 @@
-import type { Tier } from '@chillcall/protocol';
+import type { RoomRecord, Tier } from '@chillcall/protocol';
 import { MemoryPlacementStore } from './memory';
 import type { NodeInfo, PlacementStore } from './types';
 
@@ -107,6 +107,47 @@ export class ResilientPlacementStore implements PlacementStore {
     await this.guard(
       () => this.inner.setRoomTier(room, tier, ttlMs),
       async () => undefined,
+    );
+  }
+
+  async getRoom(room: string) {
+    return this.guard(
+      async () => {
+        const record = await this.inner.getRoom(room);
+        if (record) await this.mirror.createRoom(room, record, 24 * 3600_000);
+        return record;
+      },
+      () => this.mirror.getRoom(room),
+    );
+  }
+
+  async createRoom(room: string, record: RoomRecord, ttlMs: number) {
+    return this.guard(
+      async () => {
+        const winner = await this.inner.createRoom(room, record, ttlMs);
+        await this.mirror.createRoom(room, winner, ttlMs);
+        return winner;
+      },
+      () => this.mirror.createRoom(room, record, ttlMs),
+    );
+  }
+
+  async touchRoom(room: string, ttlMs: number) {
+    await this.mirror.touchRoom(room, ttlMs);
+    await this.guard(
+      () => this.inner.touchRoom(room, ttlMs),
+      async () => undefined,
+    );
+  }
+
+  async updateRoom(room: string, record: RoomRecord, ttlMs: number) {
+    return this.guard(
+      async () => {
+        const ok = await this.inner.updateRoom(room, record, ttlMs);
+        if (ok) await this.mirror.updateRoom(room, record, ttlMs);
+        return ok;
+      },
+      () => this.mirror.updateRoom(room, record, ttlMs),
     );
   }
 

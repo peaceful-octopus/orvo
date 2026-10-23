@@ -1,4 +1,4 @@
-import { createBeaconApp, loadOrCreateSigningKey, serveWebApp } from '@chillcall/beacon';
+import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, serveWebApp } from '@chillcall/beacon';
 import { Metrics } from '@chillcall/metrics';
 import { MemoryPlacementStore } from '@chillcall/placement';
 import { SignalingServer } from '@chillcall/signaling';
@@ -15,8 +15,10 @@ const nodeId = 'local';
 const signingKey = loadOrCreateSigningKey(dataDir);
 // One registry for the whole process, so /metrics shows the beacon and the signaling node together.
 const metrics = new Metrics({ defaultMetrics: true });
+const signIn = authSettingsFromEnv(process.env);
 const app = await createBeaconApp({
   signingKey,
+  ...signIn,
   metrics,
   store: new MemoryPlacementStore([{ id: nodeId, region: 'default', weight: 1, draining: false }]),
   stunUrls: (process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302').split(',').filter(Boolean),

@@ -132,6 +132,9 @@ importers:
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
+      jose:
+        specifier: ^6.2.13
+        version: 6.2.13
     devDependencies:
       '@chillcall/testkit':
         specifier: workspace:*
@@ -284,6 +287,13 @@ importers:
       '@chillcall/protocol':
         specifier: workspace:*
         version: link:../protocol
+      jose:
+        specifier: ^6.2.13
+        version: 6.2.13
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.5
+        version: 26.6.5
 
   tools/loadgen:
     dependencies:
