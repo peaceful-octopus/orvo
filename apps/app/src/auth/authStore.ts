@@ -61,7 +61,19 @@ function save(tokens: TokenSet | undefined) {
   }
 }
 
-const providerConfig = () => useConfig.getState().config.auth;
+/** The sign-in settings for this app: the desktop app uses its own client when the server has one. */
+const providerConfig = () => {
+  const auth = useConfig.getState().config.auth;
+  if (!auth) return undefined;
+  const client = inTauri && auth.desktop ? auth.desktop : auth;
+  return {
+    issuer: auth.issuer,
+    scope: auth.scope,
+    clientId: client.clientId,
+    clientSecret: client.clientSecret,
+    offline: new URL(auth.issuer).hostname === 'accounts.google.com',
+  };
+};
 
 const inTauri = '__TAURI_INTERNALS__' in window;
 
@@ -91,7 +103,7 @@ async function signInInBrowser(authorization: string, config: NonNullable<Return
   const { verifier, challenge } = await createPkce();
   const pending: Pending = { state: randomString(), verifier, nonce: randomString(), redirectUri: `http://127.0.0.1:${port}/callback`, returnTo: '' };
   const back = new Promise<string>((resolve) => void listen<string>('oauth-callback', (e) => resolve(`http://127.0.0.1:${port}${e.payload}`)).then(() => undefined));
-  await openUrl(authorizeUrl({ endpoint: authorization, clientId: config.clientId, redirectUri: pending.redirectUri, scope: config.scope, state: pending.state, challenge, nonce: pending.nonce }));
+  await openUrl(authorizeUrl({ endpoint: authorization, clientId: config.clientId, redirectUri: pending.redirectUri, scope: config.scope, state: pending.state, challenge, nonce: pending.nonce, offline: config.offline }));
   return useAuth.getState().finish(pending, await back);
 }
 
@@ -122,7 +134,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     };
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
     location.assign(
-      authorizeUrl({ endpoint: authorization, clientId: config.clientId, redirectUri: pending.redirectUri, scope: config.scope, state: pending.state, challenge, nonce: pending.nonce }),
+      authorizeUrl({ endpoint: authorization, clientId: config.clientId, redirectUri: pending.redirectUri, scope: config.scope, state: pending.state, challenge, nonce: pending.nonce, offline: config.offline }),
     );
   },
 
@@ -141,7 +153,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (!code || params.get('state') !== pending.state) throw new Error('The sign-in did not match the one that was started. Try again.');
 
     const { token } = await endpointsFor(config.issuer);
-    const tokens = await exchangeCode({ tokenEndpoint: token, clientId: config.clientId, redirectUri: pending.redirectUri, code, verifier: pending.verifier });
+    const tokens = await exchangeCode({ tokenEndpoint: token, clientId: config.clientId, clientSecret: config.clientSecret, redirectUri: pending.redirectUri, code, verifier: pending.verifier });
     const claims = claimsOf(tokens.idToken)!;
     if (claims.nonce !== pending.nonce) throw new Error('The sign-in response was not meant for this request.');
     save(tokens);
@@ -163,7 +175,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         const config = providerConfig();
         if (!config || !session.tokens.refreshToken) throw new Error('cannot renew');
         const { token } = await endpointsFor(config.issuer);
-        const tokens = await refreshTokens({ tokenEndpoint: token, clientId: config.clientId, refreshToken: session.tokens.refreshToken });
+        const tokens = await refreshTokens({ tokenEndpoint: token, clientId: config.clientId, clientSecret: config.clientSecret, refreshToken: session.tokens.refreshToken });
         save(tokens);
         set({ session: { ...session, tokens } });
         return tokens.idToken;

@@ -38,6 +38,13 @@ describe('discover', () => {
 });
 
 describe('authorizeUrl', () => {
+  it('asks for a refresh token only when told to', () => {
+    const base = { endpoint: 'https://id.example/auth', clientId: 'app', redirectUri: 'https://x/cb', scope: 'openid', state: 's', challenge: 'c', nonce: 'n' };
+    expect(new URL(authorizeUrl(base)).searchParams.get('access_type')).toBeNull();
+    const offline = new URL(authorizeUrl({ ...base, offline: true })).searchParams;
+    expect([offline.get('access_type'), offline.get('prompt')]).toEqual(['offline', 'consent']);
+  });
+
   it('asks for a code with PKCE and carries the state and nonce back', () => {
     const url = new URL(
       authorizeUrl({ endpoint: 'https://id.example/auth', clientId: 'app', redirectUri: 'https://orvo.example/auth/callback', scope: 'openid profile', state: 's1', challenge: 'c1', nonce: 'n1' }),
@@ -81,6 +88,18 @@ describe('exchangeCode and refreshTokens', () => {
     const result = await exchangeCode({ tokenEndpoint: 'https://id.example/token', clientId: 'app', redirectUri: 'https://x/cb', code: 'c', verifier: 'v' }, fetchImpl);
     expect(Object.fromEntries(new URLSearchParams(sent))).toMatchObject({ grant_type: 'authorization_code', code: 'c', code_verifier: 'v', client_id: 'app' });
     expect(result).toEqual({ idToken: idToken(claims), refreshToken: 'r1', expiresAt: 2_000_000_000 });
+  });
+
+  it('sends the client secret with the code and with a refresh when there is one', async () => {
+    const bodies: string[] = [];
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      bodies.push(init.body as string);
+      return json({ id_token: idToken(claims) });
+    }) as unknown as typeof fetch;
+    await exchangeCode({ tokenEndpoint: 'https://id.example/token', clientId: 'app', clientSecret: 's3', redirectUri: 'https://x/cb', code: 'c', verifier: 'v' }, fetchImpl);
+    await refreshTokens({ tokenEndpoint: 'https://id.example/token', clientId: 'app', clientSecret: 's3', refreshToken: 'r' }, fetchImpl);
+    await refreshTokens({ tokenEndpoint: 'https://id.example/token', clientId: 'app', refreshToken: 'r' }, fetchImpl);
+    expect(bodies.map((b) => new URLSearchParams(b).get('client_secret'))).toEqual(['s3', 's3', null]);
   });
 
   it('keeps the old refresh token when the provider sends none', async () => {

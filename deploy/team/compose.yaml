@@ -38,6 +38,9 @@ services:
       # Optional sign-in with an OpenID Connect provider; see docs/accounts.md.
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DESKTOP_CLIENT_ID: ${OIDC_DESKTOP_CLIENT_ID:-}
+      OIDC_DESKTOP_CLIENT_SECRET: ${OIDC_DESKTOP_CLIENT_SECRET:-}
       ROOM_CREATION: ${ROOM_CREATION:-anyone}
       DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
 

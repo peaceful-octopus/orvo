@@ -8,6 +8,8 @@ then choose who may start rooms; a room can choose whether guests may join it.
 | Where | Setting | Meaning |
 | --- | --- | --- |
 | Server | `OIDC_ISSUER`, `OIDC_CLIENT_ID` | An OpenID Connect provider and this app's id at it. Setting both turns sign-in on. |
+| Server | `OIDC_CLIENT_SECRET` | For providers that require a secret even with PKCE, such as Google. It is published to every client (see "Signing in with Google"). Optional. |
+| Server | `OIDC_DESKTOP_CLIENT_ID`, `OIDC_DESKTOP_CLIENT_SECRET` | A separate client for the desktop app, for providers that need a different client type for the loopback redirect (Google). Tokens for either client are accepted. Optional. |
 | Server | `OIDC_AUDIENCE`, `OIDC_SCOPE` | What tokens must be meant for (default: the client id), and the scopes the app asks for (default `openid profile email`). |
 | Server | `ROOM_CREATION=anyone\|signed-in` | Who may start a room. With `signed-in`, a guest cannot start one, either from the start button or by joining a name nobody has used. Default `anyone`. |
 | Server | `DEFAULT_ROOM_ACCESS=anyone\|signed-in` | Whether new rooms admit guests unless their creator says otherwise. Default `anyone`. |
@@ -19,12 +21,12 @@ nobody could then sign in.
 ## How it works
 
 - **The provider does the signing in.** Orvo never sees a password and sends no email. The app uses the
-  authorization-code flow with PKCE, so there is no client secret. It sends the provider's **ID token** to the server
+  authorization-code flow with PKCE, and sends a client secret only when the server is configured with one. It sends the provider's **ID token** to the server
   as a bearer token on `POST /v1/rooms`, `POST /v1/rooms/join` and `PATCH /v1/rooms/:room`.
 - **The server checks every token** against the provider's published keys (found through discovery): signature,
   expiry, issuer and audience (`apps/beacon/src/auth.ts`, using the `jose` library). A token it does not accept gets
   `invalid-token`, and the app signs the person out and asks them to sign in again.
-- **The app learns what to do from the signed config.** `auth: { issuer, clientId, scope, createRequiresLogin }` is
+- **The app learns what to do from the signed config.** `auth: { issuer, clientId, clientSecret?, desktop?, scope, createRequiresLogin }` is
   published only when a provider is set. With none, no sign-in appears anywhere.
 - **Errors say what to do.** `login-required-to-create`, `login-required-to-join` and `invalid-token` each have a
   message with a Sign in button.
@@ -85,11 +87,38 @@ OIDC_ISSUER=https://id.example.com/realms/chill OIDC_CLIENT_ID=orvo ROOM_CREATIO
 Keycloak, Authentik, Auth0, Okta, Google and any other OpenID Connect provider that publishes
 `/.well-known/openid-configuration` and issues ID tokens can be used.
 
-## Testing sign-in with Google
+## Signing in with Google
 
-Google's token endpoint requires a client secret, which Orvo's public-client flow does not send. `deploy/dev-idp` runs
-a local Keycloak that Orvo uses as a public client, with Google configured inside Keycloak as the way people log in.
-The Google secret stays in Keycloak.
+Google's token endpoint requires a client secret even with PKCE, so Orvo can send one. The secret is published to every
+client in the signed config, so it is not secret. Google documents this for apps that cannot keep one: the secret
+identifies the app. A copied one lets someone pose as Orvo to Google (and use its quota), but a sign-in still needs the
+person's consent, and the browser client only accepts the redirect URIs registered on it. Do not reuse a client whose secret protects anything else.
+
+Google needs two client types, because its web clients cannot register the desktop app's random loopback port:
+
+1. In Google Cloud Console, open **APIs & Services → OAuth consent screen** (external, and add test users while it is in
+   Testing).
+2. **Web application** client, for the browser: authorized redirect URI `https://<your server>/auth/callback`
+   (`http://localhost:5173/auth/callback` for development).
+3. **Desktop app** client, for the desktop app. It needs no redirect URIs: Google accepts any loopback port.
+4. Run the server with both:
+   ```
+   OIDC_ISSUER=https://accounts.google.com
+   OIDC_CLIENT_ID=<web client id>
+   OIDC_CLIENT_SECRET=<web client secret>
+   OIDC_DESKTOP_CLIENT_ID=<desktop client id>
+   OIDC_DESKTOP_CLIENT_SECRET=<desktop client secret>
+   ```
+   Skip the desktop pair to offer Google sign-in in the browser only.
+
+For Google, the app also asks for a refresh token (`access_type=offline`, with the consent screen) so a session lasts
+beyond the hour an ID token lives. Without one the person would have to sign in again every hour.
+
+## Testing sign-in with Google through Keycloak
+
+`deploy/dev-idp` runs a local Keycloak that Orvo uses as a public client, with Google configured inside Keycloak as the
+way people log in. Use it to try the flow without publishing a secret, or when you want Keycloak's accounts in front of
+Google.
 
 1. In Google Cloud Console, open **APIs & Services → OAuth consent screen**: user type External, status Testing, and add
    your Google account as a test user.

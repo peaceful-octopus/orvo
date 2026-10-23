@@ -40,6 +40,13 @@ describe('createOidcVerifier', () => {
     }
   });
 
+  it('accepts a token meant for any of several client ids, and no other', async () => {
+    const verify = createOidcVerifier({ issuer: idp.issuer, audience: ['web-client', 'desktop-client'] });
+    expect(await verify(await idp.sign({ sub: 'a' }, { audience: 'web-client' }))).toBeDefined();
+    expect(await verify(await idp.sign({ sub: 'b' }, { audience: 'desktop-client' }))).toBeDefined();
+    expect(await verify(await idp.sign({ sub: 'c' }, { audience: 'another-client' }))).toBeUndefined();
+  });
+
   it('keeps working after the provider was unreachable at first', async () => {
     const port = idp.port + 1;
     const verify = createOidcVerifier({ issuer: `http://127.0.0.1:${port}`, audience: 'x' });
@@ -62,6 +69,23 @@ describe('authSettingsFromEnv', () => {
     const s = authSettingsFromEnv({ OIDC_ISSUER: 'https://id.example', OIDC_CLIENT_ID: 'app', ROOM_CREATION: 'signed-in', DEFAULT_ROOM_ACCESS: 'signed-in' });
     expect(s.auth).toMatchObject({ issuer: 'https://id.example', clientId: 'app' });
     expect(s).toMatchObject({ roomCreation: 'signed-in', defaultRoomAccess: 'signed-in' });
+  });
+
+  it('publishes a client secret and a separate desktop client, and accepts tokens for either', () => {
+    const s = authSettingsFromEnv({
+      OIDC_ISSUER: 'https://accounts.google.com',
+      OIDC_CLIENT_ID: 'web',
+      OIDC_CLIENT_SECRET: 'ws',
+      OIDC_DESKTOP_CLIENT_ID: 'desk',
+      OIDC_DESKTOP_CLIENT_SECRET: 'ds',
+    });
+    expect(s.auth).toMatchObject({ clientId: 'web', clientSecret: 'ws', desktop: { clientId: 'desk', clientSecret: 'ds' } });
+  });
+
+  it('refuses secrets and a desktop client with no provider, and a desktop secret with no desktop client', () => {
+    expect(() => authSettingsFromEnv({ OIDC_CLIENT_SECRET: 's' })).toThrow(/OIDC_ISSUER/);
+    expect(() => authSettingsFromEnv({ OIDC_DESKTOP_CLIENT_ID: 'd' })).toThrow(/OIDC_ISSUER/);
+    expect(() => authSettingsFromEnv({ OIDC_ISSUER: 'https://id.example', OIDC_CLIENT_ID: 'a', OIDC_DESKTOP_CLIENT_SECRET: 's' })).toThrow(/DESKTOP_CLIENT_ID/);
   });
 
   it('refuses half a setup, unknown values, and requiring sign-in with no provider', () => {

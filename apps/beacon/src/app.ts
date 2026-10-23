@@ -187,7 +187,14 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       announcement: opts.announcement,
       integrations: opts.integrations?.giphyApiKey ? { giphyApiKey: opts.integrations.giphyApiKey } : undefined,
       auth: opts.auth
-        ? { issuer: opts.auth.issuer, clientId: opts.auth.clientId, scope: opts.auth.scope ?? 'openid profile email', createRequiresLogin: roomCreation === 'signed-in' }
+        ? {
+            issuer: opts.auth.issuer,
+            clientId: opts.auth.clientId,
+            clientSecret: opts.auth.clientSecret,
+            desktop: opts.auth.desktop,
+            scope: opts.auth.scope ?? 'openid profile email',
+            createRequiresLogin: roomCreation === 'signed-in',
+          }
         : undefined,
     };
     return reply.header('cache-control', 'max-age=60').send(signConfig(config, kid, secretKey));

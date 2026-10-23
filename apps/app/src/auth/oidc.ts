@@ -53,6 +53,8 @@ export interface AuthorizeParams {
   state: string;
   challenge: string;
   nonce: string;
+  /** Asks for a refresh token, which Google only sends when told to (and shows its consent screen again). */
+  offline?: boolean;
 }
 
 export function authorizeUrl(p: AuthorizeParams): string {
@@ -65,6 +67,10 @@ export function authorizeUrl(p: AuthorizeParams): string {
   url.searchParams.set('nonce', p.nonce);
   url.searchParams.set('code_challenge', p.challenge);
   url.searchParams.set('code_challenge_method', 'S256');
+  if (p.offline) {
+    url.searchParams.set('access_type', 'offline');
+    url.searchParams.set('prompt', 'consent');
+  }
   return url.toString();
 }
 
@@ -95,23 +101,26 @@ const form = (values: Record<string, string>) => ({
   body: new URLSearchParams(values).toString(),
 });
 
+/** Providers like Google want a secret from every client; it is not confidential in an app, and the provider knows that. */
+const secret = (clientSecret?: string): Record<string, string> => (clientSecret ? { client_secret: clientSecret } : {});
+
 export async function exchangeCode(
-  p: { tokenEndpoint: string; clientId: string; redirectUri: string; code: string; verifier: string },
+  p: { tokenEndpoint: string; clientId: string; clientSecret?: string; redirectUri: string; code: string; verifier: string },
   fetchImpl: typeof fetch = (...a) => fetch(...a),
 ): Promise<TokenSet> {
   return tokens(
     await fetchImpl(
       p.tokenEndpoint,
-      form({ grant_type: 'authorization_code', client_id: p.clientId, redirect_uri: p.redirectUri, code: p.code, code_verifier: p.verifier }),
+      form({ grant_type: 'authorization_code', client_id: p.clientId, ...secret(p.clientSecret), redirect_uri: p.redirectUri, code: p.code, code_verifier: p.verifier }),
     ),
   );
 }
 
 export async function refreshTokens(
-  p: { tokenEndpoint: string; clientId: string; refreshToken: string },
+  p: { tokenEndpoint: string; clientId: string; clientSecret?: string; refreshToken: string },
   fetchImpl: typeof fetch = (...a) => fetch(...a),
 ): Promise<TokenSet> {
-  const next = await tokens(await fetchImpl(p.tokenEndpoint, form({ grant_type: 'refresh_token', client_id: p.clientId, refresh_token: p.refreshToken })));
+  const next = await tokens(await fetchImpl(p.tokenEndpoint, form({ grant_type: 'refresh_token', client_id: p.clientId, ...secret(p.clientSecret), refresh_token: p.refreshToken })));
   // Some providers send a new refresh token and some keep the old one.
   return { ...next, refreshToken: next.refreshToken ?? p.refreshToken };
 }

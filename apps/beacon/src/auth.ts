@@ -16,14 +16,18 @@ export interface AuthOptions {
   issuer: string;
   /** The id this app is registered under at the provider. */
   clientId: string;
+  /** Sent by the app when it trades a code for tokens; for providers (Google) that require one. Published as is. */
+  clientSecret?: string;
+  /** The desktop app's own registration, when the provider needs a different client for it. */
+  desktop?: { clientId: string; clientSecret?: string };
   scope?: string;
 }
 
 export interface OidcOptions {
   /** The provider's address, as it appears in its tokens (`iss`). Its keys are found through discovery. */
   issuer: string;
-  /** What the tokens are meant for: the app's client id at the provider. */
-  audience: string;
+  /** What the tokens are meant for: the app's client id at the provider (or ids, when the desktop app has its own). */
+  audience: string | string[];
   /** Allowed difference between the provider's clock and ours. */
   clockToleranceSec?: number;
 }

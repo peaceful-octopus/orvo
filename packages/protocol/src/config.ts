@@ -36,6 +36,13 @@ export const ClientConfig = z.object({
       issuer: z.url(),
       /** The id this app is registered under at the provider. */
       clientId: z.string().min(1),
+      /**
+       * For providers that insist on a secret even with PKCE (Google). It reaches every client, so it is not secret;
+       * Google documents this for apps that cannot keep one.
+       */
+      clientSecret: z.string().min(1).optional(),
+      /** The desktop app's own registration, for providers that need a different client type for loopback sign-in. */
+      desktop: z.object({ clientId: z.string().min(1), clientSecret: z.string().min(1).optional() }).optional(),
       scope: z.string().default('openid profile email'),
       /** When true, starting a room needs a signed-in account. */
       createRequiresLogin: z.boolean(),
