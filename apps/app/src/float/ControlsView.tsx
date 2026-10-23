@@ -32,6 +32,15 @@ const TOAST_HEIGHT = 56;
 /** Space between the bubble window and the controls, in logical pixels. */
 const GAP = 4;
 
+/**
+ * The window is wider than the panel it shows, so most of it is transparent. Only the controls, menus and picker count
+ * as the pointer being over the call; the empty area around them does not, so the bubbles do not react to it.
+ */
+const overContent = (e: React.MouseEvent<HTMLElement>) => {
+  const target = e.target as HTMLElement;
+  return target !== e.currentTarget && !target.classList.contains('modal-backdrop');
+};
+
 /** Contents of the separate controls window: fades in over the bubble window and follows it. */
 export function ControlsView() {
   const [state, setState] = useState<ControlsState>({
@@ -171,7 +180,7 @@ export function ControlsView() {
   return (
     <div
       className={`controls-view${shown ? ' shown' : ''}${above ? ' above' : ''}`}
-      onMouseEnter={() => setSelfHover(true)}
+      onMouseMove={(e) => setSelfHover(overContent(e))}
       onMouseLeave={() => setSelfHover(false)}
       onMouseDown={(e) => e.target === e.currentTarget && setMenu(null)}
     >
