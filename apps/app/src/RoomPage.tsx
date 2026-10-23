@@ -7,6 +7,7 @@ import { getServerUrl, giphyApiKey } from './config';
 import { useConfig } from './configStore';
 import { copyText, roomLink } from './roomInput';
 import { SignInCard } from './auth/AccountUi';
+import { KickDialog, RoomMenu } from './RoomControls';
 import { useAuth } from './auth/authStore';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
@@ -28,8 +29,6 @@ import {
   FloatIcon,
   LeaveIcon,
   LinkIcon,
-  LockIcon,
-  LockOpenIcon,
   MicIcon,
   MicOffIcon,
   RowIcon,
@@ -73,8 +72,11 @@ export function RoomPage({ room }: { room: string }) {
     loginRequired,
     roomAccess,
     setRoomAccess,
+    blocked,
+    kick,
     leave,
   } = useCall();
+  const [kicking, setKicking] = useState<{ id: string; name: string } | null>(null);
   const accountName = useAuth((s) => s.session?.user.name ?? s.session?.user.email);
   const canShare = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia);
   const outputs = canSelectOutput();
@@ -143,6 +145,12 @@ export function RoomPage({ room }: { room: string }) {
 
   const float = useFloat(mode, members.length);
 
+  // If the call ends while the window is small (for instance the owner removed you), the full window comes back.
+  const { active: floating, exit: exitFloat } = float;
+  useEffect(() => {
+    if (phase !== 'in-call' && floating) void exitFloat();
+  }, [phase, floating, exitFloat]);
+
   // Calls open as floating bubbles when that is the chosen start view.
   const autoFloated = useRef(false);
   useEffect(() => {
@@ -197,6 +205,24 @@ export function RoomPage({ room }: { room: string }) {
                 {phase === 'joining' ? 'Joining...' : 'Join'}
               </button>
             </form>
+            {blocked === 'locked' && (
+              <section className="state-card" role="alert">
+                <h2>{COPY.room.locked.title}</h2>
+                <p>{COPY.room.locked.body}</p>
+                <div className="actions">
+                  <button onClick={() => location.assign('/')}>{COPY.room.backHome}</button>
+                </div>
+              </section>
+            )}
+            {blocked === 'kicked' && (
+              <section className="state-card" role="alert">
+                <h2>{COPY.room.kicked.title}</h2>
+                <p>{COPY.room.kicked.body}</p>
+                <div className="actions">
+                  <button onClick={() => location.assign('/')}>{COPY.room.backHome}</button>
+                </div>
+              </section>
+            )}
             {loginRequired === 'join' && <SignInCard title={COPY.account.roomForSignedIn.title} body={COPY.account.roomForSignedIn.body} />}
             {loginRequired === 'create' && <SignInCard title={COPY.account.needsLoginToStart.title} body={COPY.account.needsLoginToStart.body} />}
             {loginRequired === 'expired' && <SignInCard title={COPY.account.expired.title} body={COPY.account.expired.body} />}
@@ -281,7 +307,13 @@ export function RoomPage({ room }: { room: string }) {
           More than {limits.warnRoomSize} people are here, so video quality may be degraded.
         </p>
       )}
-      <BubbleField members={members} mode={mode} screens={screens} onStopSharing={stopScreen} />
+      <BubbleField
+        members={members}
+        mode={mode}
+        screens={screens}
+        onStopSharing={stopScreen}
+        onKick={roomAccess?.owner ? (id, who) => setKicking({ id, name: who }) : undefined}
+      />
       {members.length === 1 && !screens.length && (
         <div className="alone">
           <p>{COPY.alone.text}</p>
@@ -307,17 +339,7 @@ export function RoomPage({ room }: { room: string }) {
             {video ? <VideoIcon /> : <VideoOffIcon />}
           </button>
         </DeviceButton>
-        {roomAccess?.owner && (
-          <button
-            className={`icon${roomAccess.signedInOnly ? ' on' : ''}`}
-            aria-label={COPY.account.onlySignedIn}
-            aria-pressed={roomAccess.signedInOnly}
-            title={roomAccess.signedInOnly ? 'Only signed-in people can join. Click to let guests in.' : 'Anyone with the link can join. Click to allow only signed-in people.'}
-            onClick={() => void setRoomAccess(!roomAccess.signedInOnly)}
-          >
-            {roomAccess.signedInOnly ? <LockIcon /> : <LockOpenIcon />}
-          </button>
-        )}
+        {roomAccess?.owner && <RoomMenu access={roomAccess} onChange={(patch) => void setRoomAccess(patch)} />}
         <FilterButton look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
         {canShare && (
           <button
@@ -359,6 +381,22 @@ export function RoomPage({ room }: { room: string }) {
           <LeaveIcon />
         </button>
       </nav>
+      {kicking && (
+        <KickDialog
+          name={kicking.name}
+          locked={Boolean(roomAccess?.locked)}
+          onCancel={() => setKicking(null)}
+          onRemove={() => {
+            kick(kicking.id);
+            setKicking(null);
+          }}
+          onRemoveAndLock={() => {
+            kick(kicking.id);
+            void setRoomAccess({ locked: true });
+            setKicking(null);
+          }}
+        />
+      )}
       {gifOpen && apiKey && (
         <Suspense fallback={null}>
           <GifPicker

@@ -11,8 +11,15 @@ const IDP = process.env.ACCOUNTS_IDP ?? 'http://127.0.0.1:9190';
 // Where the tests themselves reach the provider to choose who signs in next (this machine, even when the app's name for it differs).
 const IDP_CONTROL = process.env.ACCOUNTS_IDP_CONTROL ?? IDP;
 
+// Everyone in a test is in a call sending video, so they are all closed when the test is over.
+const opened: BrowserContext[] = [];
+test.afterEach(async () => {
+  await Promise.all(opened.splice(0).map((c) => c.close()));
+});
+
 async function newPerson(browser: Browser): Promise<BrowserContext> {
   const context = await browser.newContext({ permissions: ['camera', 'microphone'] });
+  opened.push(context);
   await context.addInitScript((server) => {
     localStorage.setItem('chillcall:server', server);
     if (!localStorage.getItem('chillcall:settings')) {
@@ -74,8 +81,11 @@ test('a signed-in-only room keeps guests out until they sign in, and the owner c
   const roomPath = new URL(annPage.url()).pathname;
   await annPage.getByRole('button', { name: 'Join', exact: true }).click();
   await expect(annPage.getByRole('button', { name: 'Leave' })).toBeVisible();
-  const lock = annPage.getByRole('button', { name: 'Only signed-in people can join' });
-  await expect(lock).toHaveAttribute('aria-pressed', 'true'); // Ann made the room, so she can see and change this
+  // Ann made the room, so she has its controls and can see that it is for signed-in people only.
+  await annPage.getByRole('button', { name: 'Room controls' }).click();
+  const signedInOnly = annPage.getByRole('menuitemcheckbox', { name: /Only signed-in people can join/ });
+  await expect(signedInOnly).toHaveAttribute('aria-checked', 'true');
+  await annPage.keyboard.press('Escape');
 
   // A guest is turned away with a way forward.
   const guest = await newPerson(browser);
@@ -89,12 +99,14 @@ test('a signed-in-only room keeps guests out until they sign in, and the owner c
   await signInAs(guestPage, 'bob');
   await guestPage.getByRole('button', { name: 'Join', exact: true }).click();
   await expect(guestPage.getByRole('button', { name: 'Leave' })).toBeVisible();
-  await expect(guestPage.getByRole('button', { name: 'Only signed-in people can join' })).toHaveCount(0);
+  await expect(guestPage.getByRole('button', { name: 'Room controls' })).toHaveCount(0);
   await expectAllConnected([annPage, guestPage]);
 
   // Ann opens the room to guests, and a guest can now join.
-  await lock.click();
-  await expect(lock).toHaveAttribute('aria-pressed', 'false');
+  await annPage.getByRole('button', { name: 'Room controls' }).click();
+  await signedInOnly.click();
+  await expect(signedInOnly).toHaveAttribute('aria-checked', 'false');
+  await annPage.keyboard.press('Escape');
   const late = await newPerson(browser);
   const latePage = await late.newPage();
   await latePage.goto(roomPath);

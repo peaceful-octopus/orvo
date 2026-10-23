@@ -21,7 +21,9 @@ export type RoomEvent =
   /** How the connection to a peer is routed: straight to them, or through a relay. */
   | { type: 'peer-route'; id: string; route: PeerRoute }
   /** Health of the signaling connection; calls between connected peers continue while it reconnects. */
-  | { type: 'connection'; state: ConnectionState; reason?: string };
+  | { type: 'connection'; state: ConnectionState; reason?: string }
+  /** The room's owner removed you. The transport has already left the room. */
+  | { type: 'kicked' };
 
 /** Abstraction over how media reaches peers, so a mesh and an SFU can be swapped. */
 export interface RoomTransport {
@@ -29,6 +31,8 @@ export interface RoomTransport {
   leave(): void;
   send(message: DataMessage): void;
   replaceLocalStream(local: MediaStream): Promise<void>;
+  /** Owner only: removes someone from the room and keeps them out. */
+  kick(peerId: string): void;
   /** Shares a screen alongside the camera; undefined stops sharing. */
   setScreenStream(screen: MediaStream | undefined): void;
   on(handler: (event: RoomEvent) => void): () => void;
@@ -62,5 +66,19 @@ export class LoginRequiredError extends Error {
 export class InvalidTokenError extends Error {
   constructor() {
     super('Your sign-in has expired. Sign in again.');
+  }
+}
+
+/** The owner locked the room, and this person was not already in it. */
+export class RoomLockedError extends Error {
+  constructor() {
+    super('This room is locked. Only people who were already in it can join.');
+  }
+}
+
+/** The room's owner removed this person from the room. */
+export class KickedError extends Error {
+  constructor() {
+    super('The owner of this room removed you from it.');
   }
 }

@@ -18,8 +18,10 @@ import {
   BeaconUnavailableError,
   InvalidTokenError,
   JoinError,
+  KickedError,
   LoginRequiredError,
   RoomFullError,
+  RoomLockedError,
   UpgradeRequiredError,
   type RoomEvent,
   type RoomTransport,
@@ -80,8 +82,13 @@ export class MeshTransport implements RoomTransport {
   constructor(private opts: MeshOptions) {}
 
   /** The room's access rules as the server reported them when we joined, and whether we own the room. */
-  get roomAccess(): { signedInOnly: boolean; owner: boolean } | undefined {
+  get roomAccess(): { signedInOnly: boolean; owner: boolean; locked: boolean } | undefined {
     return this.session?.room;
+  }
+
+  /** Owner only: removes someone from the room and keeps them out. The server refuses anyone else. */
+  kick(peerId: string): void {
+    this.sendRaw({ v: PROTOCOL_VERSION, type: 'kick', peerId });
   }
 
   async join(room: string, name: string, local: MediaStream): Promise<void> {
@@ -205,7 +212,11 @@ export class MeshTransport implements RoomTransport {
       case 'error':
         if (this.pendingJoin) {
           const error =
-            msg.code === 'room-full' ? new RoomFullError() : new JoinError(`Could not join the room (${msg.code}).`);
+            msg.code === 'room-full'
+              ? new RoomFullError()
+              : msg.code === 'kicked'
+                ? new KickedError()
+                : new JoinError(`Could not join the room (${msg.code}).`);
           this.pendingJoin.reject(error);
           this.pendingJoin = undefined;
         }
@@ -219,6 +230,10 @@ export class MeshTransport implements RoomTransport {
         break;
       case 'signal':
         void this.linkFor(msg.from, false)?.handleSignal(msg.payload as SignalPayload);
+        break;
+      case 'kicked':
+        this.emit({ type: 'kicked' });
+        this.leave();
         break;
       case 'pong':
         break;
@@ -253,7 +268,14 @@ export class MeshTransport implements RoomTransport {
           this.flushOutbox();
           return;
         } catch (err) {
-          if (err instanceof RoomFullError || err instanceof UpgradeRequiredError || err instanceof LoginRequiredError || err instanceof InvalidTokenError) {
+          if (
+            err instanceof RoomFullError ||
+            err instanceof UpgradeRequiredError ||
+            err instanceof LoginRequiredError ||
+            err instanceof InvalidTokenError ||
+            err instanceof RoomLockedError ||
+            err instanceof KickedError
+          ) {
             this.opts.telemetry?.({ type: 'reconnect', ok: false, attempts: attempt + 1 });
             this.emit({ type: 'connection', state: 'closed', reason: err.message });
             return;

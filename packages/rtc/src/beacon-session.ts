@@ -1,5 +1,5 @@
 import { JoinResponse, PROTOCOL_VERSION } from '@chillcall/protocol';
-import { BeaconUnavailableError, InvalidTokenError, JoinError, LoginRequiredError, UpgradeRequiredError } from './transport';
+import { BeaconUnavailableError, InvalidTokenError, JoinError, LoginRequiredError, RoomLockedError, UpgradeRequiredError } from './transport';
 
 export interface JoinParams {
   room: string;
@@ -48,6 +48,7 @@ export async function requestJoin(
       if (code === 'login-required-to-join') throw new LoginRequiredError('join');
       throw new InvalidTokenError();
     }
+    if (res.status === 403 && ((await res.json().catch(() => ({}))) as { code?: string }).code === 'room-locked') throw new RoomLockedError();
     if (!res.ok) throw new JoinError('Could not join the room.');
     return JoinResponse.parse(await res.json());
   }

@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 import { Bubble } from '../Bubble';
+import { COPY } from '../copy';
+import { RemoveIcon } from './icons';
 import { adaptiveMode, layout, splitForScreens, type LayoutMode } from './layouts';
 import { ScreenTile } from './ScreenTile';
 import { useSize } from './useSize';
@@ -33,12 +35,14 @@ interface Props {
   maxSize?: number;
   /** A row or column turns whichever way fits the window best; used by the floating window. */
   adaptive?: boolean;
+  /** Owner only: puts a remove button on everyone else's bubble. */
+  onKick?: (id: string, name: string) => void;
 }
 
 const spring = { type: 'spring', stiffness: 220, damping: 26 } as const;
 
 /** Lays out circular bubbles in a row, column or ring, animating between arrangements. */
-export function BubbleField({ members, mode, maxSize, screens = [], onStopSharing, adaptive }: Props) {
+export function BubbleField({ members, mode, maxSize, screens = [], onStopSharing, adaptive, onKick }: Props) {
   const [ref, bounds] = useSize<HTMLDivElement>();
   const split = splitForScreens(bounds, screens.length);
   // Beside a screen the bubbles line up in a column or row, whatever layout is chosen.
@@ -83,6 +87,11 @@ export function BubbleField({ members, mode, maxSize, screens = [], onStopSharin
               mirrored={m.self}
               muteAudio={m.self}
             />
+            {onKick && !m.self && (
+              <button className="kick" aria-label={COPY.room.kick.aria(m.name || 'Guest')} title={COPY.room.kick.aria(m.name || 'Guest')} onClick={() => onKick(m.id, m.name || 'Guest')}>
+                <RemoveIcon />
+              </button>
+            )}
           </motion.div>
         );
       })}

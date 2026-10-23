@@ -2,9 +2,11 @@ import { EffectsController, type GifMode, type GifSource } from '@chillcall/effe
 import {
   InvalidTokenError,
   JoinError,
+  KickedError,
   LoginRequiredError,
   MeshTransport,
   RoomFullError,
+  RoomLockedError,
   UpgradeRequiredError,
   type PeerRoute,
   type PeerState,
@@ -62,7 +64,9 @@ interface CallState {
   selected: DeviceSelection;
   /** The room being joined or in, and who may join it. `owner` means you can change that. */
   roomId?: string;
-  roomAccess?: { signedInOnly: boolean; owner: boolean };
+  roomAccess?: { signedInOnly: boolean; locked: boolean; owner: boolean };
+  /** Why joining is not possible: the room is locked, or its owner removed you from it. */
+  blocked?: 'locked' | 'kicked';
   /** Why joining needs a sign-in, when it does: to start this room, to enter it, or because the old sign-in ran out. */
   loginRequired?: 'create' | 'join' | 'expired';
   /** Your own shared screen, while you are sharing. */
@@ -76,7 +80,10 @@ interface CallState {
   join(room: string, name: string): Promise<void>;
   toggleAudio(): Promise<void>;
   toggleVideo(): Promise<void>;
-  setRoomAccess(signedInOnly: boolean): Promise<void>;
+  /** Owner only: changes who may join the room. */
+  setRoomAccess(patch: { signedInOnly?: boolean; locked?: boolean }): Promise<void>;
+  /** Owner only: removes someone from the room. */
+  kick(peerId: string): void;
   shareScreen(): Promise<void>;
   stopScreen(): void;
   applyNoise(): Promise<void>;
@@ -210,6 +217,10 @@ export const useCall = create<CallState>((set, get) => {
           delete remotes[event.id];
           return { remotes };
         });
+        break;
+      case 'kicked':
+        get().leave(); // the transport has already left; this clears the call
+        set({ blocked: 'kicked' });
         break;
       case 'connection':
         if (event.state === 'closed') {
@@ -351,7 +362,7 @@ export const useCall = create<CallState>((set, get) => {
     async join(room, name) {
       const { local } = get();
       if (!local) return;
-      set({ phase: 'joining', error: undefined, loginRequired: undefined, roomId: room });
+      set({ phase: 'joining', error: undefined, loginRequired: undefined, blocked: undefined, roomId: room });
       await get().applyNoise(); // the call starts with the cleaned-up microphone
       const { config } = await loadClientConfig();
       transport = new MeshTransport({
@@ -386,8 +397,14 @@ export const useCall = create<CallState>((set, get) => {
         transport = undefined;
         if (err instanceof InvalidTokenError) useAuth.getState().signOut(); // the sign-in ran out; the person signs in again
         const loginRequired = err instanceof LoginRequiredError ? err.reason : err instanceof InvalidTokenError ? 'expired' : undefined;
+        const blocked = err instanceof RoomLockedError ? 'locked' : err instanceof KickedError ? 'kicked' : undefined;
         const known = err instanceof RoomFullError || err instanceof UpgradeRequiredError || err instanceof JoinError;
-        set({ phase: 'lobby', loginRequired, error: loginRequired ? undefined : known ? err.message : 'Could not join the room.' });
+        set({
+          phase: 'lobby',
+          loginRequired,
+          blocked,
+          error: loginRequired || blocked ? undefined : known ? err.message : 'Could not join the room.',
+        });
       }
     },
 
@@ -399,7 +416,11 @@ export const useCall = create<CallState>((set, get) => {
       broadcastState();
     },
 
-    async setRoomAccess(signedInOnly) {
+    kick(peerId) {
+      transport?.kick(peerId);
+    },
+
+    async setRoomAccess(patch) {
       const { roomId } = get();
       if (!roomId) return;
       try {
@@ -407,10 +428,11 @@ export const useCall = create<CallState>((set, get) => {
         const res = await fetch(new URL(`/v1/rooms/${roomId}`, getServerUrl()), {
           method: 'PATCH',
           headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ signedInOnly }),
+          body: JSON.stringify(patch),
         });
         if (!res.ok) throw new Error(String(res.status));
-        set({ roomAccess: { signedInOnly, owner: true } });
+        const current = get().roomAccess;
+        set({ roomAccess: { signedInOnly: false, locked: false, ...current, ...patch, owner: true } });
       } catch {
         toast.error(COPY.toasts.roomAccess);
       }

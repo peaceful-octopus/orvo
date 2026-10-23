@@ -34,6 +34,29 @@ nobody could then sign in.
 - **Names.** A signed-in person's account name is the starting point for their display name, which they can still change.
   Other participants are not told who is signed in.
 
+## Owner controls: removing people and locking the room
+
+The signed-in person who made a room sees a **Room controls** button in the call bar, and a remove button on everyone
+else's bubble.
+
+- **Remove someone.** They are told, disconnected at once and dropped from everyone else's call. They cannot rejoin
+  under the same peer id, and a signed-in person cannot rejoin with the same account even after signing in again. A
+  guest has no account to recognise, so a removed guest who reloads the page is a new person unless the room is locked.
+  The remove dialog therefore offers **Remove and lock the room** in one step.
+- **Lock the room.** A locked room admits only people who were already in it, and its owner. Everyone else, signed in
+  or not, is told the room is locked. This is what stops someone typing names at random to find open rooms.
+  - "Already in it" means holding a resume token for the room, which every join hands out. It lasts six hours and is
+    renewed on every connect, so a member whose connection drops (or who closes the app and reopens it within hours)
+    gets back in, and a stranger does not.
+  - The owner is always let in, even with no resume token.
+  - Unlocking opens the room again. Locking and "only signed-in people" can be used together.
+- **How it is enforced.** The lock is checked by the beacon, which every joiner passes through. Removing is done by the
+  signaling node that holds the room: the join token the beacon signs says who owns the room and which account each
+  joiner is, and the node accepts a `kick` message only from the connection that joined with the owner's token.
+- **Limits.** Removed people are remembered by the node while the room is in use there, and forgotten when it empties
+  or the node restarts. Only the owner can do any of this, so a guest-made room (which has no owner) has no controls.
+  The floating window has no owner controls; dock it to use them.
+
 ## Rooms are ephemeral
 
 A room's owner and "signed-in only" rule are kept while the room is in use plus one idle day (refreshed by every join or
@@ -70,6 +93,7 @@ out of the provider.
 
 ## Testing
 
+- `pnpm test:signaling`: removing people (who may, who is kept out, what is remembered).
 - `pnpm test:beacon`: the token checks (against a fake provider, `packages/testkit/src/fake-idp.ts`) and every rule above.
 - `pnpm test:e2e:accounts`: browsers against a server that needs an account and the fake provider.
 - The fake provider approves every sign-in at once. It is for tests only.

@@ -795,6 +795,82 @@ button.chevron {
   color: var(--muted);
 }
 
+/* The room owner's controls. */
+.room-menu {
+  width: 19rem;
+  padding: 0.35rem;
+  border-radius: var(--r-panel);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
+.room-menu button {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.room-menu button:not(:disabled):hover {
+  background: var(--hover);
+}
+
+.room-menu .hint {
+  display: block;
+}
+
+.room-menu .tick {
+  width: 1rem;
+  flex: none;
+  color: var(--accent);
+}
+
+.slot .kick {
+  position: absolute;
+  top: 6%;
+  right: 6%;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--on-danger);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.slot:hover .kick,
+.slot .kick:focus-visible {
+  opacity: 1;
+}
+
+.slot .kick:not(:disabled):hover {
+  background: var(--danger-hover);
+}
+
+.kick-dialog {
+  width: min(26rem, calc(100vw - 2rem));
+}
+
+.kick-dialog h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.kick-dialog .actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 /* ---- Floating view ----------------------------------------------------------------------------------------- */
 
 .float-view {

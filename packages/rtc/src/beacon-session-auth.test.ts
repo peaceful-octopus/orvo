@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { requestJoin } from './beacon-session';
-import { InvalidTokenError, LoginRequiredError } from './transport';
+import { InvalidTokenError, JoinError, LoginRequiredError, RoomLockedError } from './transport';
 
 const session = { signalingUrl: 'wss://n1/ws', joinToken: 't', resumeToken: 'r', peerId: 'p1', iceServers: [], transport: 'mesh', tier: 'free' };
 const params = { room: 'cozy-room-abc123', clientVersion: '1.0.0' };
@@ -43,5 +43,15 @@ describe('requestJoin with an account', () => {
     const f = recording(() => json({ code: 'invalid-token' }, 401));
     await expect(requestJoin(['https://a.example', 'https://b.example'], { ...params, authToken: 'old' }, f.impl)).rejects.toBeInstanceOf(InvalidTokenError);
     expect(f.seen).toHaveLength(1);
+  });
+
+  it('reports a locked room, and any other refusal as a plain failure', async () => {
+    const locked = recording(() => json({ code: 'room-locked' }, 403));
+    await expect(requestJoin(['https://a.example', 'https://b.example'], params, locked.impl)).rejects.toBeInstanceOf(RoomLockedError);
+    expect(locked.seen).toHaveLength(1);
+    const other = recording(() => json({ code: 'something-else' }, 403));
+    const err = await requestJoin(['https://a.example'], params, other.impl).catch((e) => e);
+    expect(err).toBeInstanceOf(JoinError);
+    expect(err).not.toBeInstanceOf(RoomLockedError);
   });
 });
