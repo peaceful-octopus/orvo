@@ -750,11 +750,6 @@ button.chevron {
   color: var(--accent);
 }
 
-.controls-view .filter-menu {
-  width: 100%;
-  box-sizing: border-box;
-}
-
 /* A shared screen: a rounded rectangle among the bubbles. */
 .screen-tile {
   position: relative;
