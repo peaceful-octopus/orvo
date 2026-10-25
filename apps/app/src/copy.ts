@@ -38,6 +38,13 @@ export const COPY = {
     failed: 'Sign-in did not work.',
     backHome: 'Back to start',
   },
+  update: {
+    available: (version: string) => `Orvo ${version} is available.`,
+    install: 'Restart and update',
+    installing: 'Updating...',
+    later: 'Later',
+    failed: 'The update could not be installed. Try again in a moment.',
+  },
   room: {
     menu: 'Room controls',
     lock: { label: 'Lock the room', hint: 'Only people who are already here can join.' },

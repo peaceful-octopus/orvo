@@ -1,0 +1,49 @@
+name: Release
+# Push a tag such as v1.0.0 (after `pnpm version:set 1.0.0` and a commit) to build the Windows installers and attach
+# them, with the update manifest the desktop app polls, to a draft GitHub Release. Publish the draft to roll it out.
+# See docs/releasing.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - name: The tag must match the version in the files
+        shell: bash
+        run: |
+          pnpm version:check
+          version=$(node -p "require('./package.json').version")
+          test "v$version" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
+      - run: pnpm test:all
+      - name: Point the updater at this repository's releases
+        shell: bash
+        run: sed -i "s#OWNER/REPO#${GITHUB_REPOSITORY}#" apps/desktop/src-tauri/tauri.conf.json
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: --config src-tauri/tauri.release.conf.json
+          tagName: ${{ github.ref_name }}
+          releaseName: Orvo ${{ github.ref_name }}
+          releaseDraft: true
+          includeUpdaterJson: true

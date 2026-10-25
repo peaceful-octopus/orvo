@@ -6,7 +6,7 @@ import { COPY } from './copy';
 import { CLIENT_VERSION, getServerUrl } from './config';
 import { updateRequired } from './configLogic';
 import { useConfig } from './configStore';
-import { AnnouncementBanner, UpdateRequired } from './Notices';
+import { AnnouncementBanner, UpdateBanner, UpdateRequired } from './Notices';
 import { RoomPage } from './RoomPage';
 import { SettingsButton } from './SettingsPane';
 import { Toasts } from './Toasts';
@@ -133,6 +133,7 @@ export function App() {
   return (
     <>
       <AnnouncementBanner />
+      <UpdateBanner />
       <Toasts />
       {room && isValidRoomSlug(room) ? <RoomPage room={room} /> : <Home />}
     </>

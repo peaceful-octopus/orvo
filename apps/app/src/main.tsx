@@ -8,6 +8,7 @@ import { useConfig } from './configStore';
 import { ControlsView } from './float/ControlsView';
 import { closeControlsWindow } from './float/controlsWindow';
 import { telemetry } from './telemetry';
+import { startUpdateChecks } from './updater';
 import { startTheme } from './theme/theme';
 import './styles.css';
 
@@ -27,6 +28,7 @@ if ('__TAURI_INTERNALS__' in window && !import.meta.env.DEV) {
 if (!controlsOnly) {
   void useConfig.getState().refresh();
   telemetry.start();
+  startUpdateChecks();
   // A reload can leave the previous page's controls window behind with nothing to control.
   if ('__TAURI_INTERNALS__' in window) void closeControlsWindow().catch(() => {});
 }
