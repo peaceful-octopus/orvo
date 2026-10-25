@@ -68,7 +68,11 @@ const keepModelArchiveCompressed = (): Plugin => ({
   },
 });
 
+// The app reports this to the server and to the update check. One source: the root package.json (tools/release).
+const appVersion = process.env.ORVO_VERSION ?? (JSON.parse(readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')) as { version: string }).version;
+
 export default defineConfig(({ mode }) => ({
+  define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion) },
   plugins: [react(), keepModelArchiveCompressed(), mediapipeWasm(), noBakedGiphyKey(loadEnv(mode, process.cwd(), 'VITE_').VITE_GIPHY_API_KEY)],
   server: { port: 5173, strictPort: true },
 }));

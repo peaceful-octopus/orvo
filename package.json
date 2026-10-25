@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @orvo/app --filter @orvo/server dev",
     "build": "pnpm -r build",
+    "version:check": "node tools/release/version.mjs check",
+    "version:set": "node tools/release/version.mjs set",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run --passWithNoTests --changed",
     "test:e2e": "playwright test --project=smoke --project=layout",
