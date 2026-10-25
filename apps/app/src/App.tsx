@@ -7,6 +7,7 @@ import { CLIENT_VERSION, getServerUrl } from './config';
 import { updateRequired } from './configLogic';
 import { useConfig } from './configStore';
 import { AnnouncementBanner, UpdateBanner, UpdateRequired } from './Notices';
+import { Wordmark } from './Wordmark';
 import { RoomPage } from './RoomPage';
 import { SettingsButton } from './SettingsPane';
 import { Toasts } from './Toasts';
@@ -53,7 +54,9 @@ function Home() {
       <SettingsButton />
       <div className="home">
         <div>
-          <h1>Orvo</h1>
+          <h1>
+            <Wordmark className="wordmark" />
+          </h1>
           <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
           {unreachable && (
             <section className="state-card" role="alert">

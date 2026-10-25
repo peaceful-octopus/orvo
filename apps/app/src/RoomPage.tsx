@@ -38,6 +38,7 @@ import {
   VideoOffIcon,
 } from './float/icons';
 import { LAYOUT_MODES, UNCAPPED } from './float/layouts';
+import { Wordmark } from './Wordmark';
 import { unreachableNotice } from './unreachable';
 import { useUi } from './uiStore';
 import type { DeviceKind, DeviceLists, DeviceSelection } from './devices';
@@ -296,6 +297,7 @@ export function RoomPage({ room }: { room: string }) {
 
   return (
     <main className="call">
+      <Wordmark className="wordmark-corner" />
       <SettingsButton />
       {reconnecting && <p className="banner">Reconnecting to the server... your call continues.</p>}
       {notice && (

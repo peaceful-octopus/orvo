@@ -293,8 +293,27 @@ html.floating .toasts {
 }
 
 .home h1 {
-  margin: 0 0 0.5rem;
-  font-size: clamp(2.6rem, 6vw, 4rem);
+  margin: 0 0 0.75rem;
+  line-height: 1;
+}
+
+.wordmark {
+  display: block;
+  height: clamp(2.6rem, 6vw, 4rem);
+  width: auto;
+}
+
+/* Subtle branding pinned to the upper left of the docked call, mirroring the settings corner. */
+.wordmark-corner {
+  position: fixed;
+  top: 1.15rem;
+  left: 1.1rem;
+  z-index: 5;
+  height: 1.1rem;
+  width: auto;
+  color: var(--muted);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .lobby h1 {
