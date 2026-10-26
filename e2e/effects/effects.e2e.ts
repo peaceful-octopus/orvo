@@ -67,29 +67,11 @@ test('a GIF chosen from the Giphy picker appears on the video for everyone, then
   await dialog.locator('.giphy-gif').first().click();
   await expect(dialog).toBeHidden();
 
-  // A sticker covers part of the frame: clearly visible to bob, but not the whole picture.
   await expect.poll(() => effectPixels(bob, 1), { message: 'bob sees the GIF' }).toBeGreaterThan(1500);
-  expect(await effectPixels(bob, 1)).toBeLessThan(160 * 120 * 0.6);
 
   // It ends by itself and the camera comes back.
   await expect.poll(() => effectPixels(bob, 1), { timeout: 20_000 }).toBeLessThan(50);
   await expect.poll(() => effectPixels(ann, 0), { timeout: 5_000 }).toBeLessThan(50);
-});
-
-test('"Replace my video" makes the GIF fill the frame @effects', async ({ context }) => {
-  const magenta = await solidClip(await context.newPage(), '#ff00ff');
-  await fakeGiphy(context, magenta);
-
-  const room = `e2e-gif-fill-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
-  await expectAllConnected([ann, bob]);
-
-  await ann.getByRole('button', { name: 'GIF' }).click();
-  const dialog = ann.getByRole('dialog', { name: 'Choose a GIF' });
-  await dialog.getByLabel('Replace my video').check();
-  await dialog.locator('.giphy-gif').first().click();
-
-  await expect.poll(() => effectPixels(bob, 1)).toBeGreaterThan(160 * 120 * 0.7);
 });
 
 test('a GIF that cannot be loaded shows a message and leaves the call as it was @effects', async ({ context }) => {

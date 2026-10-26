@@ -31,7 +31,6 @@ function Results({ width, onSelect }: { width: number; onSelect(gif: IGif): void
 
 /** Search box and results grid from the Giphy SDK. Loaded on demand so the SDK stays out of the main bundle. */
 export default function GifPicker({ apiKey, onPick, onClose }: Props) {
-  const [replace, setReplace] = useState(false);
   const [unusable, setUnusable] = useState(false);
   const width = Math.min(440, window.innerWidth - 48);
 
@@ -44,7 +43,7 @@ export default function GifPicker({ apiKey, onPick, onClose }: Props) {
   }, [onClose]);
 
   const select = (gif: IGif) => {
-    const mode: GifMode = replace ? 'fill' : 'sticker';
+    const mode: GifMode = 'fill';
     const source = pickGifSource(gif.images as never, mode);
     if (!source) return setUnusable(true);
     onPick(source, mode);
@@ -61,9 +60,6 @@ export default function GifPicker({ apiKey, onPick, onClose }: Props) {
         </SearchContextManager>
         {unusable && <p className="error">That GIF is not available in a usable format. Try another.</p>}
         <div className="gif-footer">
-          <label>
-            <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} /> Replace my video
-          </label>
           <a href="https://giphy.com" target="_blank" rel="noreferrer">
             Powered by GIPHY
           </a>
