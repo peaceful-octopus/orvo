@@ -6,11 +6,11 @@ import { expectAllConnected, joinRoom } from '../helpers';
 test('the lobby lists devices and defaults to the system default @smoke', async ({ page }) => {
   await page.goto(`/r/e2e-devices-lobby-${Date.now()}`);
   await page.locator('details.devices summary').click(); // the lobby keeps the choices folded away until asked
-  const camera = page.getByLabel('Camera');
+  const camera = page.getByLabel('Camera', { exact: true });
   await expect(camera).toBeVisible();
   await expect(camera.locator('option').first()).toHaveText(/System default/);
   await expect(camera).toHaveValue('');
-  expect(await page.getByLabel('Microphone').locator('option').count()).toBeGreaterThan(1);
+  expect(await page.getByLabel('Microphone', { exact: true }).locator('option').count()).toBeGreaterThan(1);
 });
 
 test('switching camera and microphone mid-call keeps everyone connected and is remembered @smoke', async ({ context }) => {

@@ -294,7 +294,7 @@ html.floating .toasts {
 
 .home h1 {
   margin: 0 0 1.25rem;
-  font-size: clamp(2.6rem, 6vw, 4.25rem);
+  font-size: clamp(2.1rem, 5.5vw, 4.25rem);
   line-height: 1.04;
 }
 
@@ -348,7 +348,7 @@ main:has(> .wordmark-header, > .header-left) {
 .home p {
   margin: 0 0 1.5rem;
   color: var(--muted);
-  font-size: 1.25rem;
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
   max-width: 29rem;
 }
 
@@ -378,8 +378,43 @@ main:has(> .wordmark-header, > .header-left) {
 }
 
 .ring {
-  width: min(22rem, 70vw, 34vh);
+  width: min(22rem, 70vw, 28vh);
   justify-self: center;
+}
+
+/* A short window has no room for the picture. */
+@media (max-height: 36rem) {
+  .home .ring {
+    display: none;
+  }
+
+  .lobby {
+    gap: 1rem;
+  }
+
+  .lobby .preview {
+    width: min(25rem, 70vw, 24vh);
+  }
+
+  .lobby-preview {
+    gap: 0.75rem;
+  }
+
+  .lobby-form {
+    gap: 0.75rem;
+  }
+
+  main:has(> .wordmark-header, > .header-left) {
+    padding-top: 3.5rem;
+  }
+}
+
+/* Wide but short: the preview beside the form rather than above it. */
+@media (max-height: 36rem) and (min-width: 40rem) {
+  .lobby {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    align-items: center;
+  }
 }
 
 .ring circle {

@@ -276,7 +276,7 @@ export function RoomPage({ room }: { room: string }) {
                 </section>
               )
             )}
-            <details className="devices" open>
+            <details className="devices">
               <summary>
                 {COPY.devices}
                 <span className="hint">{deviceSummary(devices, selected)}</span>

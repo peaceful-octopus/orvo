@@ -33,7 +33,7 @@ test('an announcement shows once and stays dismissed @fleet', async ({ page }) =
   await expect(banner).toBeHidden();
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Orvo' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No agenda. Just company.' })).toBeVisible();
   await expect(banner).toBeHidden();
 });
 
