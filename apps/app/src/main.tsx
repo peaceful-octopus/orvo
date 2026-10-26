@@ -25,6 +25,20 @@ if ('__TAURI_INTERNALS__' in window && !import.meta.env.DEV) {
   });
 }
 
+// The web view also steps through history with the mouse's Back and Forward buttons and Alt+Left and Alt+Right. The app
+// does its own navigation, and those would land on pages that no longer make sense, such as a finished call.
+if ('__TAURI_INTERNALS__' in window) {
+  const isHistoryButton = (e: MouseEvent) => e.button === 3 || e.button === 4;
+  for (const type of ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'auxclick'] as const) {
+    window.addEventListener(type, (e) => isHistoryButton(e) && e.preventDefault(), true);
+  }
+  window.addEventListener(
+    'keydown',
+    (e) => e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && e.preventDefault(),
+    true,
+  );
+}
+
 if (!controlsOnly) {
   void useConfig.getState().refresh();
   telemetry.start();

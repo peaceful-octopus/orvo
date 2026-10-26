@@ -23,6 +23,7 @@ import { closeControlsWindow, useControlsWindow } from './float/controlsWindow';
 import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
 import {
+  BackIcon,
   CampfireIcon,
   CheckIcon,
   ColumnIcon,
@@ -190,7 +191,12 @@ export function RoomPage({ room }: { room: string }) {
     return (
       <main>
         <SettingsButton />
-        <Wordmark className="wordmark-header" />
+        <div className="header-left">
+          <button className="icon" aria-label="Back" title="Back to the start page" onClick={() => location.assign('/')}>
+            <BackIcon />
+          </button>
+          <Wordmark className="wordmark-header" />
+        </div>
         <div className="lobby">
           <div className="lobby-preview">
             <div className="preview">

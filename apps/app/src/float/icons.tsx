@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
   LogOut,
@@ -32,6 +33,7 @@ export const VideoIcon = () => <Video size={SIZE} strokeWidth={STROKE} aria-hidd
 export const VideoOffIcon = () => <VideoOff size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ExpandIcon = () => <Maximize2 size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LeaveIcon = () => <LogOut size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const BackIcon = () => <ArrowLeft size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ChevronIcon = () => <ChevronDown size={14} strokeWidth={3} aria-hidden />;
 export const GearIcon = () => <Settings size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LinkIcon = () => <Link size={SIZE} strokeWidth={STROKE} aria-hidden />;
