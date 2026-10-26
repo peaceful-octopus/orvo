@@ -11,7 +11,7 @@ import { KickDialog, RoomMenu } from './RoomControls';
 import { useAuth } from './auth/authStore';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
-import { LayoutMenu, MoreMenu } from './BarMenus';
+import { LayoutMenu } from './BarMenus';
 import { FilterButton } from './FilterMenu';
 import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
@@ -24,8 +24,12 @@ import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
 import {
   CampfireIcon,
+  CheckIcon,
   ColumnIcon,
+  DockIcon,
+  FloatIcon,
   LeaveIcon,
+  LinkIcon,
   MicIcon,
   MicOffIcon,
   RowIcon,
@@ -341,6 +345,17 @@ export function RoomPage({ room }: { room: string }) {
       <nav className="controls">
         <FilterButton labelled look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
         <LayoutMenu modes={LAYOUT_MODES} mode={mode} icons={MODE_ICONS} onChange={setMode} />
+        {float.kind && (
+          <button
+            className="icon tool"
+            onClick={() => void (float.active ? float.exit() : float.enter())}
+            aria-label={float.active ? 'Dock' : 'Float'}
+            title={float.active ? 'Back to the full window' : 'Float the bubbles over other apps'}
+          >
+            {float.active ? <DockIcon /> : <FloatIcon />}
+            <span>{float.active ? 'Dock' : 'Float'}</span>
+          </button>
+        )}
         <div className="sep" aria-hidden="true" />
         <DeviceButton menu="mic" {...deviceProps}>
           <button className={`icon${audio ? '' : ' off'}`} onClick={toggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
@@ -376,11 +391,15 @@ export function RoomPage({ room }: { room: string }) {
           </button>
         )}
         {roomAccess?.owner && <RoomMenu access={roomAccess} onChange={(patch) => void setRoomAccess(patch)} />}
-        <MoreMenu
-          copied={copied}
-          onCopy={() => void copyInvite()}
-          float={float.kind ? { active: float.active, toggle: () => void (float.active ? float.exit() : float.enter()) } : undefined}
-        />
+        <button
+          className="icon tool"
+          aria-label={copied ? 'Link copied' : 'Copy room link'}
+          title={copied ? 'Link copied' : 'Copy a link to this room'}
+          onClick={() => void copyInvite()}
+        >
+          {copied ? <CheckIcon /> : <LinkIcon />}
+          <span>{copied ? 'Copied' : 'Copy link'}</span>
+        </button>
       </nav>
       {kicking && (
         <KickDialog

@@ -27,8 +27,7 @@ test('the call view copies a link to the room @smoke', async ({ context, page })
   await expect(page.getByRole('button', { name: 'Join' })).toBeEnabled();
   await page.getByRole('button', { name: 'Join' }).click();
 
-  await page.getByRole('button', { name: 'More' }).click();
-  await page.getByRole('menuitem', { name: 'Copy room link' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Link copied' })).toBeVisible();
+  await page.getByRole('button', { name: 'Copy room link' }).click();
+  await expect(page.getByRole('button', { name: 'Link copied' })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/r\/copy-link-room$/);
 });
