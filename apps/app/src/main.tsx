@@ -39,6 +39,11 @@ if ('__TAURI_INTERNALS__' in window) {
   );
 }
 
+// Installable as an app on phones and desktops. The desktop app is not a browser and needs none of this.
+if ('serviceWorker' in navigator && !('__TAURI_INTERNALS__' in window) && !import.meta.env.DEV && !controlsOnly) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+
 if (!controlsOnly) {
   void useConfig.getState().refresh();
   telemetry.start();
