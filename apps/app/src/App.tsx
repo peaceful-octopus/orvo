@@ -56,14 +56,15 @@ function Home() {
       <div className="home">
         <div>
           <h1>
-            Real people.
+            No agenda.
             <br />
-            Better hangouts.
+            Just company.
           </h1>
           <p>
-            Orvo is a casual video chat app for friends, game nights, and good conversations. Rooms hold up to {maxRoomSize}{' '}
-            people.
+            Orvo is a casual video chat app for friends and family. No meetings, no schedule, just a room and the people you
+            like.
           </p>
+          <p className="room-size">Rooms hold up to {maxRoomSize} people.</p>
           {unreachable && (
             <section className="state-card" role="alert">
               <h2>{COPY.serverUnreachable.title}</h2>

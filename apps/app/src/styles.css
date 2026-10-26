@@ -338,6 +338,11 @@ main:has(> .wordmark-header) {
   max-width: 29rem;
 }
 
+.home .room-size {
+  margin-top: -0.75rem;
+  font-size: 0.9375rem;
+}
+
 .home-actions[hidden] {
   display: none;
 }
