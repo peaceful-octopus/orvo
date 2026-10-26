@@ -5,7 +5,8 @@
 #   docker compose --profile stun up -d                   # then set STUN_URLS=stun:<your-host>:3478
 services:
   orvo:
-    build: ../..
+    # Published image. To build from this checkout instead, add `build: ../..` and run `docker compose up -d --build`.
+    image: ${ORVO_IMAGE:-ghcr.io/peaceful-octopus/orvo:latest}
     restart: unless-stopped
     # Must be longer than DRAIN_MS (5 s): the server keeps serving for that long after SIGTERM, and Docker
     # kills it when this runs out (some Docker installs default to just one second).
