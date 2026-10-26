@@ -11,6 +11,7 @@ import { KickDialog, RoomMenu } from './RoomControls';
 import { useAuth } from './auth/authStore';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
+import { LayoutMenu, MoreMenu } from './BarMenus';
 import { FilterButton } from './FilterMenu';
 import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
@@ -23,12 +24,8 @@ import { FloatView } from './float/FloatView';
 import { useFloat } from './float/float';
 import {
   CampfireIcon,
-  CheckIcon,
   ColumnIcon,
-  DockIcon,
-  FloatIcon,
   LeaveIcon,
-  LinkIcon,
   MicIcon,
   MicOffIcon,
   RowIcon,
@@ -45,7 +42,6 @@ import type { DeviceKind, DeviceLists, DeviceSelection } from './devices';
 
 const GifPicker = lazy(() => import('./GifPicker'));
 
-const MODE_LABELS = { row: 'Row', column: 'Column', campfire: 'Campfire' } as const;
 const MODE_ICONS = { row: <RowIcon />, column: <ColumnIcon />, campfire: <CampfireIcon /> } as const;
 
 export function RoomPage({ room }: { room: string }) {
@@ -343,13 +339,9 @@ export function RoomPage({ room }: { room: string }) {
       )}
       <ReactionBar disabled={!video} onReact={(emoji) => void react(emoji)} onGif={apiKey ? () => setGifOpen(true) : undefined} />
       <nav className="controls">
-        <div className="modes" role="group" aria-label="Layout">
-          {LAYOUT_MODES.map((m) => (
-            <button key={m} className="icon" aria-pressed={m === mode} aria-label={MODE_LABELS[m]} title={MODE_LABELS[m]} onClick={() => setMode(m)}>
-              {MODE_ICONS[m]}
-            </button>
-          ))}
-        </div>
+        <FilterButton labelled look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
+        <LayoutMenu modes={LAYOUT_MODES} mode={mode} icons={MODE_ICONS} onChange={setMode} />
+        <div className="sep" aria-hidden="true" />
         <DeviceButton menu="mic" {...deviceProps}>
           <button className={`icon${audio ? '' : ' off'}`} onClick={toggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
             {audio ? <MicIcon /> : <MicOffIcon />}
@@ -360,36 +352,6 @@ export function RoomPage({ room }: { room: string }) {
             {video ? <VideoIcon /> : <VideoOffIcon />}
           </button>
         </DeviceButton>
-        {roomAccess?.owner && <RoomMenu access={roomAccess} onChange={(patch) => void setRoomAccess(patch)} />}
-        <FilterButton look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
-        {canShare && (
-          <button
-            className={`icon${screen ? ' on' : ''}`}
-            aria-label={screen ? 'Stop sharing' : 'Share screen'}
-            title={screen ? 'Stop sharing your screen' : 'Share your screen'}
-            onClick={() => void (screen ? stopScreen() : shareScreen())}
-          >
-            {screen ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
-          </button>
-        )}
-        {float.kind && (
-          <button
-            className="icon"
-            onClick={() => void (float.active ? float.exit() : float.enter())}
-            aria-label={float.active ? 'Dock' : 'Float'}
-            title={float.active ? 'Back to the full window' : 'Float the bubbles over other apps'}
-          >
-            {float.active ? <DockIcon /> : <FloatIcon />}
-          </button>
-        )}
-        <button
-          className="icon"
-          aria-label={copied ? 'Link copied' : 'Copy room link'}
-          title={copied ? 'Link copied' : 'Copy a link to this room'}
-          onClick={() => void copyInvite()}
-        >
-          {copied ? <CheckIcon /> : <LinkIcon />}
-        </button>
         <button
           className="icon leave"
           aria-label="Leave"
@@ -401,6 +363,24 @@ export function RoomPage({ room }: { room: string }) {
         >
           <LeaveIcon />
         </button>
+        <div className="sep" aria-hidden="true" />
+        {canShare && (
+          <button
+            className={`icon tool${screen ? ' on' : ''}`}
+            aria-label={screen ? 'Stop sharing' : 'Share screen'}
+            title={screen ? 'Stop sharing your screen' : 'Share your screen'}
+            onClick={() => void (screen ? stopScreen() : shareScreen())}
+          >
+            {screen ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
+            <span>{screen ? 'Stop' : 'Share'}</span>
+          </button>
+        )}
+        {roomAccess?.owner && <RoomMenu access={roomAccess} onChange={(patch) => void setRoomAccess(patch)} />}
+        <MoreMenu
+          copied={copied}
+          onCopy={() => void copyInvite()}
+          float={float.kind ? { active: float.active, toggle: () => void (float.active ? float.exit() : float.enter()) } : undefined}
+        />
       </nav>
       {kicking && (
         <KickDialog

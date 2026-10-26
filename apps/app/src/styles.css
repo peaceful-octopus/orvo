@@ -620,8 +620,29 @@ details.devices .device-selects {
   height: 3.5rem;
 }
 
-.controls button.icon.leave {
-  width: 3.5rem;
+.controls .sep {
+  width: 1px;
+  height: 2.5rem;
+  background: var(--border);
+}
+
+/* Labelled buttons: the icon with its name underneath. */
+.controls button.icon.tool {
+  width: 4rem;
+  height: 4rem;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-content: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.controls button.icon.tool[aria-expanded='true'] {
+  border-color: var(--accent);
+}
+
+.device-menu button svg {
+  flex: none;
 }
 
 .modes {

@@ -6,8 +6,10 @@ import {
   LogOut,
   Link,
   Lock,
+  LayoutGrid,
   LockOpen,
   Maximize2,
+  MoreHorizontal,
   Mic,
   MicOff,
   PanelTop,
@@ -43,6 +45,8 @@ export const RemoveIcon = () => <X size={16} strokeWidth={3} aria-hidden />;
 export const CheckIcon = () => <Check size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ScreenShareIcon = () => <ScreenShare size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ScreenShareOffIcon = () => <ScreenShareOff size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const LayoutIcon = () => <LayoutGrid size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const MoreIcon = () => <MoreHorizontal size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const SparklesIcon = () => <Sparkles size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const FloatIcon = () => <PictureInPicture2 size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const DockIcon = () => <PanelTop size={SIZE} strokeWidth={STROKE} aria-hidden />;

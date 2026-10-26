@@ -20,17 +20,20 @@ test('layout buttons arrange bubbles in a row, column and ring @layout', async (
   };
   const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
 
-  await page.getByRole('button', { name: 'Row' }).click();
+  await page.getByRole('button', { name: 'Layout' }).click();
+  await page.getByRole('menuitemradio', { name: 'Row' }).click();
   const row = await centers();
   expect(spread(row.map((c) => c.y))).toBeLessThanOrEqual(1);
   expect(spread(row.map((c) => c.x))).toBeGreaterThan(100);
 
-  await page.getByRole('button', { name: 'Column' }).click();
+  await page.getByRole('button', { name: 'Layout' }).click();
+  await page.getByRole('menuitemradio', { name: 'Column' }).click();
   const column = await centers();
   expect(spread(column.map((c) => c.x))).toBeLessThanOrEqual(1);
   expect(spread(column.map((c) => c.y))).toBeGreaterThan(100);
 
-  await page.getByRole('button', { name: 'Campfire' }).click();
+  await page.getByRole('button', { name: 'Layout' }).click();
+  await page.getByRole('menuitemradio', { name: 'Campfire' }).click();
   const ring = await centers();
   expect(spread(ring.map((c) => c.x))).toBeGreaterThan(50);
   expect(spread(ring.map((c) => c.y))).toBeGreaterThan(50);

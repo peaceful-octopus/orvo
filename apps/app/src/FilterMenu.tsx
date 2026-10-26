@@ -23,7 +23,7 @@ const TOGGLES = [
 export function FilterPanel({ look, onFilter, onToggle }: PanelProps) {
   const options = [{ id: NO_FILTER, label: 'None', swatch: null }, ...MOOD_FILTERS];
   return (
-    <div className="filter-menu" role="menu" aria-label="Filters">
+    <div className="filter-menu" role="menu" aria-label="Effects">
       <div className="filter-grid" role="group" aria-label="Mood filter">
         {options.map((f) => (
           <button key={f.id} role="menuitemradio" aria-checked={look.filter === f.id} onClick={() => onFilter(f.id)}>
@@ -48,23 +48,24 @@ export function FilterPanel({ look, onFilter, onToggle }: PanelProps) {
 export const lookIsOn = (look: Look) => look.filter !== NO_FILTER || look.blurBackground || look.autoFrame;
 
 /** The filters button in the call bar. */
-export function FilterButton(props: PanelProps) {
+export function FilterButton(props: PanelProps & { labelled?: boolean }) {
   const { open, setOpen, ref } = usePopover();
   return (
     <div className="split" ref={ref}>
       <button
-        className={`icon${lookIsOn(props.look) ? ' on' : ''}`}
-        aria-label="Filters"
+        className={`icon${props.labelled ? ' tool' : ''}${lookIsOn(props.look) ? ' on' : ''}`}
+        aria-label="Effects"
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Filters"
+        title="Camera effects"
         onClick={() => setOpen(!open)}
       >
         <SparklesIcon />
+        {props.labelled && <span>Effects</span>}
       </button>
       {open && (
         <div className="popover">
-          <FilterPanel {...props} />
+          <FilterPanel look={props.look} onFilter={props.onFilter} onToggle={props.onToggle} />
         </div>
       )}
     </div>

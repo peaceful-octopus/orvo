@@ -15,7 +15,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 const choose = async (page: import('@playwright/test').Page, label: string) => {
-  await page.getByRole('button', { name: 'Filters' }).click();
+  await page.getByRole('button', { name: 'Effects' }).click();
   await page.getByRole('menuitemradio', { name: label }).click();
   await page.keyboard.press('Escape');
 };
@@ -73,7 +73,7 @@ test('the chosen filter is remembered and applied when the next call starts @eff
   const room = `e2e-filter-next-${Date.now()}`;
   const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
   await expectAllConnected([ann, bob]);
-  await expect(ann.getByRole('button', { name: 'Filters' })).toHaveClass(/on/);
+  await expect(ann.getByRole('button', { name: 'Effects' })).toHaveClass(/on/);
   await expect.poll(() => saturation(bob, 1)).toBeLessThan(0.1);
 });
 
@@ -93,14 +93,14 @@ test('blurring the background softens the picture everyone receives, and turning
   const plain = await sharp();
   expect(plain).toBeGreaterThan(1);
 
-  await ann.getByRole('button', { name: 'Filters' }).click();
+  await ann.getByRole('button', { name: 'Effects' }).click();
   await ann.getByRole('menuitemcheckbox', { name: 'Blur background' }).click();
   await ann.keyboard.press('Escape');
   // The fake camera has no person in it, so everything counts as background and is blurred.
   await expect.poll(sharp, { timeout: 40_000, message: 'the picture bob receives gets softer' }).toBeLessThan(plain * 0.6);
-  await expect(ann.getByRole('button', { name: 'Filters' })).toHaveClass(/on/);
+  await expect(ann.getByRole('button', { name: 'Effects' })).toHaveClass(/on/);
 
-  await ann.getByRole('button', { name: 'Filters' }).click();
+  await ann.getByRole('button', { name: 'Effects' }).click();
   await ann.getByRole('menuitemcheckbox', { name: 'Blur background' }).click();
   await ann.keyboard.press('Escape');
   await expect.poll(sharp).toBeGreaterThan(plain * 0.85);
@@ -112,7 +112,7 @@ test('keeping me in frame can be switched on and off without disturbing the call
   const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
   await expectAllConnected([ann, bob]);
 
-  await ann.getByRole('button', { name: 'Filters' }).click();
+  await ann.getByRole('button', { name: 'Effects' }).click();
   const frame = ann.getByRole('menuitemcheckbox', { name: 'Keep me in frame' });
   await frame.click();
   await expect(frame).toHaveAttribute('aria-checked', 'true');
@@ -121,7 +121,7 @@ test('keeping me in frame can be switched on and off without disturbing the call
   await expectAllConnected([ann, bob]);
   expect(await saturation(bob, 1)).toBeGreaterThan(0.5);
 
-  await ann.getByRole('button', { name: 'Filters' }).click();
+  await ann.getByRole('button', { name: 'Effects' }).click();
   await frame.click();
   await expect(frame).toHaveAttribute('aria-checked', 'false');
 });
