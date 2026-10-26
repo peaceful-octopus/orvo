@@ -42,6 +42,8 @@ const SAVE_DELAY_MS = 400;
  * logical pixels, so the window already grows with the display scaling.
  */
 const DIALOG_ROOM = { w: 640, h: 460 };
+/** Effectively no minimum while floating. */
+const FLOAT_MIN = { w: 1, h: 1 };
 /** Mirrors minWidth and minHeight in tauri.conf.json, restored when the window docks again. */
 const DOCKED_MIN = { w: 520, h: 620 };
 
@@ -100,7 +102,7 @@ export function useFloat(mode: LayoutMode, count: number) {
       await win.setShadow(false); // the shadow draws a dark frame around the transparent window
       await setWindowBorder(false); // and Windows 11 adds a one-pixel outline even without it
       await win.setAlwaysOnTop(true);
-      await win.setMinSize(null); // the window's minimum size is for the docked pages, not a few bubbles
+      await win.setMinSize(new LogicalSize(FLOAT_MIN.w, FLOAT_MIN.h)); // the docked minimum would stop the window shrinking to a few bubbles; null does not lift it on Windows
       await win.setSize(new LogicalSize(size.w, size.h));
       document.documentElement.classList.add('floating');
       setActive(true);
