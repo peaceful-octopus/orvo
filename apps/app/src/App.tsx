@@ -52,12 +52,18 @@ function Home() {
   return (
     <main>
       <SettingsButton />
+      <Wordmark className="wordmark-header" />
       <div className="home">
         <div>
           <h1>
-            <Wordmark className="wordmark" />
+            Real people.
+            <br />
+            Better hangouts.
           </h1>
-          <p>Casual video calls. Rooms hold up to {maxRoomSize} people.</p>
+          <p>
+            Orvo is a casual video chat app for friends, game nights, and good conversations. Rooms hold up to {maxRoomSize}{' '}
+            people.
+          </p>
           {unreachable && (
             <section className="state-card" role="alert">
               <h2>{COPY.serverUnreachable.title}</h2>
@@ -107,21 +113,13 @@ function Home() {
   );
 }
 
-/** The campfire layout as a picture: a ring of bubbles. */
+/** The Orvo mark: three circles of different sizes. */
 function Ring() {
-  const bubbles = [
-    ['var(--accent)', 0],
-    ['var(--live)', 1],
-    ['var(--muted)', 2],
-    ['var(--border-strong)', 3],
-    ['var(--hover)', 4],
-  ] as const;
   return (
-    <svg className="ring" viewBox="-110 -110 220 220" aria-hidden="true">
-      {bubbles.map(([fill, i]) => {
-        const angle = -Math.PI / 2 + (i * 2 * Math.PI) / bubbles.length;
-        return <circle key={i} cx={Math.cos(angle) * 62} cy={Math.sin(angle) * 62} r={i === 0 ? 40 : 34} fill={fill} />;
-      })}
+    <svg className="ring" viewBox="6 9.92 88 80.17" aria-hidden="true">
+      <circle cx="35.01" cy="57.98" r="29.01" fill="var(--text)" />
+      <circle cx="75.63" cy="28.29" r="18.37" fill="var(--accent)" />
+      <circle cx="71.76" cy="79.45" r="10.64" fill="var(--text)" />
     </svg>
   );
 }

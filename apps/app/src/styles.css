@@ -293,13 +293,18 @@ html.floating .toasts {
 }
 
 .home h1 {
-  margin: 0 0 0.75rem;
-  line-height: 1;
+  margin: 0 0 1.25rem;
+  font-size: clamp(2.6rem, 6vw, 4.25rem);
+  line-height: 1.04;
 }
 
-.wordmark {
-  display: block;
-  height: clamp(2.6rem, 6vw, 4rem);
+/* The brand in the upper left of the landing page and lobby, opposite the settings corner. */
+.wordmark-header {
+  position: fixed;
+  top: 1.1rem;
+  left: 1.5rem;
+  z-index: 5;
+  height: 1.9rem;
   width: auto;
 }
 
@@ -325,8 +330,8 @@ html.floating .toasts {
 .home p {
   margin: 0 0 1.5rem;
   color: var(--muted);
-  font-size: 1.1rem;
-  max-width: 28rem;
+  font-size: 1.25rem;
+  max-width: 29rem;
 }
 
 .home-actions[hidden] {
@@ -359,21 +364,54 @@ html.floating .toasts {
   stroke-width: 3;
 }
 
+.lobby-preview {
+  display: grid;
+  justify-items: center;
+  gap: 1.25rem;
+}
+
 .lobby .preview {
-  width: min(16rem, 60vw, 40vh);
+  width: min(25rem, 70vw, 50vh);
   aspect-ratio: 1;
-  justify-self: center;
+}
+
+.lobby-toggles {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.lobby-toggles .split {
+  position: relative;
+}
+
+.lobby-title h1 {
+  margin: 0 0 0.6rem;
+}
+
+.lobby-title p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.lobby-title strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .lobby form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.lobby form input,
+.lobby form button {
+  height: 3.25rem;
+  box-sizing: border-box;
 }
 
 .lobby form input {
-  flex: 1;
-  min-width: 10rem;
+  font-size: 1.05rem;
 }
 
 .home > *,
@@ -566,11 +604,20 @@ details.devices .device-selects {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem 1.1rem;
-  padding: 0.5rem 0.75rem;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1.25rem;
   border: 1px solid var(--border);
-  border-radius: var(--r-panel);
+  border-radius: 3rem;
   background: var(--surface);
+}
+
+.controls button.icon {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.controls button.icon.leave {
+  width: 3.5rem;
 }
 
 .modes {

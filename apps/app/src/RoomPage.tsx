@@ -190,12 +190,29 @@ export function RoomPage({ room }: { room: string }) {
     return (
       <main>
         <SettingsButton />
+        <Wordmark className="wordmark-header" />
         <div className="lobby">
-          <div className="preview">
-            <Bubble name={name} stream={local} videoOn={video} audioOn={audio} mirrored muteAudio />
+          <div className="lobby-preview">
+            <div className="preview">
+              <Bubble name={name} stream={local} videoOn={video} audioOn={audio} mirrored muteAudio />
+            </div>
+            <div className="lobby-toggles">
+              <button className={`icon${audio ? '' : ' off'}`} onClick={toggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
+                {audio ? <MicIcon /> : <MicOffIcon />}
+              </button>
+              <button className={`icon${video ? '' : ' off'}`} onClick={toggleVideo} aria-label={video ? 'Camera off' : 'Camera on'} title={video ? 'Camera off' : 'Camera on'}>
+                {video ? <VideoIcon /> : <VideoOffIcon />}
+              </button>
+              <FilterButton look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
+            </div>
           </div>
           <div className="lobby-form">
-            <h1>Join {room}</h1>
+            <div className="lobby-title">
+              <h1>Ready to join?</h1>
+              <p>
+                Room: <strong>{room}</strong>
+              </p>
+            </div>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -203,7 +220,7 @@ export function RoomPage({ room }: { room: string }) {
               }}
             >
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
-              <button className="primary" disabled={!local || phase === 'joining'}>
+              <button className="primary big" disabled={!local || phase === 'joining'}>
                 {phase === 'joining' ? 'Joining...' : 'Join'}
               </button>
             </form>
@@ -253,7 +270,7 @@ export function RoomPage({ room }: { room: string }) {
                 </section>
               )
             )}
-            <details className="devices">
+            <details className="devices" open>
               <summary>
                 {COPY.devices}
                 <span className="hint">{deviceSummary(devices, selected)}</span>
