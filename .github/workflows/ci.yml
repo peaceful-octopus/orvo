@@ -1,8 +1,12 @@
 name: CI
+# Pushes to main run the quick checks only. The browser suites are slow, so they run on pull requests, on release tags and
+# on demand (Actions > CI > Run workflow).
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
@@ -23,6 +27,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     needs: check
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,6 +44,7 @@ jobs:
   fleet:
     runs-on: ubuntu-latest
     needs: check
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
