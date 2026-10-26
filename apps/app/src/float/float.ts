@@ -42,6 +42,8 @@ const SAVE_DELAY_MS = 400;
  * logical pixels, so the window already grows with the display scaling.
  */
 const DIALOG_ROOM = { w: 640, h: 460 };
+/** Mirrors minWidth and minHeight in tauri.conf.json, restored when the window docks again. */
+const DOCKED_MIN = { w: 520, h: 620 };
 
 function loadBubble(): number {
   try {
@@ -98,6 +100,7 @@ export function useFloat(mode: LayoutMode, count: number) {
       await win.setShadow(false); // the shadow draws a dark frame around the transparent window
       await setWindowBorder(false); // and Windows 11 adds a one-pixel outline even without it
       await win.setAlwaysOnTop(true);
+      await win.setMinSize(null); // the window's minimum size is for the docked pages, not a few bubbles
       await win.setSize(new LogicalSize(size.w, size.h));
       document.documentElement.classList.add('floating');
       setActive(true);
@@ -125,6 +128,7 @@ export function useFloat(mode: LayoutMode, count: number) {
       await win.setShadow(true);
       await setWindowBorder(true);
       await win.setDecorations(saved.decorated);
+      await win.setMinSize(new LogicalSize(DOCKED_MIN.w, DOCKED_MIN.h));
       await win.setSize(new LogicalSize(saved.w, saved.h));
       setSaved(null);
     } else if (kind === 'pip') {
