@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useAuthOffered } from './auth/AccountUi';
 import { COPY } from './copy';
 import { usePopover } from './DeviceMenu';
-import { DoorClosedIcon, DoorOpenIcon } from './float/icons';
+import { RoomControlsIcon } from './float/icons';
 
 interface Access {
   signedInOnly: boolean;
@@ -33,7 +33,7 @@ export function RoomMenu({ access, onChange }: MenuProps) {
         title={COPY.room.menu}
         onClick={() => setOpen(!open)}
       >
-        {access.locked ? <DoorClosedIcon /> : <DoorOpenIcon />}
+        <RoomControlsIcon />
       </button>
       {open && (
         <div className="popover">

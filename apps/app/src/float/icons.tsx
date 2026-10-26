@@ -1,8 +1,6 @@
 import {
   Check,
   ChevronDown,
-  DoorClosed,
-  DoorOpen,
   LogOut,
   Link,
   Lock,
@@ -17,6 +15,7 @@ import {
   ScreenShareOff,
   Settings,
   Sparkles,
+  UserCog,
   Video,
   VideoOff,
   X,
@@ -38,8 +37,7 @@ export const GearIcon = () => <Settings size={SIZE} strokeWidth={STROKE} aria-hi
 export const LinkIcon = () => <Link size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LockIcon = () => <Lock size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LockOpenIcon = () => <LockOpen size={SIZE} strokeWidth={STROKE} aria-hidden />;
-export const DoorClosedIcon = () => <DoorClosed size={SIZE} strokeWidth={STROKE} aria-hidden />;
-export const DoorOpenIcon = () => <DoorOpen size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const RoomControlsIcon = () => <UserCog size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const RemoveIcon = () => <X size={16} strokeWidth={3} aria-hidden />;
 export const CheckIcon = () => <Check size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ScreenShareIcon = () => <ScreenShare size={SIZE} strokeWidth={STROKE} aria-hidden />;
