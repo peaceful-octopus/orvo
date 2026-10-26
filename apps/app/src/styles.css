@@ -299,8 +299,12 @@ html.floating .toasts {
 }
 
 /* The brand in the upper left of the landing page and lobby, opposite the settings corner. */
+main:has(> .wordmark-header) {
+  padding-top: 4.5rem;
+}
+
 .wordmark-header {
-  position: fixed;
+  position: absolute;
   top: 1.1rem;
   left: 1.5rem;
   z-index: 5;
