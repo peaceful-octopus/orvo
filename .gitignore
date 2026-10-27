@@ -10,3 +10,5 @@ apps/desktop/src-tauri/gen
 data
 *.local
 data-e2e-accounts
+data-e2e-admin
+data-e2e-no-admin

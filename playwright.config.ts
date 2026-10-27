@@ -64,6 +64,31 @@ const accountServers = [
   { command: 'pnpm --filter @orvo/app dev', url: 'http://localhost:5173', reuseExistingServer: true, env: { VITE_GIPHY_API_KEY: '' } },
 ];
 
+// E2E_ADMIN=1 runs the admin page suite: a server with an admin password, and one without, so the page's "off" state can be
+// seen too. The app (dev server) is pointed at them by each test.
+const admin = Boolean(process.env.E2E_ADMIN);
+const ADMIN_PORT = 8182;
+const NO_ADMIN_PORT = 8183;
+
+// Whatever sign-in settings are in the shell must not leak into these servers: the tests expect none.
+const noSignIn = { OIDC_ISSUER: '', OIDC_CLIENT_ID: '', OIDC_CLIENT_SECRET: '', OIDC_DESKTOP_CLIENT_ID: '', OIDC_DESKTOP_CLIENT_SECRET: '', ROOM_CREATION: '', DEFAULT_ROOM_ACCESS: '' };
+
+const adminServers = [
+  {
+    command: 'pnpm --filter @orvo/server start',
+    url: `http://localhost:${ADMIN_PORT}/healthz`,
+    reuseExistingServer: false,
+    env: { ...noSignIn, PORT: String(ADMIN_PORT), DATA_DIR: './data-e2e-admin', ADMIN_PASSWORD: 'e2e-admin-password' },
+  },
+  {
+    command: 'pnpm --filter @orvo/server start',
+    url: `http://localhost:${NO_ADMIN_PORT}/healthz`,
+    reuseExistingServer: false,
+    env: { ...noSignIn, PORT: String(NO_ADMIN_PORT), DATA_DIR: './data-e2e-no-admin', ADMIN_PASSWORD: '' },
+  },
+  { command: 'pnpm --filter @orvo/app dev', url: 'http://localhost:5173', reuseExistingServer: true, env: { VITE_GIPHY_API_KEY: '' } },
+];
+
 export default defineConfig({
   testDir: 'e2e',
   testMatch: '**/*.e2e.ts',
@@ -91,6 +116,7 @@ export default defineConfig({
     { name: 'resilience', testDir: 'e2e/resilience', timeout: 90_000, expect: { timeout: 30_000 } },
     { name: 'tiers', testDir: 'e2e/tiers', timeout: 90_000, expect: { timeout: 45_000 } },
     { name: 'accounts', testDir: 'e2e/accounts', timeout: 60_000, expect: { timeout: 20_000 } },
+    { name: 'admin', testDir: 'e2e/admin', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'visual', testDir: 'e2e/visual', timeout: 90_000, expect: { timeout: 20_000 } },
     { name: 'effects', testDir: 'e2e/effects', timeout: 60_000, expect: { timeout: 20_000 } },
     { name: 'fleet', testDir: 'e2e/fleet', timeout: 90_000, expect: { timeout: 30_000 } },
@@ -101,7 +127,9 @@ export default defineConfig({
     ? fleetServers
     : accounts
       ? accountServers
-      : external
+      : admin
+        ? adminServers
+        : external
       ? undefined
       : [
           {

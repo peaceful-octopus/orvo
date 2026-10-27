@@ -46,6 +46,10 @@ if ('serviceWorker' in navigator && !('__TAURI_INTERNALS__' in window) && !impor
 
 if (!controlsOnly) {
   void useConfig.getState().refresh();
+  // The server's settings can change while the page is open (the operator edits them in the admin page).
+  const revalidate = () => void useConfig.getState().revalidate().catch(() => {});
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && revalidate());
+  setInterval(revalidate, 5 * 60_000);
   telemetry.start();
   startUpdateChecks();
   // A reload can leave the previous page's controls window behind with nothing to control.

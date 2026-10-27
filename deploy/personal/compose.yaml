@@ -16,6 +16,16 @@ services:
       - "8080:8080"
     environment:
       BEHIND_PROXY: ${BEHIND_PROXY:-}
+      # The admin page at /admin, for changing the settings below without restarting. It exists only with a password, and
+      # only answers from your local network (open it by the server's LAN address) unless ADMIN_ALLOW_REMOTE=1.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_ALLOW_REMOTE: ${ADMIN_ALLOW_REMOTE:-}
+      # Starting values for settings the admin page can change; what is saved there wins over these.
+      MAX_ROOM_SIZE: ${MAX_ROOM_SIZE:-}
+      WARN_ROOM_SIZE: ${WARN_ROOM_SIZE:-}
+      MIN_CLIENT_VERSION: ${MIN_CLIENT_VERSION:-}
+      ANNOUNCEMENT: ${ANNOUNCEMENT:-}
+      ANNOUNCEMENT_ID: ${ANNOUNCEMENT_ID:-}
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
       # Optional relay (TURN) for people whose networks block direct connections; see the turn service below.
       TURN_URLS: ${TURN_URLS:-}

@@ -364,7 +364,8 @@ export const useCall = create<CallState>((set, get) => {
       if (!local) return;
       set({ phase: 'joining', error: undefined, loginRequired: undefined, blocked: undefined, roomId: room });
       await get().applyNoise(); // the call starts with the cleaned-up microphone
-      const { config } = await loadClientConfig();
+      // Fresh enough that a change the operator just made (relay video quality, say) applies to this call.
+      const { config } = await loadClientConfig({ maxAgeMs: 30_000 });
       transport = new MeshTransport({
         beaconUrls: config.beaconUrls,
         clientVersion: CLIENT_VERSION,

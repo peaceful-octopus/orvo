@@ -295,7 +295,7 @@ html.floating .toasts {
 }
 
 /* The brand in the upper left of the landing page and lobby, opposite the settings corner. */
-main:has(> .wordmark-header, > .header-left) {
+main:has(> .wordmark-header, > .header-left, > .admin) {
   padding-top: 4.5rem;
 }
 
@@ -1380,4 +1380,81 @@ input[type='checkbox'] {
   button:not(:disabled):active {
     transform: none;
   }
+}
+
+/* ---- Admin page ------------------------------------------------------------------------------------------------ */
+
+main.admin-page {
+  align-content: start;
+  place-items: start center;
+}
+
+.admin {
+  display: grid;
+  gap: 1rem;
+  width: min(40rem, 100%);
+  text-align: left;
+}
+
+.admin h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.admin h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.admin-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-settings {
+  display: grid;
+  gap: 2rem;
+}
+
+.admin-settings section {
+  display: grid;
+}
+
+.admin-settings section h2 {
+  padding-bottom: 0.5rem;
+}
+
+.admin input:not([type='checkbox']),
+.admin textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin textarea {
+  padding: 0.55rem 1rem;
+  border-radius: var(--r-control);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+
+.admin textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.admin textarea::placeholder {
+  color: var(--muted);
+}
+
+.admin-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 0;
+  background: var(--bg);
 }

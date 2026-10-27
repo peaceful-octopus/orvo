@@ -28,6 +28,8 @@ export interface ConfigClientOptions {
   /** How long past `validUntil` a cached config is still honored when no fresh one can be fetched. */
   graceMs?: number;
   timeoutMs?: number;
+  /** Ask the server even when the browser holds a recent copy of the config (it is served with a short max-age). */
+  bypassCache?: boolean;
 }
 
 export type ConfigSource = 'network' | 'cache' | 'default';
@@ -99,7 +101,7 @@ export class ConfigClient {
   }
 
   private async getJson(url: string, path: string): Promise<unknown> {
-    const res = await this.fetchImpl(new URL(path, url), { signal: AbortSignal.timeout(this.timeoutMs) });
+    const res = await this.fetchImpl(new URL(path, url), { signal: AbortSignal.timeout(this.timeoutMs), ...(this.opts.bypassCache ? { cache: 'no-cache' as const } : {}) });
     if (!res.ok) throw new Error(`${path} returned ${res.status}`);
     return res.json();
   }

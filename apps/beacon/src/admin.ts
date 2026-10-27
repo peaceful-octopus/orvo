@@ -6,7 +6,9 @@ import type { SigningKey } from './keys';
 import { SECRET_KEYS, SETTING_KEYS, type SettingsStore } from './settings';
 
 const TOKEN_TTL_MS = 8 * 3600_000;
-const LOGIN_ATTEMPTS_PER_MINUTE = 5;
+const FAILED_LOGINS_PER_MINUTE = 5;
+const FAILED_LOGIN_WINDOW_MS = 60_000;
+const MAX_TRACKED_ADDRESSES = 1000;
 
 /** Headers a reverse proxy adds. A request carrying one came from outside, however local the proxy itself is. */
 const PROXY_HEADERS = ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-real-ip', 'forwarded', 'cf-connecting-ip', 'true-client-ip'];
@@ -70,6 +72,42 @@ export function adminTokenValid(token: string | undefined, signingKey: SigningKe
   }
 }
 
+/**
+ * Counts wrong passwords per address, so guessing is slow while the operator's own logins never count. After `max` wrong
+ * ones within the window further attempts are refused until the window ends, whatever password they carry.
+ */
+export class FailedLoginLimiter {
+  private readonly failures = new Map<string, { count: number; resetAt: number }>();
+
+  constructor(
+    private readonly max: number,
+    private readonly now: () => number,
+    private readonly windowMs = FAILED_LOGIN_WINDOW_MS,
+  ) {}
+
+  blocked(key: string): boolean {
+    const entry = this.failures.get(key);
+    if (!entry) return false;
+    if (entry.resetAt <= this.now()) {
+      this.failures.delete(key);
+      return false;
+    }
+    return entry.count >= this.max;
+  }
+
+  fail(key: string): void {
+    const t = this.now();
+    if (this.failures.size >= MAX_TRACKED_ADDRESSES) for (const [k, v] of this.failures) if (v.resetAt <= t) this.failures.delete(k);
+    const entry = this.failures.get(key);
+    if (entry && entry.resetAt > t) entry.count += 1;
+    else this.failures.set(key, { count: 1, resetAt: t + this.windowMs });
+  }
+
+  clear(key: string): void {
+    this.failures.delete(key);
+  }
+}
+
 export interface AdminOptions {
   store: SettingsStore;
   /** The admin password. The routes exist only when the server has one. */
@@ -78,8 +116,8 @@ export interface AdminOptions {
   /** Lets requests that arrive through a reverse proxy, or from outside the local network, use the admin routes. */
   allowRemote?: boolean;
   now?: () => number;
-  /** Wrong-password attempts allowed per minute for one address; `false` for no limit. */
-  loginAttemptsPerMinute?: number | false;
+  /** Wrong passwords allowed per minute for one address before logins from it are refused; `false` for no limit. */
+  failedLoginsPerMinute?: number | false;
 }
 
 /** What the admin page shows: each setting's value (secrets only as "set"), its default and where the value comes from. */
@@ -103,8 +141,7 @@ export function describeSettings(store: SettingsStore) {
  */
 export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptions): Promise<void> {
   const now = opts.now ?? Date.now;
-  const loginLimit =
-    opts.loginAttemptsPerMinute === false ? {} : { config: { rateLimit: { max: opts.loginAttemptsPerMinute ?? LOGIN_ATTEMPTS_PER_MINUTE, timeWindow: '1 minute' } } };
+  const limiter = opts.failedLoginsPerMinute === false ? undefined : new FailedLoginLimiter(opts.failedLoginsPerMinute ?? FAILED_LOGINS_PER_MINUTE, now);
 
   await app.register(
     async (admin) => {
@@ -126,9 +163,14 @@ export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptio
 
       admin.get('/status', async () => ({ enabled: true }));
 
-      admin.post('/login', loginLimit, async (req, reply) => {
+      admin.post('/login', async (req, reply) => {
+        if (limiter?.blocked(req.ip)) return reply.code(429).send({ error: 'Too many wrong passwords. Wait a minute and try again.', code: 'admin-too-many-attempts' });
         const { password } = (req.body ?? {}) as { password?: unknown };
-        if (!passwordMatches(password, opts.password)) return reply.code(401).send({ error: 'Wrong password.', code: 'admin-wrong-password' });
+        if (!passwordMatches(password, opts.password)) {
+          limiter?.fail(req.ip);
+          return reply.code(401).send({ error: 'Wrong password.', code: 'admin-wrong-password' });
+        }
+        limiter?.clear(req.ip);
         return issueAdminToken(opts.signingKey, opts.password, now());
       });
 

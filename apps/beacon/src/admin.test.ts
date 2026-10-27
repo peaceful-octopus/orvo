@@ -130,11 +130,26 @@ describe('admin routes', () => {
     expect((await call('GET', '/v1/admin/settings', { token })).statusCode).toBe(401);
   });
 
-  it('limit wrong-password attempts', async () => {
-    await start({ loginAttemptsPerMinute: 3 });
-    const codes = [];
-    for (let i = 0; i < 5; i++) codes.push((await call('POST', '/v1/admin/login', { payload: { password: 'nope' } })).statusCode);
-    expect(codes).toEqual([401, 401, 401, 429, 429]);
+  it('slow down password guessing without counting the operator\'s own logins', async () => {
+    await start({ failedLoginsPerMinute: 3 });
+    const wrong = () => call('POST', '/v1/admin/login', { payload: { password: 'nope' } }).then((r) => r.statusCode);
+    const right = () => call('POST', '/v1/admin/login', { payload: { password: PASSWORD } }).then((r) => r.statusCode);
+    for (let i = 0; i < 10; i++) expect(await right()).toBe(200); // good logins never count
+    expect([await wrong(), await wrong(), await wrong()]).toEqual([401, 401, 401]);
+    expect(await wrong()).toBe(429);
+    expect(await right()).toBe(429); // even the right password waits out the window
+    clock.advance(61_000);
+    expect(await right()).toBe(200);
+    expect(await wrong()).toBe(401); // and the count started again
+  });
+
+  it('forget wrong passwords after a good login', async () => {
+    await start({ failedLoginsPerMinute: 3 });
+    const wrong = () => call('POST', '/v1/admin/login', { payload: { password: 'nope' } }).then((r) => r.statusCode);
+    await wrong();
+    await wrong();
+    expect((await call('POST', '/v1/admin/login', { payload: { password: PASSWORD } })).statusCode).toBe(200);
+    expect([await wrong(), await wrong(), await wrong()]).toEqual([401, 401, 401]);
   });
 
   it('describe each setting with its source, and never reveal secrets', async () => {

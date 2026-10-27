@@ -57,6 +57,20 @@ Configuration (environment variables): `PORT` (8080), `DATA_DIR` (`/data`), `STU
 
 Without Docker: `pnpm install`, `pnpm --filter @orvo/app build`, `pnpm --filter @orvo/server start`.
 
+### Admin page
+
+Changing a setting through the compose file means recreating the stack. The admin page changes the common ones while the server runs.
+
+1. Set `ADMIN_PASSWORD` in the compose file (or environment) and start the server. Without a password there is no admin page: `/admin` says it is turned off.
+2. Open `http://<the server's local address>:8080/admin`, for example `http://dc01:8080/admin`, and log in. The page answers only from your local network, and never through a reverse proxy. A request that carries proxy headers (`X-Forwarded-For` and similar) or comes from a public address is refused. To open it up anyway, set `ADMIN_ALLOW_REMOTE=1`. The password is the only protection then, so make it long. Wrong passwords are limited to a few a minute.
+3. Change settings and save. Room size, the announcement, relay and video settings, and the rest apply to new calls immediately. Pages already open follow within a few minutes. People in a room keep their place if you lower the room size.
+
+What it covers: room size and warning size, the minimum app version, the announcement banner, who may start and join rooms, STUN and relay (TURN) addresses and secret, the relayed video quality, and the Giphy key.
+
+How it relates to the environment: the compose settings (`MAX_ROOM_SIZE`, `ANNOUNCEMENT`, `RELAY_VIDEO_KBPS` and so on) are the starting values. A value saved in the admin page overrides its environment value, is kept in `settings.json` in the data volume, and survives restarts. Each saved value has a "Reset to default" action that brings the environment's value back. Deleting `settings.json` resets everything. If the saved settings stop fitting together after you change the server's own settings (say, sign-in is removed while a room rule needs it), the server logs a warning and uses the environment's values.
+
+Not in the admin page, because they need a restart: sign-in (`OIDC_*`), `BEHIND_PROXY`, `CORS_ORIGIN`, `RATE_LIMIT_PER_MINUTE`, `PORT` and `DATA_DIR`. A relay secret changed in the admin page does not change the coturn container, which must be recreated with the same secret.
+
 ## 2. Small team: beacon, signaling nodes and Redis
 `deploy/team/compose.yaml` runs a beacon, two signaling nodes, Redis and Caddy from the same image. Nodes register themselves in Redis and keep their rooms' leases alive; the beacon places each room on one node and every participant of that room is sent to it.
 
@@ -77,7 +91,7 @@ Beacon environment: `REDIS_URL`, `SIGNING_KEY`, `STUN_URLS`, `TURN_URLS`, `TURN_
 ### STUN and relay (TURN)
 - **STUN** lets two browsers find a direct path to each other and costs almost no bandwidth. Everyone gets it. The default is Google's public server; to use your own, run `docker compose --profile stun up -d` (both compose files have the profile) and set `STUN_URLS=stun:stun.your-domain:3478`.
 - **A relay (TURN)** carries the media itself for people whose networks block direct connections, so it costs real bandwidth. Rooms get one only with an entitlement; everyone else gets STUN only and the app tells them who it could not connect to. To run relays, use `deploy/turn/compose.yaml`: a `full` pool (uncapped) and a `relay-lite` pool (capped at about 64 kbit/s, so audio only). Put the same secrets and URLs into the beacon (`TURN_URLS`, `TURN_SECRET`, `TURN_LITE_URLS`, `TURN_LITE_SECRET`). The configs refuse to relay to private and loopback addresses; a test guards that, so keep those lines if you edit them.
-- **How the app behaves on a relay:** it detects relayed connections and lowers video quality on them (`limits.relayVideoTier` in the config; 200 kbit/s, half size and 15 frames a second by default). If relayed video looks blocky, raise it with `RELAY_VIDEO_KBPS`, `RELAY_VIDEO_SCALE` (1 is full size, 2 is half in each direction) and `RELAY_VIDEO_FPS` on the server or beacon. `RELAY_VIDEO_KBPS=1000 RELAY_VIDEO_SCALE=1 RELAY_VIDEO_FPS=30` gives roughly the quality of a direct call, and every relayed participant then uses up to that much of your upload bandwidth in each direction. Each setting replaces only its own part of the default. Clients pick the change up when they next load the config, within an hour or on restart. In a `relay-lite` room it sends no video over the relay at all and the other person sees the camera as off.
+- **How the app behaves on a relay:** it detects relayed connections and lowers video quality on them (`limits.relayVideoTier` in the config; 200 kbit/s, half size and 15 frames a second by default). If relayed video looks blocky, raise it with `RELAY_VIDEO_KBPS`, `RELAY_VIDEO_SCALE` (1 is full size, 2 is half in each direction) and `RELAY_VIDEO_FPS` on the server or beacon. `RELAY_VIDEO_KBPS=1000 RELAY_VIDEO_SCALE=1 RELAY_VIDEO_FPS=30` gives roughly the quality of a direct call, and every relayed participant then uses up to that much of your upload bandwidth in each direction. Each setting replaces only its own part of the default. Pages that are already open pick the change up within a few minutes, and a call started after it uses it at once. In a `relay-lite` room it sends no video over the relay at all and the other person sees the camera as off.
 - **Checking a room:** open a room URL with `?ice=relay` to force relay-only connections. In a room without a relay, that person is shown as unreachable; in an entitled room it connects.
 
 ### Verified setups

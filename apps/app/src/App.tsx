@@ -1,5 +1,6 @@
 import { isValidRoomSlug } from '@orvo/protocol';
 import { useState } from 'react';
+import { AdminPage } from './AdminPage';
 import { AuthCallback, SignInCard, useSignIn } from './auth/AccountUi';
 import { useAuth } from './auth/authStore';
 import { COPY } from './copy';
@@ -127,6 +128,8 @@ function Ring() {
 
 export function App() {
   const config = useConfig((s) => s.config);
+  // Before the update check: a minimum version set by mistake must not lock the operator out of the page that fixes it.
+  if (location.pathname === '/admin') return <><Toasts /><AdminPage /></>;
   if (updateRequired(config, CLIENT_VERSION)) return <UpdateRequired />;
 
   if (location.pathname === '/auth/callback') return <AuthCallback />;

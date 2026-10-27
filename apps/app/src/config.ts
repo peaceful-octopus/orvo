@@ -1,4 +1,5 @@
 import { ConfigClient, parseTrustedKeys, type LoadedConfig } from '@orvo/rtc';
+import { configNeedsReload } from './configLogic';
 import { normalizeServerUrl } from './serverUrl';
 
 const STORAGE_KEY = 'orvo:server';
@@ -67,21 +68,26 @@ export function giphyApiKey(config: { integrations?: { giphyApiKey?: string } })
 }
 
 let loading: Promise<LoadedConfig> | undefined;
-let loadedFor: string | undefined;
+let loaded: { server: string; at: number } | undefined;
 
 /**
- * The signed client config, loaded once per server address: verified, cached for offline starts, and
- * carrying fallback beacon addresses so servers can move without an app update. Public keys embedded at
- * build time (`VITE_TRUSTED_KEYS`) pin a CDN-served config; without them the server's own HTTPS origin is trusted.
+ * The signed client config: verified, cached for offline starts, and carrying fallback beacon addresses so servers can
+ * move without an app update. Public keys embedded at build time (`VITE_TRUSTED_KEYS`) pin a CDN-served config; without
+ * them the server's own HTTPS origin is trusted.
+ *
+ * It is loaded once per server address, and again once the one in hand is older than `maxAgeMs`, which is how changes an
+ * operator makes on the server reach a page that stays open.
  */
-export function loadClientConfig(): Promise<LoadedConfig> {
+export function loadClientConfig(options: { maxAgeMs?: number } = {}): Promise<LoadedConfig> {
   const server = getServerUrl();
-  if (!loading || loadedFor !== server) {
-    loadedFor = server;
+  if (!loading || configNeedsReload(loaded, server, Date.now(), options.maxAgeMs)) {
+    loaded = { server, at: Date.now() };
     loading = new ConfigClient({
       beaconUrls: [server],
       trustedKeys: parseTrustedKeys(import.meta.env.VITE_TRUSTED_KEYS),
       storage: safeStorage(),
+      // A refresh of a config already in hand is for picking up changes, so it must not be answered from the browser's cache.
+      bypassCache: options.maxAgeMs !== undefined,
     }).load();
   }
   return loading;

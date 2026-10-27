@@ -23,7 +23,7 @@ const settings = new SettingsStore({
   defaults: settingsFromEnv(process.env, signIn),
   file: path.join(dataDir, 'settings.json'),
   authConfigured: Boolean(signIn.auth),
-  defaultAnnouncementId: process.env.ANNOUNCEMENT_ID ?? 'notice',
+  defaultAnnouncementId: process.env.ANNOUNCEMENT_ID || 'notice',
 });
 const app = await createBeaconApp({
   signingKey,

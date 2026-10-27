@@ -1,6 +1,6 @@
 import { makeConfig } from '@orvo/testkit';
 import { describe, expect, it } from 'vitest';
-import { dismissAnnouncement, updateRequired, visibleAnnouncement, type KeyValueStorage } from './configLogic';
+import { configNeedsReload, dismissAnnouncement, updateRequired, visibleAnnouncement, type KeyValueStorage } from './configLogic';
 
 function storage(): KeyValueStorage {
   const data = new Map<string, string>();
@@ -47,5 +47,23 @@ describe('announcements', () => {
     for (let i = 0; i < 30; i++) dismissAnnouncement(`n${i}`, s);
     expect(visibleAnnouncement(makeConfig({ announcement: { id: 'n0', text: 'old' } }), s)).toBeDefined();
     expect(visibleAnnouncement(makeConfig({ announcement: { id: 'n29', text: 'new' } }), s)).toBeUndefined();
+  });
+});
+
+describe('configNeedsReload', () => {
+  const loaded = { server: 'https://orvo.example', at: 1_000 };
+
+  it('loads when nothing has been loaded or the server is another one', () => {
+    expect(configNeedsReload(undefined, 'https://orvo.example', 1_000)).toBe(true);
+    expect(configNeedsReload(loaded, 'https://other.example', 1_000)).toBe(true);
+  });
+
+  it('keeps a config for as long as the page is open unless an age limit is given', () => {
+    expect(configNeedsReload(loaded, 'https://orvo.example', 9e9)).toBe(false);
+  });
+
+  it('reloads once the config is older than the age limit', () => {
+    expect(configNeedsReload(loaded, 'https://orvo.example', 1_000 + 300_000, 300_000)).toBe(false);
+    expect(configNeedsReload(loaded, 'https://orvo.example', 1_000 + 300_001, 300_000)).toBe(true);
   });
 });
