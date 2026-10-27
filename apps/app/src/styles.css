@@ -37,15 +37,11 @@ h3 {
   line-height: 1.1;
 }
 
-/* The Tauri window and the Picture-in-Picture window show bubbles over whatever is behind them. */
+/* The Tauri window shows bubbles over whatever is behind it. */
 html.floating,
 html.floating body {
   background: transparent;
   overflow: hidden;
-}
-
-html.pip body {
-  background: var(--bg);
 }
 
 main {

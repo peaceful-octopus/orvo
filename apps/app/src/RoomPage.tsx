@@ -1,6 +1,5 @@
 import { roomStatus } from '@orvo/protocol';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Bubble } from './Bubble';
 import { useCall } from './callStore';
 import { getServerUrl, giphyApiKey } from './config';
@@ -160,7 +159,7 @@ export function RoomPage({ room }: { room: string }) {
       autoFloated.current = false;
     } else if (!autoFloated.current && startView === 'floating' && float.kind) {
       autoFloated.current = true;
-      void float.enter().catch(() => {}); // Picture-in-Picture can refuse without a fresh click
+      void float.enter().catch(() => {}); // the window may refuse while the call is still starting
     }
   }, [phase, startView, float]);
   const onControlAction = (a: ControlAction) => {
@@ -435,7 +434,6 @@ export function RoomPage({ room }: { room: string }) {
           />
         </Suspense>
       )}
-      {float.pip && createPortal(floatView(false), float.pip.document.body)}
     </main>
   );
 }

@@ -148,17 +148,18 @@ function SettingsPane({ onClose }: { onClose(): void }) {
           <span className="hint">Others see a change right away, even during a call.</span>
         </label>
 
-        <div className="setting" role="group" aria-label="Start view">
-          <span className="setting-label">Start calls as</span>
-          <div className="segmented">
-            {START_VIEWS.map((v) => (
-              <button key={v.id} aria-pressed={startView === v.id} disabled={v.id === 'floating' && !canFloat} onClick={() => setStartView(v.id)}>
-                {v.label}
-              </button>
-            ))}
+        {canFloat && (
+          <div className="setting" role="group" aria-label="Start view">
+            <span className="setting-label">Start calls as</span>
+            <div className="segmented">
+              {START_VIEWS.map((v) => (
+                <button key={v.id} aria-pressed={startView === v.id} onClick={() => setStartView(v.id)}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
           </div>
-          {!canFloat && <span className="hint">Floating bubbles are not available in this browser.</span>}
-        </div>
+        )}
 
         <div className="setting" role="group" aria-label="Appearance">
           <span className="setting-label">Appearance</span>

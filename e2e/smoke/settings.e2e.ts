@@ -24,7 +24,7 @@ test('settings are remembered and the name is used in the lobby @smoke', async (
   await page.getByRole('button', { name: 'Settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await dialog.getByLabel('Your name').fill('Zed');
-  await dialog.getByRole('button', { name: 'Floating' }).click();
+  await dialog.getByRole('button', { name: 'Light', exact: true }).click();
   await dialog.getByLabel('Noise suppression strength').fill('35');
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
@@ -32,7 +32,7 @@ test('settings are remembered and the name is used in the lobby @smoke', async (
   await page.goto('/r/e2e-settings-remembered');
   await expect(page.getByPlaceholder('Your name')).toHaveValue('Zed');
   await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByRole('button', { name: 'Floating' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByLabel('Noise suppression strength')).toHaveValue('35');
 });
 

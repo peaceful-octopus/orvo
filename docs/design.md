@@ -44,8 +44,7 @@ sets. `palettes.test.ts` checks every palette for readable text (4.5:1) on every
 and danger fills (including their hover colours), and visible borders, focus rings and sliders (3:1). It appears in
 Settings → Appearance → Colours as soon as there is more than one.
 
-Light or dark follows the system by default and can be forced in Settings. The floating controls window and any
-Picture-in-Picture window follow the same palette.
+Light or dark follows the system by default and can be forced in Settings. The floating controls window follows the same palette.
 
 ## Reviewing a change
 

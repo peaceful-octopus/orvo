@@ -1,30 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { registerThemeTarget } from '../theme/theme';
 import { adaptiveMode, bubbleForWindow, FLOAT_BUBBLE, floatWindowSize, MAX_FLOAT_BUBBLE, MIN_FLOAT_BUBBLE, type LayoutMode } from './layouts';
 
-export type FloatKind = 'tauri' | 'pip';
+export type FloatKind = 'tauri';
 
-interface PipApi {
-  requestWindow(options: { width: number; height: number }): Promise<Window>;
-}
-
-const pipApi = () => (window as unknown as { documentPictureInPicture?: PipApi }).documentPictureInPicture;
-
+/** Floating needs the desktop app's window control; a browser or an installed web app has none. */
 export function floatKind(): FloatKind | null {
-  if ('__TAURI_INTERNALS__' in window) return 'tauri';
-  return pipApi() ? 'pip' : null;
-}
-
-function copyStyles(from: Document, to: Document) {
-  for (const sheet of Array.from(from.styleSheets)) {
-    try {
-      const style = to.createElement('style');
-      style.textContent = Array.from(sheet.cssRules, (r) => r.cssText).join('\n');
-      to.head.append(style);
-    } catch {
-      // Cross-origin stylesheets cannot be read; skip them.
-    }
-  }
+  return '__TAURI_INTERNALS__' in window ? 'tauri' : null;
 }
 
 /** Hides or restores the Windows 11 border that otherwise outlines the transparent floating window. */
@@ -76,13 +57,11 @@ interface TauriSaved {
 }
 
 /**
- * Floating bubbles over other apps. In Tauri the app window itself becomes a small transparent
- * always-on-top window; elsewhere a Document Picture-in-Picture window hosts the bubbles.
+ * Floating bubbles over other apps: the app window itself becomes a small transparent always-on-top window.
  */
 export function useFloat(mode: LayoutMode, count: number) {
   const kind = floatKind();
   const [active, setActive] = useState(false);
-  const [pip, setPip] = useState<Window | null>(null);
 
   const [saved, setSaved] = useState<TauriSaved | null>(null);
   /** The bubble diameter the person last chose by resizing; the window is refitted to it as people come and go. */
@@ -106,18 +85,6 @@ export function useFloat(mode: LayoutMode, count: number) {
       await win.setSize(new LogicalSize(size.w, size.h));
       document.documentElement.classList.add('floating');
       setActive(true);
-    } else if (kind === 'pip') {
-      const win = await pipApi()!.requestWindow({ width: size.w, height: size.h });
-      copyStyles(document, win.document);
-      const stopTheme = registerThemeTarget(win.document);
-      win.document.documentElement.classList.add('floating', 'pip');
-      win.addEventListener('pagehide', () => {
-        stopTheme();
-        setPip(null);
-        setActive(false);
-      });
-      setPip(win);
-      setActive(true);
     }
   }, [kind, mode, count]);
 
@@ -133,11 +100,9 @@ export function useFloat(mode: LayoutMode, count: number) {
       await win.setMinSize(new LogicalSize(DOCKED_MIN.w, DOCKED_MIN.h));
       await win.setSize(new LogicalSize(saved.w, saved.h));
       setSaved(null);
-    } else if (kind === 'pip') {
-      pip?.close();
     }
     setActive(false);
-  }, [kind, saved, pip]);
+  }, [kind, saved]);
 
   /**
    * Runs `task` with the floating window made big enough to hold a system dialog (the screen picker is drawn inside
@@ -175,15 +140,8 @@ export function useFloat(mode: LayoutMode, count: number) {
         const size = fitted({ w: inner.width, h: inner.height });
         await win.setSize(new LogicalSize(size.w, size.h));
       });
-    } else {
-      try {
-        const size = fitted({ w: pip?.innerWidth ?? 0, h: pip?.innerHeight ?? 0 });
-        pip?.resizeTo(size.w, size.h);
-      } catch {
-        // Browsers may refuse resizes without a user gesture.
-      }
     }
-  }, [active, kind, mode, count, pip]);
+  }, [active, kind, mode, count]);
 
   // Remember the size the person drags the window to, for the next time and the next session.
   useEffect(() => {
@@ -212,7 +170,7 @@ export function useFloat(mode: LayoutMode, count: number) {
     };
   }, [active, kind, mode, count]);
 
-  return { kind, active, pip, enter, exit, withRoomyWindow };
+  return { kind, active, enter, exit, withRoomyWindow };
 }
 
 export async function startWindowDrag() {
