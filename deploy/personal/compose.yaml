@@ -36,16 +36,23 @@ services:
   # Needs a Linux host with host networking and a public address, with UDP and TCP 3478 and UDP 49152-50175 open to
   # the internet. Then set, for the orvo service:  TURN_URLS=turn:<your-host>:3478  TURN_SECRET=<the same secret>
   #
-  #   TURN_SECRET=<long random string> EXTERNAL_IP=<public address> docker compose --profile turn up -d
+  # The relay has to know its public address. Give it a hostname that follows your IP (EXTERNAL_HOST) and it looks the
+  # address up when it starts and every minute after that, restarting itself with the new one when it changes (calls
+  # through the relay reconnect). Or give a fixed address (EXTERNAL_IP). LAN_IP, the host's address on your network, is
+  # needed when the host sits behind a router doing NAT, so two people on the relay can reach each other.
+  #
+  #   TURN_SECRET=<long random string> EXTERNAL_HOST=turn.example.com LAN_IP=192.168.1.20 docker compose --profile turn up -d
   turn:
     profiles: ["turn"]
     image: coturn/coturn:4.6
     restart: unless-stopped
     network_mode: host
-    # Checked here, not with ${VAR:?}, because Compose would otherwise demand these even when the profile is off.
+    # Checked in the script, not with ${VAR:?}, because Compose would otherwise demand these even when the profile is off.
     environment:
       TURN_SECRET: ${TURN_SECRET:-}
+      EXTERNAL_HOST: ${EXTERNAL_HOST:-}
       EXTERNAL_IP: ${EXTERNAL_IP:-}
+      LAN_IP: ${LAN_IP:-}
     # The settings are written out here so this file works on its own, without the rest of the repository. They
     # mirror deploy/turn/turnserver.full.conf, and a test fails if the two drift apart. Keep the denied-peer-ip lines:
     # without them the relay is a way into the server's private network.
@@ -53,7 +60,10 @@ services:
       - /bin/sh
       - -c
       - |
-        [ -n "$$TURN_SECRET" ] && [ -n "$$EXTERNAL_IP" ] || { echo "set TURN_SECRET and EXTERNAL_IP" >&2; exit 1; }
+        resolve() { getent ahostsv4 "$$EXTERNAL_HOST" | awk 'NR==1 {print $$1}'; }
+        if [ -n "$$EXTERNAL_HOST" ]; then PUBLIC=$$(resolve); else PUBLIC="$$EXTERNAL_IP"; fi
+        [ -n "$$TURN_SECRET" ] && [ -n "$$PUBLIC" ] || { echo "set TURN_SECRET and EXTERNAL_HOST (or EXTERNAL_IP)" >&2; exit 1; }
+        EXTERNAL="$$PUBLIC"; [ -n "$$LAN_IP" ] && EXTERNAL="$$PUBLIC/$$LAN_IP"
         cat > /tmp/turnserver.conf <<'EOF'
         listening-port=3478
         min-port=49152
@@ -84,7 +94,17 @@ services:
         denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
         denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
         EOF
-        exec turnserver -c /tmp/turnserver.conf --static-auth-secret="$$TURN_SECRET" --external-ip="$$EXTERNAL_IP"
+        turnserver -c /tmp/turnserver.conf --static-auth-secret="$$TURN_SECRET" --external-ip="$$EXTERNAL" &
+        PID=$$!
+        trap 'kill $$PID' TERM INT
+        if [ -n "$$EXTERNAL_HOST" ]; then
+          while kill -0 $$PID 2>/dev/null; do
+            sleep 60
+            NOW=$$(resolve)
+            if [ -n "$$NOW" ] && [ "$$NOW" != "$$PUBLIC" ]; then echo "$$EXTERNAL_HOST is now $$NOW (was $$PUBLIC); restarting" >&2; kill $$PID; break; fi
+          done &
+        fi
+        wait $$PID
 
 volumes:
   orvo-data:

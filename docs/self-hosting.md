@@ -23,9 +23,11 @@ BEHIND_PROXY=1 docker compose up -d
 **Relay (TURN), for when video never arrives.** If two people join the room and see each other in the list but no video comes through, their networks are blocking a direct connection (common on mobile data and some home or office networks). A relay carries the media for them, which uses your server's bandwidth. On a personal server, setting `TURN_URLS` and `TURN_SECRET` gives every room relay credentials. Run coturn with the `turn` profile on a Linux host with a public address:
 
 ```
-TURN_SECRET=<long random string> EXTERNAL_IP=<public address> docker compose --profile turn up -d
-TURN_URLS=turn:<your-host>:3478 TURN_SECRET=<the same string> BEHIND_PROXY=1 docker compose up -d
+TURN_SECRET=<long random string> EXTERNAL_HOST=turn.example.com LAN_IP=192.168.1.20 docker compose --profile turn up -d
+TURN_URLS=turn:turn.example.com:3478 TURN_SECRET=<the same string> BEHIND_PROXY=1 docker compose up -d
 ```
+
+The relay has to know its public address. `EXTERNAL_HOST` is a hostname that follows your IP address (a DNS-only record, kept current by your dynamic DNS). The relay looks it up when it starts and every minute after, and restarts itself with the new address when it changes, so calls going through the relay reconnect. If your address never changes, use `EXTERNAL_IP=<public address>` instead. `LAN_IP` is the host's address on your network. Set it when the host is behind a router that does NAT, so two people who are both on the relay can reach each other.
 
 Open UDP and TCP 3478 and UDP 49152-50175 to the internet. The relay is its own service on its own ports, so the reverse proxy does not carry it. Use the same `TURN_SECRET` on both. A relay on another machine works the same way: point `TURN_URLS` at it. The coturn settings are written into the compose file itself, so you can copy `compose.yaml` to your server on its own. They refuse to relay to private and loopback addresses; a test keeps them identical to `deploy/turn/turnserver.full.conf`. To confirm it works, open a room URL with `?ice=relay`, which forces relay-only connections.
 
