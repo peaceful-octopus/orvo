@@ -9,8 +9,11 @@ const inTauri = '__TAURI_INTERNALS__' in window;
 
 export const CLIENT_VERSION: string = import.meta.env.VITE_APP_VERSION ?? '0.0.0';
 
+/** What the desktop app talks to until the user picks another server. */
+const DESKTOP_DEFAULT_SERVER = 'https://orvo.jkreisel.fun';
+
 export function defaultServerUrl(): string {
-  return import.meta.env.VITE_BEACON_URL ?? (inTauri ? 'http://localhost:8080' : location.origin);
+  return import.meta.env.VITE_BEACON_URL ?? (inTauri ? DESKTOP_DEFAULT_SERVER : location.origin);
 }
 
 /** The beacon this app talks to: the user's setting, else the build-time default, else this site's own origin. */
