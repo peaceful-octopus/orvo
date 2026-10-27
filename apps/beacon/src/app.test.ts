@@ -217,6 +217,14 @@ describe('limits and announcements', () => {
     });
   });
 
+  it('publishes the video limits for relayed connections when configured', async () => {
+    const relayVideoTier = { maxBitrate: 800_000, scaleResolutionDownBy: 1, maxFramerate: 30 };
+    await start({ limits: { relayVideoTier } });
+    const res = await app.inject({ method: 'GET', url: '/v1/config' });
+    const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
+    expect(result).toMatchObject({ ok: true, config: { limits: { relayVideoTier } } });
+  });
+
   it('puts the room cap in the join token so nodes enforce what clients are told', async () => {
     await start({ limits: { maxRoomSize: 4 } });
     const body = (await join({ room: 'cozy-room-abc123' })).json() as JoinResponse;

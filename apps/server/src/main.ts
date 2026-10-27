@@ -1,4 +1,4 @@
-import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, serveWebApp } from '@orvo/beacon';
+import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, relayVideoTierFromEnv, serveWebApp } from '@orvo/beacon';
 import { Metrics } from '@orvo/metrics';
 import { MemoryPlacementStore } from '@orvo/placement';
 import { SignalingServer } from '@orvo/signaling';
@@ -28,9 +28,10 @@ const app = await createBeaconApp({
   turn: { full: turnPool },
   defaultTier: turnPool ? 'full' : undefined,
   minClientVersion: process.env.MIN_CLIENT_VERSION,
-  limits: process.env.MAX_ROOM_SIZE
-    ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) }
-    : undefined,
+  limits: {
+    ...(process.env.MAX_ROOM_SIZE ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) } : {}),
+    relayVideoTier: relayVideoTierFromEnv(process.env),
+  },
   announcement: process.env.ANNOUNCEMENT ? { id: process.env.ANNOUNCEMENT_ID ?? 'notice', text: process.env.ANNOUNCEMENT } : undefined,
   // 0 turns limiting off, which load tests need because every simulated user shares one address.
   rateLimitPerMinute: process.env.RATE_LIMIT_PER_MINUTE ? Number(process.env.RATE_LIMIT_PER_MINUTE) || false : undefined,

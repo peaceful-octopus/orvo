@@ -20,6 +20,11 @@ services:
       # Optional relay (TURN) for people whose networks block direct connections; see the turn service below.
       TURN_URLS: ${TURN_URLS:-}
       TURN_SECRET: ${TURN_SECRET:-}
+      # Video quality sent through the relay, which uses your bandwidth: the defaults are 200 kbit/s, half size, 15 fps.
+      # For quality close to a direct call try RELAY_VIDEO_KBPS=1000 RELAY_VIDEO_SCALE=1 RELAY_VIDEO_FPS=30.
+      RELAY_VIDEO_KBPS: ${RELAY_VIDEO_KBPS:-}
+      RELAY_VIDEO_SCALE: ${RELAY_VIDEO_SCALE:-}
+      RELAY_VIDEO_FPS: ${RELAY_VIDEO_FPS:-}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       # Optional sign-in with an OpenID Connect provider; see docs/accounts.md.
       OIDC_ISSUER: ${OIDC_ISSUER:-}

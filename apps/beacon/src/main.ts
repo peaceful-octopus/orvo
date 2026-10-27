@@ -9,6 +9,7 @@ import { Redis } from 'ioredis';
 import fs from 'node:fs';
 import { createBeaconApp } from './app';
 import { authSettingsFromEnv } from './auth-env';
+import { relayVideoTierFromEnv } from './limits-env';
 import { loadOrCreateSigningKey } from './keys';
 import type { TurnPool } from './turn';
 import { serveWebApp } from './web';
@@ -61,9 +62,10 @@ const app = await createBeaconApp({
     'relay-lite': pool(process.env.TURN_LITE_URLS, process.env.TURN_LITE_SECRET),
   },
   minClientVersion: process.env.MIN_CLIENT_VERSION,
-  limits: process.env.MAX_ROOM_SIZE
-    ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) }
-    : undefined,
+  limits: {
+    ...(process.env.MAX_ROOM_SIZE ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) } : {}),
+    relayVideoTier: relayVideoTierFromEnv(process.env),
+  },
   announcement: process.env.ANNOUNCEMENT ? { id: process.env.ANNOUNCEMENT_ID ?? 'notice', text: process.env.ANNOUNCEMENT } : undefined,
   staticConfig: process.env.CONFIG_FILE ? JSON.parse(fs.readFileSync(process.env.CONFIG_FILE, 'utf8')) : undefined,
   // 0 turns limiting off, which load tests need because every simulated user shares one address.

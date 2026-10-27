@@ -24,6 +24,7 @@ import {
   type JoinResponse,
   type RoomRecord,
   type Tier,
+  type VideoTier,
   type VideoTierRule,
 } from '@orvo/protocol';
 import { LATENCY_BUCKETS, Metrics } from '@orvo/metrics';
@@ -68,7 +69,7 @@ export interface BeaconOptions {
   nodeUrl?: (node: NodeInfo, req: FastifyRequest) => string;
   minClientVersion?: string;
   /** Room limits published in the signed config and enforced by nodes through the join token. */
-  limits?: { maxRoomSize?: number; warnRoomSize?: number; videoTiers?: VideoTierRule[] };
+  limits?: { maxRoomSize?: number; warnRoomSize?: number; videoTiers?: VideoTierRule[]; relayVideoTier?: VideoTier };
   /** A notice shown to every client, for example about maintenance. */
   announcement?: { id: string; text: string };
   /** Published to clients in the signed config. A Giphy Web SDK key is meant to be public, but it is still the operator's quota. */
@@ -182,6 +183,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
         maxRoomSize,
         warnRoomSize,
         videoTiers: opts.limits?.videoTiers ?? DEFAULT_VIDEO_TIERS,
+        relayVideoTier: opts.limits?.relayVideoTier,
       },
       features: {},
       ice: { stunUrls: opts.stunUrls },
