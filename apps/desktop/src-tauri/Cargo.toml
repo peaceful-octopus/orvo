@@ -2,7 +2,7 @@
 name = "orvo"
 version = "0.1.0"
 description = "Casual video calls with floating bubbles"
-license = "MIT"
+license = "AGPL-3.0-only"
 edition = "2021"
 
 [lib]

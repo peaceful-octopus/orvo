@@ -2,7 +2,7 @@
   "name": "orvo",
   "private": true,
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "packageManager": "pnpm@12.14.0",
   "scripts": {

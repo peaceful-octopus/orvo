@@ -58,4 +58,4 @@ Code layout, how to run and test it, and the design notes are in [OVERVIEW.md](O
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0](LICENSE)
