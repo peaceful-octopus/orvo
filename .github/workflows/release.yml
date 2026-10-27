@@ -44,7 +44,7 @@ jobs:
         if: matrix.os == 'windows-latest'
       - name: Point the updater at this repository's releases
         shell: bash
-        run: sed -i "s#OWNER/REPO#${GITHUB_REPOSITORY}#" apps/desktop/src-tauri/tauri.conf.json
+        run: sed -i.bak "s#OWNER/REPO#${GITHUB_REPOSITORY}#" apps/desktop/src-tauri/tauri.conf.json && rm apps/desktop/src-tauri/tauri.conf.json.bak
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
