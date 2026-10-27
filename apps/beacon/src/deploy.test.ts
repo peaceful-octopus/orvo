@@ -85,3 +85,11 @@ describe('coturn pools together', () => {
     expect(compose).toContain('${TURN_LITE_SECRET:?');
   });
 });
+
+describe('personal compose relay', () => {
+  it('carries every setting of the full pool config, so the file works without the rest of the repository', () => {
+    const compose = fs.readFileSync(path.resolve(dir, '../personal/compose.yaml'), 'utf8');
+    const inlined = new Set(compose.split('\n').map((l) => l.trim()));
+    for (const line of settings(pools.full)) expect(inlined.has(line), line).toBe(true);
+  });
+});

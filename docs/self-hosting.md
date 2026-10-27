@@ -27,7 +27,7 @@ TURN_SECRET=<long random string> EXTERNAL_IP=<public address> docker compose --p
 TURN_URLS=turn:<your-host>:3478 TURN_SECRET=<the same string> BEHIND_PROXY=1 docker compose up -d
 ```
 
-Open UDP and TCP 3478 and UDP 49152-50175 to the internet. The relay is its own service on its own ports, so the reverse proxy does not carry it. Use the same `TURN_SECRET` on both. A relay on another machine works the same way: point `TURN_URLS` at it. The coturn config refuses to relay to private and loopback addresses. To confirm it works, open a room URL with `?ice=relay`, which forces relay-only connections.
+Open UDP and TCP 3478 and UDP 49152-50175 to the internet. The relay is its own service on its own ports, so the reverse proxy does not carry it. Use the same `TURN_SECRET` on both. A relay on another machine works the same way: point `TURN_URLS` at it. The coturn settings are written into the compose file itself, so you can copy `compose.yaml` to your server on its own. They refuse to relay to private and loopback addresses; a test keeps them identical to `deploy/turn/turnserver.full.conf`. To confirm it works, open a room URL with `?ice=relay`, which forces relay-only connections.
 
 **Stopping gracefully.** On `SIGTERM` the server stops taking new rooms and keeps serving for `DRAIN_MS` before exiting, so give it longer than that to stop: the compose files set `stop_grace_period`, and with `docker run` use `--stop-timeout 15` (Kubernetes: `terminationGracePeriodSeconds`). Some Docker installs default to a one-second stop timeout, which would cut the drain short and kill the process.
 

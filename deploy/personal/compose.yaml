@@ -42,16 +42,49 @@ services:
     image: coturn/coturn:4.6
     restart: unless-stopped
     network_mode: host
-    volumes:
-      - ../turn/turnserver.full.conf:/etc/coturn/turnserver.conf:ro
     # Checked here, not with ${VAR:?}, because Compose would otherwise demand these even when the profile is off.
     environment:
       TURN_SECRET: ${TURN_SECRET:-}
       EXTERNAL_IP: ${EXTERNAL_IP:-}
+    # The settings are written out here so this file works on its own, without the rest of the repository. They
+    # mirror deploy/turn/turnserver.full.conf, and a test fails if the two drift apart. Keep the denied-peer-ip lines:
+    # without them the relay is a way into the server's private network.
     entrypoint:
       - /bin/sh
       - -c
-      - '[ -n "$$TURN_SECRET" ] && [ -n "$$EXTERNAL_IP" ] || { echo "set TURN_SECRET and EXTERNAL_IP" >&2; exit 1; }; exec turnserver -c /etc/coturn/turnserver.conf --static-auth-secret="$$TURN_SECRET" --external-ip="$$EXTERNAL_IP"'
+      - |
+        [ -n "$$TURN_SECRET" ] && [ -n "$$EXTERNAL_IP" ] || { echo "set TURN_SECRET and EXTERNAL_IP" >&2; exit 1; }
+        cat > /tmp/turnserver.conf <<'EOF'
+        listening-port=3478
+        min-port=49152
+        max-port=50175
+        user-quota=20
+        total-quota=2000
+        use-auth-secret
+        realm=orvo
+        fingerprint
+        no-cli
+        no-multicast-peers
+        no-tlsv1
+        no-tlsv1_1
+        no-tls
+        no-dtls
+        stale-nonce=600
+        denied-peer-ip=0.0.0.0-0.255.255.255
+        denied-peer-ip=10.0.0.0-10.255.255.255
+        denied-peer-ip=100.64.0.0-100.127.255.255
+        denied-peer-ip=127.0.0.0-127.255.255.255
+        denied-peer-ip=169.254.0.0-169.254.255.255
+        denied-peer-ip=172.16.0.0-172.31.255.255
+        denied-peer-ip=192.0.0.0-192.0.0.255
+        denied-peer-ip=192.168.0.0-192.168.255.255
+        denied-peer-ip=198.18.0.0-198.19.255.255
+        denied-peer-ip=224.0.0.0-255.255.255.255
+        denied-peer-ip=::1-::1
+        denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+        denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+        EOF
+        exec turnserver -c /tmp/turnserver.conf --static-auth-secret="$$TURN_SECRET" --external-ip="$$EXTERNAL_IP"
 
 volumes:
   orvo-data:
