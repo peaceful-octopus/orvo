@@ -1,6 +1,6 @@
 [package]
 name = "orvo"
-version = "0.0.0"
+version = "0.1.0"
 description = "Casual video calls with floating bubbles"
 license = "MIT"
 edition = "2021"

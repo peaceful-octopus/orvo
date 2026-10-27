@@ -1,7 +1,7 @@
 # Releasing the desktop app
 
-Windows installers are built by `.github/workflows/release.yml` when a version tag is pushed. The workflow attaches an
-NSIS installer, an MSI, and `latest.json` (the update manifest) to a **draft** GitHub Release. Publishing the draft
+Windows and macOS installers are built by `.github/workflows/release.yml` when a version tag is pushed. The workflow attaches an
+NSIS installer, an MSI, a universal macOS `.dmg`, and `latest.json` (the update manifest) to a **draft** GitHub Release. Publishing the draft
 rolls it out: installed apps poll `https://github.com/<owner>/<repo>/releases/latest/download/latest.json`.
 
 ## One-time setup
@@ -38,7 +38,7 @@ with a **Restart and update** button when the update server is reachable, and `u
 
 ## Not signed yet
 
-The installers are not code-signed, so Windows SmartScreen warns on first run ("Windows protected your PC", then
+The installers are not code-signed. macOS Gatekeeper blocks the first launch (right-click the app, Open), and Windows SmartScreen warns on first run ("Windows protected your PC", then
 More info → Run anyway). The update signature above is separate: it protects updates, not the first install. Code
 signing needs a certificate or Azure Trusted Signing; Tauri's `bundle.windows.signCommand` is where it plugs in.
 

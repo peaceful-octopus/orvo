@@ -1,5 +1,5 @@
 name: Release
-# Push a tag such as v1.0.0 (after `pnpm version:set 1.0.0` and a commit) to build the Windows installers and attach
+# Push a tag such as v1.0.0 (after `pnpm version:set 1.0.0` and a commit) to build the Windows and macOS installers and attach
 # them, with the update manifest the desktop app polls, to a draft GitHub Release. Publish the draft to roll it out.
 # See docs/releasing.md.
 on:
@@ -10,8 +10,16 @@ permissions:
   contents: write
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: ""
+          - os: macos-latest
+            args: --target universal-apple-darwin
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -20,6 +28,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
@@ -31,6 +41,7 @@ jobs:
           version=$(node -p "require('./package.json').version")
           test "v$version" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
       - run: pnpm test:all
+        if: matrix.os == 'windows-latest'
       - name: Point the updater at this repository's releases
         shell: bash
         run: sed -i "s#OWNER/REPO#${GITHUB_REPOSITORY}#" apps/desktop/src-tauri/tauri.conf.json
@@ -42,7 +53,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
-          args: --config src-tauri/tauri.release.conf.json
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
           releaseName: Orvo ${{ github.ref_name }}
           releaseDraft: true
