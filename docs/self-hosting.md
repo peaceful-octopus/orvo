@@ -12,13 +12,13 @@ docker compose up -d          # http://localhost:8080
 
 State lives in the `orvo-data` volume: a generated signing key (`keys.json`) so restarts keep tokens and cached config valid. Delete it to rotate the key.
 
-**Friends over the internet need HTTPS.** Browsers only allow camera access on `localhost` or over HTTPS. Either put your own reverse proxy in front (it must pass WebSocket upgrades on `/ws`, and set `BEHIND_PROXY=1` so the server builds `wss://` URLs), or use the bundled Caddy:
+**Friends over the internet need HTTPS.** Browsers only allow camera access on `localhost` or over HTTPS. Put your own reverse proxy in front of port 8080. It must pass WebSocket upgrades on `/ws`, and you set `BEHIND_PROXY=1` so the server builds `wss://` URLs:
 
 ```
-DOMAIN=orvo.example.com BEHIND_PROXY=1 docker compose --profile https up -d
+BEHIND_PROXY=1 docker compose up -d
 ```
 
-**STUN.** By default clients use Google's public STUN server. To run your own (almost no bandwidth), `docker compose --profile stun up -d`, open UDP 3478, and set `STUN_URLS=stun:your-host:3478`.
+**STUN.** Clients use Google's public STUN server by default. To use another, set `STUN_URLS=stun:your-host:3478`.
 
 **No TURN relay.** Two people who are both behind restrictive networks (some corporate or mobile connections) may not be able to connect directly; the app shows "(can't connect)" for that person. A relay is optional and not set up by default.
 
@@ -37,7 +37,7 @@ DEFAULT_ROOM_ACCESS=anyone     # or signed-in, to make new rooms signed-in only 
 
 What to know on a personal server:
 - **You need a provider to require sign-in.** `ROOM_CREATION=signed-in` and `DEFAULT_ROOM_ACCESS=signed-in` refuse to start without `OIDC_ISSUER` and `OIDC_CLIENT_ID`. There is no built-in user list or password option.
-- **Web sign-in needs HTTPS and a registered redirect.** Register `https://<your domain>/auth/callback` with the provider (use the `https` profile above). The desktop app needs `http://127.0.0.1:*/callback`.
+- **Web sign-in needs HTTPS and a registered redirect.** Register `https://<your domain>/auth/callback` with the provider (behind your reverse proxy). The desktop app needs `http://127.0.0.1:*/callback`.
 - **Room owners and rules are kept in memory.** Restarting the container forgets who owns a room and which rooms were signed-in only (everyone is disconnected by a restart anyway). Rooms also forget them after a day of nobody joining.
 
 Details, the exact behavior and provider setup: [accounts.md](accounts.md).
@@ -72,7 +72,7 @@ Beacon environment: `REDIS_URL`, `SIGNING_KEY`, `STUN_URLS`, `TURN_URLS`, `TURN_
 - **Checking a room:** open a room URL with `?ice=relay` to force relay-only connections. In a room without a relay, that person is shown as unreachable; in an entitled room it connects.
 
 ### Verified setups
-The personal image, the personal compose file (with and without the HTTPS profile), the small-team stack with a real Redis (with and without Caddy), the relay pools, the STUN profile and the monitoring stack were each run in Docker and exercised with the browser tests and a simulated-user crash drill. The relay pools and the `stun` profile use host networking, which needs a Linux host (Docker Desktop on Windows or macOS does not support it without extra settings); their configs were verified in ordinary containers instead.
+The personal image, the personal compose file, the small-team stack with a real Redis (with and without Caddy), the relay pools, the STUN profile and the monitoring stack were each run in Docker and exercised with the browser tests and a simulated-user crash drill. The relay pools and the `stun` profile use host networking, which needs a Linux host (Docker Desktop on Windows or macOS does not support it without extra settings); their configs were verified in ordinary containers instead.
 
 ## 3. Platform scale
 Many signaling nodes behind the beacon fleet with a shared Redis, signed config on a CDN, regional TURN. Everything in profile 2 scales horizontally: more nodes, several beacons sharing one Redis and one `SIGNING_KEY`. For a CDN-hosted config, sign it with `tools/sign-config` (`sign config.json --key <kid>:<secret> --out signed.json`), upload it, point `CONFIG_FILE` at it or serve it directly, and build the app with `VITE_TRUSTED_KEYS='{"<kid>":"<publicKey>"}'` so clients pin the key. Still planned: multi-region pools and Redis clustering; see `docs/architecture.md`.
