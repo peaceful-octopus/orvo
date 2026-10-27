@@ -19,6 +19,7 @@ import {
   signResumeToken,
   toBase64Url,
   verifyResumeToken,
+  type ActivityManifest,
   type ClientConfig,
   type IceServer,
   type JoinResponse,
@@ -92,6 +93,8 @@ export interface BeaconOptions {
   announcement?: { id: string; text: string };
   /** Published to clients in the signed config. A Giphy Web SDK key is meant to be public, but it is still the operator's quota. */
   integrations?: { giphyApiKey?: string };
+  /** Activities clients can start in a call, published in the signed config. */
+  activities?: ActivityManifest[];
   /** A pre-signed config (for example produced by `tools/sign-config`) served as is instead of a generated one. */
   staticConfig?: unknown;
   /** Share a metrics registry with other components in the process; one is created when omitted. */
@@ -207,6 +210,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       ice: { stunUrls: c.stunUrls },
       regions: [{ id: 'default', name: 'Default' }],
       announcement: c.announcement,
+      activities: opts.activities?.length ? opts.activities : undefined,
       integrations: c.integrations?.giphyApiKey ? { giphyApiKey: c.integrations.giphyApiKey } : undefined,
       auth: opts.auth
         ? {

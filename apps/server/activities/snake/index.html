@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        box-sizing: border-box;
+        background: var(--bg, #1b1714);
+        color: var(--text, #f2ece6);
+        font: 14px/1.4 system-ui, sans-serif;
+        user-select: none;
+      }
+      #scores { display: flex; flex-wrap: wrap; gap: 6px 12px; min-height: 1.4em; }
+      .chip { display: inline-flex; align-items: center; gap: 6px; }
+      .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+      .chip.out { opacity: 0.5; text-decoration: line-through; }
+      #stage { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; }
+      canvas { border: 1px solid var(--border, #3a332d); border-radius: 6px; }
+      #hint {
+        position: absolute; inset: 0; display: none; place-items: center; text-align: center;
+        background: color-mix(in srgb, var(--bg, #1b1714) 70%, transparent);
+        font-weight: 600;
+      }
+      #hint.visible { display: grid; }
+      #bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 2em; }
+      #status { color: var(--muted, #b8aca0); }
+      button {
+        font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 10px; padding: 6px 16px;
+        background: var(--accent, #f59e0b); color: var(--on-accent, #1b1714);
+      }
+      button[hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="scores"></div>
+    <div id="stage">
+      <canvas id="board"></canvas>
+      <div id="hint">Click to play</div>
+    </div>
+    <div id="bar">
+      <span id="status"></span>
+      <button id="action" type="button" hidden>Start</button>
+    </div>
+    <script type="module" src="snake.js"></script>
+  </body>
+</html>

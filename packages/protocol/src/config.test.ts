@@ -31,6 +31,30 @@ describe('verifyConfig', () => {
     expect(check(signConfig(config, 'k1', pair.secretKey))).toEqual({ ok: true, config });
   });
 
+  it('carries activities in the signed payload, and an edited list breaks the signature', () => {
+    const activity = {
+      id: 'snake',
+      name: 'Snake',
+      description: 'Multiplayer snake',
+      version: '1.0.0',
+      apiVersion: 1,
+      entry: '/activities/snake/index.html',
+      minPlayers: 1,
+      maxPlayers: 8,
+      capabilities: [],
+    };
+    const withActivities = { ...config, activities: [activity] };
+    const signed = signConfig(withActivities, 'k1', pair.secretKey);
+    expect(check(signed)).toEqual({ ok: true, config: withActivities });
+    const tampered = { ...signed, payload: { ...withActivities, activities: [{ ...activity, entry: '/activities/evil/index.html' }] } };
+    expect(check(tampered)).toEqual({ ok: false, reason: 'bad-signature' });
+  });
+
+  it('rejects a signed config whose activity entry leaves /activities/', () => {
+    const bad = { ...config, activities: [{ id: 'x', name: 'X', description: '', version: '1', apiVersion: 1, entry: 'https://evil.example.com', minPlayers: 1, maxPlayers: 2, capabilities: [] }] };
+    expect(check(signConfig(bad as ClientConfig, 'k1', pair.secretKey))).toEqual({ ok: false, reason: 'malformed' });
+  });
+
   it('rejects a tampered payload', () => {
     const signed = signConfig(config, 'k1', pair.secretKey);
     const tampered = { ...signed, payload: { ...config, beaconUrls: ['https://evil.example.com'] } };

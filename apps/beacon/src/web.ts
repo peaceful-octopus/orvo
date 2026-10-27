@@ -11,7 +11,7 @@ export async function serveWebApp(app: FastifyInstance, dir: string): Promise<bo
   if (!fs.existsSync(path.join(dir, 'index.html'))) return false;
   await app.register(fastifyStatic, { root: path.resolve(dir) });
   app.setNotFoundHandler((req, reply) =>
-    req.method === 'GET' && !req.url.startsWith('/v1/')
+    req.method === 'GET' && !req.url.startsWith('/v1/') && !req.url.startsWith('/activities/')
       ? reply.sendFile('index.html')
       : reply.code(404).send({ error: 'Not found.' }),
   );

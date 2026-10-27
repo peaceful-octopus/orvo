@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  Gamepad2,
   LogOut,
   Link,
   Lock,
@@ -36,6 +37,7 @@ export const LeaveIcon = () => <LogOut size={SIZE} strokeWidth={STROKE} aria-hid
 export const BackIcon = () => <ArrowLeft size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const ChevronIcon = () => <ChevronDown size={14} strokeWidth={3} aria-hidden />;
 export const GearIcon = () => <Settings size={SIZE} strokeWidth={STROKE} aria-hidden />;
+export const ActivityIcon = () => <Gamepad2 size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LinkIcon = () => <Link size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LockIcon = () => <Lock size={SIZE} strokeWidth={STROKE} aria-hidden />;
 export const LockOpenIcon = () => <LockOpen size={SIZE} strokeWidth={STROKE} aria-hidden />;

@@ -1,0 +1,11 @@
+{
+  "id": "snake",
+  "name": "Snake",
+  "description": "Race to eat the most while avoiding walls and each other.",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "icon": "🐍",
+  "minPlayers": 1,
+  "maxPlayers": 8,
+  "capabilities": []
+}

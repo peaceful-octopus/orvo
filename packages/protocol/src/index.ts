@@ -1,3 +1,4 @@
+export * from './activity';
 export * from './beacon';
 export * from './config';
 export * from './datachannel';

@@ -4,6 +4,7 @@ import {
   parseServerMessage,
   DEFAULT_RELAY_VIDEO_TIER,
   videoTierFor,
+  isReplayedKind,
   type TelemetryEvent,
   type VideoTier,
   type VideoTierRule,
@@ -81,6 +82,11 @@ export class MeshTransport implements RoomTransport {
 
   constructor(private opts: MeshOptions) {}
 
+  /** Your id in the room, once joined. Other participants see messages from you under it. */
+  get peerId(): string | undefined {
+    return this.session?.peerId;
+  }
+
   /** The room's access rules as the server reported them when we joined, and whether we own the room. */
   get roomAccess(): { signedInOnly: boolean; owner: boolean; locked: boolean } | undefined {
     return this.session?.room;
@@ -126,7 +132,7 @@ export class MeshTransport implements RoomTransport {
   }
 
   send(message: DataMessage): void {
-    this.lastSent.set(message.kind, message);
+    if (isReplayedKind(message.kind)) this.lastSent.set(message.kind, message);
     for (const [id, link] of this.links) {
       // A peer we send no video to keeps seeing our camera as off, whatever we toggle.
       link.send(message.kind === 'state' && this.pausedVideo.has(id) ? { ...message, video: false } : message);

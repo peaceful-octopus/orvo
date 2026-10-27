@@ -62,6 +62,16 @@ export const COPY = {
     kicked: { title: 'You were removed from this room', body: 'The room\'s owner removed you, so you cannot join it again.' },
     backHome: 'Back to start',
   },
+  activities: {
+    menu: 'Activities',
+    label: 'Play',
+    running: (name: string, starter: string | null) => (starter ? `${starter} started ${name}` : `You started ${name}`),
+    join: 'Open it',
+    end: 'End for everyone',
+    close: 'Close',
+    startedBy: (name: string, starter: string) => `${name} (started by ${starter})`,
+    unsupported: 'This activity needs a newer version of Orvo.',
+  },
   toasts: {
     kickFailed: 'Could not remove that person.',
     roomAccess: 'Could not change who can join this room.',

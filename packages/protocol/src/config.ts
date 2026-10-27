@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ActivityManifest } from './activity';
 import { signValue, verifyValue, type KeyRing } from './signing';
 
 export const VideoTierConfig = z.object({
@@ -51,6 +52,8 @@ export const ClientConfig = z.object({
   regions: z.array(z.object({ id: z.string(), name: z.string() })),
   announcement: z.object({ id: z.string(), text: z.string().max(280) }).optional(),
   updateUrl: z.url().optional(),
+  /** Activities the server offers in calls. Absent on servers that offer none. */
+  activities: z.array(ActivityManifest).max(32).optional(),
 });
 export type ClientConfig = z.infer<typeof ClientConfig>;
 

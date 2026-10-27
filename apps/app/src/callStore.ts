@@ -12,7 +12,9 @@ import {
   type PeerState,
   type RoomEvent,
 } from '@orvo/rtc';
+import type { DataMessage } from '@orvo/protocol';
 import { create } from 'zustand';
+import { useActivity } from './activities/activityStore';
 import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {
   deviceConstraint,
@@ -91,6 +93,8 @@ interface CallState {
   /** Switches to a device; resolves to whether it worked. `quiet` leaves the error message to the caller. */
   selectDevice(kind: DeviceKind, id: string, quiet?: boolean): Promise<boolean>;
   react(emoji: string): Promise<void>;
+  /** Sends a message to everyone in the call. */
+  sendData(message: DataMessage): void;
   sendGif(source: GifSource, mode: GifMode): Promise<void>;
   leave(): void;
 }
@@ -209,7 +213,7 @@ export const useCall = create<CallState>((set, get) => {
             if (!streamId && current.screenId) delete streams[current.screenId];
             return { remotes: { ...s.remotes, [event.id]: sortStreams({ ...current, streams, screenId: streamId ?? undefined }, {}) } };
           });
-        }
+        } else useActivity.getState().receive(event.id, event.data);
         break;
       case 'participant-left':
         set((s) => {
@@ -217,6 +221,7 @@ export const useCall = create<CallState>((set, get) => {
           delete remotes[event.id];
           return { remotes };
         });
+        useActivity.getState().peerLeft(event.id);
         break;
       case 'kicked':
         get().leave(); // the transport has already left; this clears the call
@@ -392,6 +397,8 @@ export const useCall = create<CallState>((set, get) => {
         void effects.setLook(lookFromSettings());
         set({ phase: 'in-call', roomAccess: transport.roomAccess });
         broadcastState();
+        const selfId = transport.peerId;
+        if (selfId) useActivity.getState().bind(selfId, (message) => transport?.send(message));
       } catch (err) {
         transport.leave();
         unsubscribe();
@@ -477,6 +484,10 @@ export const useCall = create<CallState>((set, get) => {
       broadcastState();
     },
 
+    sendData(message) {
+      transport?.send(message);
+    },
+
     async react(emoji) {
       if (!get().video) return;
       try {
@@ -496,6 +507,7 @@ export const useCall = create<CallState>((set, get) => {
     },
 
     leave() {
+      useActivity.getState().unbind();
       get().stopScreen();
       effects?.dispose();
       effects = undefined;

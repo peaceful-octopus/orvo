@@ -11,6 +11,9 @@ import { useAuth } from './auth/authStore';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
 import { LayoutMenu } from './BarMenus';
+import { ActivityMenu } from './activities/ActivityMenu';
+import { ActivityTile } from './activities/ActivityTile';
+import { openActivityInstance, useActivity } from './activities/activityStore';
 import { FilterButton } from './FilterMenu';
 import { canSelectOutput } from './devices';
 import { ReactionBar } from './ReactionBar';
@@ -90,6 +93,7 @@ export function RoomPage({ room }: { room: string }) {
   const { mode, setMode } = useUi();
   const limits = useConfig((s) => s.config.limits);
   const apiKey = useConfig((s) => giphyApiKey(s.config));
+  const activityInstance = useActivity(openActivityInstance);
   const [gifOpen, setGifOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const name = useSettings((s) => s.name);
@@ -133,6 +137,8 @@ export function RoomPage({ room }: { room: string }) {
     ],
     [screen, name, remotes],
   );
+
+  const tiles = useMemo(() => (activityInstance ? [{ id: activityInstance, node: <ActivityTile /> }] : []), [activityInstance]);
 
   // Once signed in, the sign-in card has done its job.
   useEffect(() => {
@@ -337,10 +343,11 @@ export function RoomPage({ room }: { room: string }) {
         mode={mode}
         maxSize={UNCAPPED}
         screens={screens}
+        tiles={tiles}
         onStopSharing={stopScreen}
         onKick={roomAccess?.owner ? (id, who) => setKicking({ id, name: who }) : undefined}
       />
-      {members.length === 1 && !screens.length && (
+      {members.length === 1 && !screens.length && !tiles.length && (
         <div className="alone">
           <p>{COPY.alone.text}</p>
           <button onClick={() => void copyInvite()}>{copied ? COPY.alone.copied : COPY.alone.copy}</button>
@@ -350,6 +357,7 @@ export function RoomPage({ room }: { room: string }) {
       <nav className="controls">
         <FilterButton labelled look={look} onFilter={setMoodFilter} onToggle={toggleLook} />
         <LayoutMenu modes={LAYOUT_MODES} mode={mode} icons={MODE_ICONS} onChange={setMode} />
+        <ActivityMenu />
         {float.kind && (
           <button
             className="icon tool"

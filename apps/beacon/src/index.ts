@@ -1,3 +1,4 @@
+export { loadActivities, serveActivities, type ActivityRegistry } from './activities';
 export { createOidcVerifier, type AuthOptions, type AuthVerifier, type Identity, type OidcOptions } from './auth';
 export { authSettingsFromEnv, type AuthSettings } from './auth-env';
 export { registerAdminRoutes, type AdminOptions } from './admin';

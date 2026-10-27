@@ -6,6 +6,12 @@ export const DATA_VERSION = 1;
 const envelope = z.object({ v: z.number().int(), kind: z.string() }).loose();
 
 import { MAX_NAME_LENGTH } from './signaling';
+import {
+  activityDataMessage,
+  activityMessage,
+  activityPresenceMessage,
+  type ActivityDataMessages,
+} from './activity';
 
 const stateMessage = z.object({ kind: z.literal('state'), audio: z.boolean(), video: z.boolean() });
 /** A participant changed their display name during the call. */
@@ -17,7 +23,13 @@ const screenMessage = z.object({ kind: z.literal('screen'), streamId: z.string()
 export type DataMessage =
   | { kind: 'state'; audio: boolean; video: boolean }
   | { kind: 'name'; name: string }
-  | { kind: 'screen'; streamId: string | null };
+  | { kind: 'screen'; streamId: string | null }
+  | ActivityDataMessages;
+
+/** Kinds that describe state a late joiner needs. Everything else is an event and must not be replayed. */
+export function isReplayedKind(kind: DataMessage['kind']): boolean {
+  return kind !== 'activity-msg';
+}
 
 export function encodeDataMessage(message: DataMessage): string {
   return JSON.stringify({ v: DATA_VERSION, ...message });
@@ -38,6 +50,8 @@ export function parseDataMessage(raw: unknown): DataMessage | null {
   }
   const head = envelope.safeParse(value);
   if (!head.success || head.data.v > DATA_VERSION) return null;
-  const message = z.union([stateMessage, nameMessage, screenMessage]).safeParse(value);
-  return message.success ? message.data : null;
+  const message = z
+    .union([stateMessage, nameMessage, screenMessage, activityMessage, activityPresenceMessage, activityDataMessage])
+    .safeParse(value);
+  return message.success ? (message.data as DataMessage) : null;
 }

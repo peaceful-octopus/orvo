@@ -1,4 +1,4 @@
-import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, registerAdminRoutes, serveWebApp, SettingsStore, settingsFromEnv } from '@orvo/beacon';
+import { authSettingsFromEnv, createBeaconApp, loadActivities, loadOrCreateSigningKey, registerAdminRoutes, serveActivities, serveWebApp, SettingsStore, settingsFromEnv } from '@orvo/beacon';
 import { Metrics } from '@orvo/metrics';
 import { MemoryPlacementStore } from '@orvo/placement';
 import { SignalingServer } from '@orvo/signaling';
@@ -11,6 +11,11 @@ const port = Number(process.env.PORT ?? 8080);
 const dataDir = process.env.DATA_DIR ?? './data';
 const webDir = process.env.WEB_DIR ?? path.resolve(here, '../../app/dist');
 const nodeId = 'local';
+// Activities the server offers in calls: the ones that ship with it, then any the operator adds (same id replaces).
+const activities = loadActivities([
+  path.resolve(here, '../activities'),
+  process.env.ACTIVITIES_DIR ?? path.join(dataDir, 'activities'),
+]);
 
 const signingKey = loadOrCreateSigningKey(dataDir);
 // One registry for the whole process, so /metrics shows the beacon and the signaling node together.
@@ -29,6 +34,7 @@ const app = await createBeaconApp({
   signingKey,
   ...signIn,
   metrics,
+  activities: activities.manifests,
   store: new MemoryPlacementStore([{ id: nodeId, region: 'default', weight: 1, draining: false }]),
   stunUrls: settings.effective().stunUrls,
   live: () => settings.live(),
@@ -53,6 +59,7 @@ app.get('/readyz', async (_req, reply) =>
   reply.code(signaling.draining ? 503 : 200).send(signaling.draining ? 'draining' : 'ready'),
 );
 
+await serveActivities(app, activities);
 if (!(await serveWebApp(app, webDir))) console.warn(`No web app found at ${webDir}; serving the API and signaling only.`);
 
 await app.listen({ port, host: '0.0.0.0' });

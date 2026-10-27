@@ -17,6 +17,7 @@ Open-source casual video calls with floating face bubbles, GIF reactions and moo
 - `tools/sign-config`: key generation and config signing CLI
 - `packages/rtc`: room transport interface and mesh helpers
 - `packages/effects`: canvas effects (emoji reactions, GIFs) drawn into your outgoing video
+- `apps/server/activities`: activities the server offers in calls (Snake); how they work is in `docs/activities.md`
 
 ## Run it
 ```
