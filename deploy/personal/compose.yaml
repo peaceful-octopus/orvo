@@ -3,6 +3,7 @@
 #
 #   docker compose up -d                                  # http://localhost:8080
 #   BEHIND_PROXY=1 docker compose up -d                   # behind a reverse proxy
+#   docker compose --profile turn up -d                   # also run a relay (see the turn service)
 services:
   orvo:
     # Published image. To build from this checkout instead, add `build: ../..` and run `docker compose up -d --build`.
@@ -16,6 +17,9 @@ services:
     environment:
       BEHIND_PROXY: ${BEHIND_PROXY:-}
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
+      # Optional relay (TURN) for people whose networks block direct connections; see the turn service below.
+      TURN_URLS: ${TURN_URLS:-}
+      TURN_SECRET: ${TURN_SECRET:-}
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       # Optional sign-in with an OpenID Connect provider; see docs/accounts.md.
       OIDC_ISSUER: ${OIDC_ISSUER:-}
@@ -27,6 +31,27 @@ services:
       DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
     volumes:
       - orvo-data:/data
+
+  # Optional relay for people whose networks block direct connections, which shows up as video that never arrives.
+  # Needs a Linux host with host networking and a public address, with UDP and TCP 3478 and UDP 49152-50175 open to
+  # the internet. Then set, for the orvo service:  TURN_URLS=turn:<your-host>:3478  TURN_SECRET=<the same secret>
+  #
+  #   TURN_SECRET=<long random string> EXTERNAL_IP=<public address> docker compose --profile turn up -d
+  turn:
+    profiles: ["turn"]
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ../turn/turnserver.full.conf:/etc/coturn/turnserver.conf:ro
+    # Checked here, not with ${VAR:?}, because Compose would otherwise demand these even when the profile is off.
+    environment:
+      TURN_SECRET: ${TURN_SECRET:-}
+      EXTERNAL_IP: ${EXTERNAL_IP:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - '[ -n "$$TURN_SECRET" ] && [ -n "$$EXTERNAL_IP" ] || { echo "set TURN_SECRET and EXTERNAL_IP" >&2; exit 1; }; exec turnserver -c /etc/coturn/turnserver.conf --static-auth-secret="$$TURN_SECRET" --external-ip="$$EXTERNAL_IP"'
 
 volumes:
   orvo-data:

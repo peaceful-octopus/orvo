@@ -189,6 +189,13 @@ describe('tiers and TURN', () => {
     expect(again.tier).toBe('full');
   });
 
+  it('gives every room the default tier, with no entitlement', async () => {
+    await start({ turn, defaultTier: 'full' });
+    const body = (await join({ room: 'cozy-room-abc123' })).json() as JoinResponse;
+    expect(body.tier).toBe('full');
+    expect(turnServers(body)[0]!.urls).toEqual(turn.full.urls);
+  });
+
   it('falls back to STUN when the tier has no pool configured', async () => {
     await start({ turn: { full: turn.full }, entitlements });
     const body = (await join({ room: 'cozy-room-abc123', entitlement: 'lite' })).json() as JoinResponse;

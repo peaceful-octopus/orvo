@@ -16,12 +16,17 @@ const signingKey = loadOrCreateSigningKey(dataDir);
 // One registry for the whole process, so /metrics shows the beacon and the signaling node together.
 const metrics = new Metrics({ defaultMetrics: true });
 const signIn = authSettingsFromEnv(process.env);
+// A relay for people whose networks block direct connections. On a personal server the operator runs it for their own
+// friends, so with a relay configured every room gets credentials; there is no entitlement service to grant them.
+const turnPool = process.env.TURN_URLS && process.env.TURN_SECRET ? { urls: process.env.TURN_URLS.split(',').filter(Boolean), secret: process.env.TURN_SECRET } : undefined;
 const app = await createBeaconApp({
   signingKey,
   ...signIn,
   metrics,
   store: new MemoryPlacementStore([{ id: nodeId, region: 'default', weight: 1, draining: false }]),
   stunUrls: (process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302').split(',').filter(Boolean),
+  turn: { full: turnPool },
+  defaultTier: turnPool ? 'full' : undefined,
   minClientVersion: process.env.MIN_CLIENT_VERSION,
   limits: process.env.MAX_ROOM_SIZE
     ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) }

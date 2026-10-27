@@ -53,6 +53,8 @@ export interface BeaconOptions {
   /** TURN pools by tier. Only entitled rooms receive credentials for them; `free` rooms get STUN only. */
   turn?: { 'relay-lite'?: TurnPool; full?: TurnPool };
   entitlements?: EntitlementVerifier;
+  /** A tier every room has without an entitlement, for a personal server whose operator pays for the relay themselves. */
+  defaultTier?: Exclude<Tier, 'free'>;
   planFor?: PlanLookup;
   /** Lets people sign in with an OpenID Connect provider. Without it everyone is a guest. */
   auth?: AuthOptions;
@@ -279,7 +281,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
 
   /** The room's tier: the best of what it already has and what this joiner's entitlement grants. */
   async function tierFor(room: string, entitlement: string | undefined, identity: Identity | undefined): Promise<Tier> {
-    let tier: Tier = (await opts.store.getRoomTier(room)) ?? 'free';
+    let tier: Tier = (await opts.store.getRoomTier(room)) ?? opts.defaultTier ?? 'free';
     const grants = [
       entitlement && opts.entitlements ? await opts.entitlements(entitlement, room) : undefined,
       identity && opts.planFor ? await opts.planFor(identity, room) : undefined,

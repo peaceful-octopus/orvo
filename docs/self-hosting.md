@@ -20,7 +20,14 @@ BEHIND_PROXY=1 docker compose up -d
 
 **STUN.** Clients use Google's public STUN server by default. To use another, set `STUN_URLS=stun:your-host:3478`.
 
-**No TURN relay.** Two people who are both behind restrictive networks (some corporate or mobile connections) may not be able to connect directly; the app shows "(can't connect)" for that person. A relay is optional and not set up by default.
+**Relay (TURN), for when video never arrives.** If two people join the room and see each other in the list but no video comes through, their networks are blocking a direct connection (common on mobile data and some home or office networks). A relay carries the media for them, which uses your server's bandwidth. On a personal server, setting `TURN_URLS` and `TURN_SECRET` gives every room relay credentials. Run coturn with the `turn` profile on a Linux host with a public address:
+
+```
+TURN_SECRET=<long random string> EXTERNAL_IP=<public address> docker compose --profile turn up -d
+TURN_URLS=turn:<your-host>:3478 TURN_SECRET=<the same string> BEHIND_PROXY=1 docker compose up -d
+```
+
+Open UDP and TCP 3478 and UDP 49152-50175 to the internet. The relay is its own service on its own ports, so the reverse proxy does not carry it. Use the same `TURN_SECRET` on both. A relay on another machine works the same way: point `TURN_URLS` at it. The coturn config refuses to relay to private and loopback addresses. To confirm it works, open a room URL with `?ice=relay`, which forces relay-only connections.
 
 **Stopping gracefully.** On `SIGTERM` the server stops taking new rooms and keeps serving for `DRAIN_MS` before exiting, so give it longer than that to stop: the compose files set `stop_grace_period`, and with `docker run` use `--stop-timeout 15` (Kubernetes: `terminationGracePeriodSeconds`). Some Docker installs default to a one-second stop timeout, which would cut the drain short and kill the process.
 
