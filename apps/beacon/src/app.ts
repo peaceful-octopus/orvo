@@ -45,7 +45,25 @@ export type EntitlementVerifier = (token: string, room: string) => Promise<Exclu
 /** What a signed-in person's plan grants a room they join, for when entitlements come from accounts rather than tokens. */
 export type PlanLookup = (identity: Identity, room: string) => Promise<Exclude<Tier, 'free'> | undefined>;
 
+/**
+ * Settings an operator can change while the server runs. `live()` is read on every request and its fields replace the
+ * same fields of the options, so a missing field here means "none", not "keep the option's value".
+ */
+export interface LiveSettings {
+  limits?: { maxRoomSize?: number; warnRoomSize?: number; videoTiers?: VideoTierRule[]; relayVideoTier?: VideoTier };
+  stunUrls?: string[];
+  turn?: { 'relay-lite'?: TurnPool; full?: TurnPool };
+  defaultTier?: Exclude<Tier, 'free'>;
+  minClientVersion?: string;
+  announcement?: { id: string; text: string };
+  integrations?: { giphyApiKey?: string };
+  roomCreation?: 'anyone' | 'signed-in';
+  defaultRoomAccess?: 'anyone' | 'signed-in';
+}
+
 export interface BeaconOptions {
+  /** When set, the fields it returns replace the matching options on every request. See `LiveSettings`. */
+  live?: () => LiveSettings;
   signingKey: SigningKey;
   /** Public keys (key id to base64url) of earlier signing keys, still published so key rotation needs no downtime. */
   previousPublicKeys?: Record<string, string>;
@@ -101,12 +119,11 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   const now = opts.now ?? Date.now;
   const { kid, secretKey, publicKey } = opts.signingKey;
   const app = Fastify({ trustProxy: opts.trustProxy ?? false });
-  const maxRoomSize = opts.limits?.maxRoomSize ?? MAX_ROOM_SIZE;
-  const warnRoomSize = opts.limits?.warnRoomSize ?? WARN_ROOM_SIZE;
-  const roomCreation = opts.roomCreation ?? 'anyone';
-  const defaultSignedInOnly = (opts.defaultRoomAccess ?? 'anyone') === 'signed-in';
+  // Options, with whatever the operator has changed since the server started laid over them.
+  const cur = () => ({ ...opts, ...opts.live?.() });
   const roomRecordTtl = opts.roomRecordTtlMs ?? 24 * 3600_000;
-  if ((roomCreation === 'signed-in' || defaultSignedInOnly) && !opts.auth) {
+  const initial = cur();
+  if ((initial.roomCreation === 'signed-in' || initial.defaultRoomAccess === 'signed-in') && !opts.auth) {
     throw new Error('Requiring sign-in needs an identity provider: configure `auth` (OIDC_ISSUER and OIDC_CLIENT_ID).');
   }
 
@@ -172,24 +189,25 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     m.configs.inc();
     if (opts.staticConfig) return reply.header('cache-control', 'max-age=60').send(opts.staticConfig);
     const t = now();
+    const c = cur();
     const config: ClientConfig = {
       version: Math.floor(t / 1000),
       issuedAt: t,
       validUntil: t + CONFIG_TTL_MS,
-      minClientVersion: opts.minClientVersion ?? '0.0.0',
+      minClientVersion: c.minClientVersion ?? '0.0.0',
       minProtocol: 1,
       beaconUrls: [requestOrigin(req)],
       limits: {
-        maxRoomSize,
-        warnRoomSize,
-        videoTiers: opts.limits?.videoTiers ?? DEFAULT_VIDEO_TIERS,
-        relayVideoTier: opts.limits?.relayVideoTier,
+        maxRoomSize: c.limits?.maxRoomSize ?? MAX_ROOM_SIZE,
+        warnRoomSize: c.limits?.warnRoomSize ?? WARN_ROOM_SIZE,
+        videoTiers: c.limits?.videoTiers ?? DEFAULT_VIDEO_TIERS,
+        relayVideoTier: c.limits?.relayVideoTier,
       },
       features: {},
-      ice: { stunUrls: opts.stunUrls },
+      ice: { stunUrls: c.stunUrls },
       regions: [{ id: 'default', name: 'Default' }],
-      announcement: opts.announcement,
-      integrations: opts.integrations?.giphyApiKey ? { giphyApiKey: opts.integrations.giphyApiKey } : undefined,
+      announcement: c.announcement,
+      integrations: c.integrations?.giphyApiKey ? { giphyApiKey: c.integrations.giphyApiKey } : undefined,
       auth: opts.auth
         ? {
             issuer: opts.auth.issuer,
@@ -197,7 +215,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
             clientSecret: opts.auth.clientSecret,
             desktop: opts.auth.desktop,
             scope: opts.auth.scope ?? 'openid profile email',
-            createRequiresLogin: roomCreation === 'signed-in',
+            createRequiresLogin: c.roomCreation === 'signed-in',
           }
         : undefined,
     };
@@ -241,7 +259,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   const newRecord = (identity: Identity | undefined, signedInOnly: boolean | undefined): RoomRecord => ({
     owner: identity?.id,
     // A room nobody can sign in to would lock everyone out, so the flag only counts when sign-in exists.
-    signedInOnly: Boolean(opts.auth) && (signedInOnly ?? defaultSignedInOnly),
+    signedInOnly: Boolean(opts.auth) && (signedInOnly ?? cur().defaultRoomAccess === 'signed-in'),
     locked: false,
     createdAt: now(),
   });
@@ -249,7 +267,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   app.post('/v1/rooms', limited, async (req, reply) => {
     const who = await whoIs(req);
     if (!who.ok) return refused(reply, 401, 'Your sign-in was not accepted. Sign in again.', INVALID_TOKEN);
-    if (roomCreation === 'signed-in' && !who.identity) {
+    if (cur().roomCreation === 'signed-in' && !who.identity) {
       return refused(reply, 401, 'Sign in to start a room.', LOGIN_REQUIRED_TO_CREATE);
     }
     const body = CreateRoomRequest.safeParse(req.body ?? {});
@@ -283,7 +301,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
 
   /** The room's tier: the best of what it already has and what this joiner's entitlement grants. */
   async function tierFor(room: string, entitlement: string | undefined, identity: Identity | undefined): Promise<Tier> {
-    let tier: Tier = (await opts.store.getRoomTier(room)) ?? opts.defaultTier ?? 'free';
+    let tier: Tier = (await opts.store.getRoomTier(room)) ?? cur().defaultTier ?? 'free';
     const grants = [
       entitlement && opts.entitlements ? await opts.entitlements(entitlement, room) : undefined,
       identity && opts.planFor ? await opts.planFor(identity, room) : undefined,
@@ -308,7 +326,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     const body = parsed.data;
     const supported = isClientSupported(
       { version: body.clientVersion, protocol: body.protocol },
-      { minClientVersion: opts.minClientVersion ?? '0.0.0', minProtocol: 1 },
+      { minClientVersion: cur().minClientVersion ?? '0.0.0', minProtocol: 1 },
     );
     if (!supported) {
       done('upgrade-required');
@@ -324,7 +342,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     // A room nobody has used lately does not exist, so joining it starts it, under the server's rules for starting rooms.
     let record = await opts.store.getRoom(body.room);
     if (!record) {
-      if (roomCreation === 'signed-in' && !who.identity) {
+      if (cur().roomCreation === 'signed-in' && !who.identity) {
         done('login-required');
         return refused(reply, 401, 'Sign in to start a room.', LOGIN_REQUIRED_TO_CREATE);
       }
@@ -362,8 +380,10 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     const url = opts.nodeUrl?.(node, req) ?? node.url ?? requestOrigin(req).replace(/^http/, 'ws') + '/ws';
 
     const tier = await tierFor(body.room, body.entitlement, who.identity);
-    const iceServers: IceServer[] = opts.stunUrls.length ? [{ urls: opts.stunUrls }] : [];
-    const pool = tier === 'free' ? undefined : opts.turn?.[tier];
+    const c = cur();
+    const maxRoomSize = c.limits?.maxRoomSize ?? MAX_ROOM_SIZE;
+    const iceServers: IceServer[] = c.stunUrls.length ? [{ urls: c.stunUrls }] : [];
+    const pool = tier === 'free' ? undefined : c.turn?.[tier];
     if (pool) iceServers.push(turnCredentials(pool, peerId, t));
 
     const response: JoinResponse = {

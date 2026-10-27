@@ -1,4 +1,4 @@
-import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, relayVideoTierFromEnv, serveWebApp } from '@orvo/beacon';
+import { authSettingsFromEnv, createBeaconApp, loadOrCreateSigningKey, registerAdminRoutes, serveWebApp, SettingsStore, settingsFromEnv } from '@orvo/beacon';
 import { Metrics } from '@orvo/metrics';
 import { MemoryPlacementStore } from '@orvo/placement';
 import { SignalingServer } from '@orvo/signaling';
@@ -16,29 +16,31 @@ const signingKey = loadOrCreateSigningKey(dataDir);
 // One registry for the whole process, so /metrics shows the beacon and the signaling node together.
 const metrics = new Metrics({ defaultMetrics: true });
 const signIn = authSettingsFromEnv(process.env);
-// A relay for people whose networks block direct connections. On a personal server the operator runs it for their own
-// friends, so with a relay configured every room gets credentials; there is no entitlement service to grant them.
-const turnPool = process.env.TURN_URLS && process.env.TURN_SECRET ? { urls: process.env.TURN_URLS.split(',').filter(Boolean), secret: process.env.TURN_SECRET } : undefined;
+// What an operator can change while the server runs: the environment gives the starting values, and changes made in the
+// admin page are saved in the data directory and win over them. With a relay configured, every room gets credentials,
+// since there is no entitlement service on a personal server to grant them.
+const settings = new SettingsStore({
+  defaults: settingsFromEnv(process.env, signIn),
+  file: path.join(dataDir, 'settings.json'),
+  authConfigured: Boolean(signIn.auth),
+  defaultAnnouncementId: process.env.ANNOUNCEMENT_ID ?? 'notice',
+});
 const app = await createBeaconApp({
   signingKey,
   ...signIn,
   metrics,
   store: new MemoryPlacementStore([{ id: nodeId, region: 'default', weight: 1, draining: false }]),
-  stunUrls: (process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302').split(',').filter(Boolean),
-  turn: { full: turnPool },
-  defaultTier: turnPool ? 'full' : undefined,
-  minClientVersion: process.env.MIN_CLIENT_VERSION,
-  limits: {
-    ...(process.env.MAX_ROOM_SIZE ? { maxRoomSize: Number(process.env.MAX_ROOM_SIZE), warnRoomSize: Number(process.env.WARN_ROOM_SIZE ?? 6) } : {}),
-    relayVideoTier: relayVideoTierFromEnv(process.env),
-  },
-  announcement: process.env.ANNOUNCEMENT ? { id: process.env.ANNOUNCEMENT_ID ?? 'notice', text: process.env.ANNOUNCEMENT } : undefined,
+  stunUrls: settings.effective().stunUrls,
+  live: () => settings.live(),
   // 0 turns limiting off, which load tests need because every simulated user shares one address.
   rateLimitPerMinute: process.env.RATE_LIMIT_PER_MINUTE ? Number(process.env.RATE_LIMIT_PER_MINUTE) || false : undefined,
-  integrations: { giphyApiKey: process.env.GIPHY_API_KEY || undefined },
   corsOrigin: process.env.CORS_ORIGIN ?? true,
   trustProxy: Boolean(process.env.BEHIND_PROXY),
 });
+// The admin page exists only when the server has a password for it.
+if (process.env.ADMIN_PASSWORD) {
+  await registerAdminRoutes(app, { store: settings, password: process.env.ADMIN_PASSWORD, signingKey, allowRemote: process.env.ADMIN_ALLOW_REMOTE === '1' });
+}
 
 const signaling = new SignalingServer({
   nodeId,

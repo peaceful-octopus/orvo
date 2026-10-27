@@ -1,0 +1,284 @@
+import { MAX_ROOM_SIZE, WARN_ROOM_SIZE } from '@orvo/protocol';
+import { createHash, randomBytes } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import type { LiveSettings } from './app';
+import { authSettingsFromEnv } from './auth-env';
+import { relayVideoSettingsFromEnv, relayVideoTier } from './limits-env';
+
+/** What an operator can change while the server runs. Everything else stays an environment setting. */
+export interface Settings {
+  maxRoomSize: number;
+  warnRoomSize: number;
+  minClientVersion: string;
+  /** Shown to everyone as a banner; empty means none. */
+  announcement: string;
+  roomCreation: 'anyone' | 'signed-in';
+  defaultRoomAccess: 'anyone' | 'signed-in';
+  stunUrls: string[];
+  turnUrls: string[];
+  turnSecret: string;
+  /** Video sent through the relay; `null` keeps the built-in default for that part. */
+  relayVideoKbps: number | null;
+  relayVideoScale: number | null;
+  relayVideoFps: number | null;
+  giphyApiKey: string;
+}
+
+export type SettingKey = keyof Settings;
+
+export const SETTING_KEYS: readonly SettingKey[] = [
+  'maxRoomSize',
+  'warnRoomSize',
+  'minClientVersion',
+  'announcement',
+  'roomCreation',
+  'defaultRoomAccess',
+  'stunUrls',
+  'turnUrls',
+  'turnSecret',
+  'relayVideoKbps',
+  'relayVideoScale',
+  'relayVideoFps',
+  'giphyApiKey',
+];
+
+/** Values the admin page never sends back to the browser. */
+export const SECRET_KEYS: readonly SettingKey[] = ['turnSecret', 'giphyApiKey'];
+
+export type Errors = Record<string, string>;
+
+const DEFAULT_STUN = 'stun:stun.l.google.com:19302';
+const MAX_NAME_LENGTH = 200;
+
+const isInt = (v: unknown, min: number, max: number): v is number => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+const isNum = (v: unknown, min: number, max: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+const urlList = (schemes: string[], what: string) => (v: unknown): string | undefined => {
+  if (!Array.isArray(v) || v.length > 8 || v.some((u) => typeof u !== 'string')) return `Give up to 8 ${what} addresses.`;
+  const bad = (v as string[]).find((u) => !new RegExp(`^(${schemes.join('|')}):[^\\s,]+$`).test(u.trim()));
+  return bad === undefined ? undefined : `"${bad}" is not a ${what} address; it should look like ${schemes[0]}:host:3478.`;
+};
+
+/** One check per setting; each returns an explanation when the value is not acceptable. */
+const CHECKS: Record<SettingKey, (v: unknown) => string | undefined> = {
+  maxRoomSize: (v) => (isInt(v, 2, 100) ? undefined : 'Use a whole number from 2 to 100.'),
+  warnRoomSize: (v) => (isInt(v, 1, 100) ? undefined : 'Use a whole number from 1 to 100.'),
+  minClientVersion: (v) => (typeof v === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v) ? undefined : 'Use a version such as 1.2.0.'),
+  announcement: (v) => (typeof v === 'string' && v.length <= 500 ? undefined : 'Use at most 500 characters.'),
+  roomCreation: (v) => (v === 'anyone' || v === 'signed-in' ? undefined : 'Choose who may start rooms.'),
+  defaultRoomAccess: (v) => (v === 'anyone' || v === 'signed-in' ? undefined : 'Choose who may join new rooms.'),
+  stunUrls: urlList(['stun', 'stuns'], 'STUN'),
+  turnUrls: urlList(['turn', 'turns'], 'TURN'),
+  turnSecret: (v) => (typeof v === 'string' && v.length <= MAX_NAME_LENGTH ? undefined : 'Use at most 200 characters.'),
+  relayVideoKbps: (v) => (v === null || isInt(v, 1, 100_000) ? undefined : 'Use a whole number of kilobits a second, or leave it empty.'),
+  relayVideoScale: (v) => (v === null || isNum(v, 1, 8) ? undefined : 'Use a number from 1 to 8, or leave it empty.'),
+  relayVideoFps: (v) => (v === null || isInt(v, 1, 60) ? undefined : 'Use a whole number from 1 to 60, or leave it empty.'),
+  giphyApiKey: (v) => (typeof v === 'string' && v.length <= MAX_NAME_LENGTH ? undefined : 'Use at most 200 characters.'),
+};
+
+/** Cleans a value the way it will be stored: trimmed text, no empty addresses. */
+function normalize(key: SettingKey, value: unknown): unknown {
+  if (typeof value === 'string') return value.trim();
+  if ((key === 'stunUrls' || key === 'turnUrls') && Array.isArray(value)) {
+    return value.map((u) => (typeof u === 'string' ? u.trim() : u)).filter((u) => u !== '');
+  }
+  return value;
+}
+
+/** Rules that involve several settings at once, which the server also enforces when it starts. */
+export function validateTogether(s: Settings, ctx: { authConfigured: boolean }): Errors {
+  const errors: Errors = {};
+  if (s.warnRoomSize > s.maxRoomSize) errors.warnRoomSize = 'The warning size cannot be above the room size.';
+  if (!ctx.authConfigured) {
+    const needs = 'Requiring sign-in needs a sign-in provider (OIDC_ISSUER and OIDC_CLIENT_ID in the server settings).';
+    if (s.roomCreation === 'signed-in') errors.roomCreation = needs;
+    if (s.defaultRoomAccess === 'signed-in') errors.defaultRoomAccess = needs;
+  }
+  if (s.turnUrls.length > 0 && !s.turnSecret) errors.turnSecret = 'A relay needs its shared secret.';
+  if (s.turnUrls.length === 0 && s.turnSecret) errors.turnUrls = 'A relay secret needs a relay address.';
+  return errors;
+}
+
+const splitList = (value: string | undefined): string[] => (value ?? '').split(',').map((u) => u.trim()).filter(Boolean);
+
+/**
+ * The settings the server starts with, from the environment (the same variables as before). `rules` can pass the
+ * already-read ROOM_CREATION and DEFAULT_ROOM_ACCESS so the sign-in settings are not parsed twice.
+ */
+export function settingsFromEnv(
+  env: Record<string, string | undefined>,
+  rules?: { roomCreation: 'anyone' | 'signed-in'; defaultRoomAccess: 'anyone' | 'signed-in' },
+): Settings {
+  const { roomCreation, defaultRoomAccess } = rules ?? authSettingsFromEnv(env);
+  const relay = relayVideoSettingsFromEnv(env);
+  return {
+    maxRoomSize: env.MAX_ROOM_SIZE ? Number(env.MAX_ROOM_SIZE) : MAX_ROOM_SIZE,
+    warnRoomSize: env.WARN_ROOM_SIZE ? Number(env.WARN_ROOM_SIZE) : WARN_ROOM_SIZE,
+    minClientVersion: env.MIN_CLIENT_VERSION || '0.0.0',
+    announcement: env.ANNOUNCEMENT ?? '',
+    roomCreation,
+    defaultRoomAccess,
+    stunUrls: env.STUN_URLS === undefined ? [DEFAULT_STUN] : splitList(env.STUN_URLS),
+    turnUrls: splitList(env.TURN_URLS),
+    turnSecret: env.TURN_SECRET ?? '',
+    relayVideoKbps: relay.kbps,
+    relayVideoScale: relay.scale,
+    relayVideoFps: relay.fps,
+    giphyApiKey: env.GIPHY_API_KEY ?? '',
+  };
+}
+
+export interface SettingsStoreOptions {
+  /** What each setting is when the operator has not changed it: the environment. */
+  defaults: Settings;
+  /** Where changes are kept between restarts. Without it they last until the process ends. */
+  file?: string;
+  /** Whether a sign-in provider is configured; the sign-in rules depend on it. */
+  authConfigured: boolean;
+  /** The announcement's id when it is the one from the environment (clients hide an announcement they dismissed by id). */
+  defaultAnnouncementId?: string;
+  warn?: (message: string) => void;
+}
+
+export type UpdateResult = { ok: true } | { ok: false; errors: Errors };
+
+/**
+ * The settings in force: the environment's values with the operator's saved changes laid over them. Saved values win,
+ * and resetting one brings the environment's value back.
+ */
+export class SettingsStore {
+  private saved: Partial<Settings> = {};
+  private readonly warn: (message: string) => void;
+
+  constructor(private readonly opts: SettingsStoreOptions) {
+    this.warn = opts.warn ?? ((m) => console.warn(m));
+    this.saved = this.read();
+  }
+
+  defaults(): Settings {
+    return this.opts.defaults;
+  }
+
+  authConfigured(): boolean {
+    return this.opts.authConfigured;
+  }
+
+  effective(): Settings {
+    return this.merge(this.saved);
+  }
+
+  /** The environment's values under `saved`. An unchanged warning size follows the room size down, so lowering one needs no edit of the other. */
+  private merge(saved: Partial<Settings>): Settings {
+    const merged = { ...this.opts.defaults, ...saved };
+    if (!('warnRoomSize' in saved)) merged.warnRoomSize = Math.min(merged.warnRoomSize, merged.maxRoomSize);
+    return merged;
+  }
+
+  isSaved(key: SettingKey): boolean {
+    return key in this.saved;
+  }
+
+  /** Applies `set` and `reset` together; nothing changes unless all of it is acceptable. */
+  update(change: { set?: Record<string, unknown>; reset?: string[] }): UpdateResult {
+    const errors: Errors = {};
+    const next: Partial<Settings> = { ...this.saved };
+    for (const [key, raw] of Object.entries(change.set ?? {})) {
+      if (!(SETTING_KEYS as readonly string[]).includes(key)) {
+        errors[key] = 'Not a setting.';
+        continue;
+      }
+      const value = normalize(key as SettingKey, raw);
+      const problem = CHECKS[key as SettingKey](value);
+      if (problem) errors[key] = problem;
+      else (next as Record<string, unknown>)[key] = value;
+    }
+    for (const key of change.reset ?? []) {
+      if (!(SETTING_KEYS as readonly string[]).includes(key)) errors[key] = 'Not a setting.';
+      else delete next[key as SettingKey];
+    }
+    if (Object.keys(errors).length === 0) Object.assign(errors, validateTogether(this.merge(next), { authConfigured: this.opts.authConfigured }));
+    if (Object.keys(errors).length > 0) return { ok: false, errors };
+    try {
+      this.write(next);
+    } catch (err) {
+      return { ok: false, errors: { _: `The change could not be saved (${err instanceof Error ? err.message : String(err)}).` } };
+    }
+    this.saved = next;
+    return { ok: true };
+  }
+
+  /** The settings in the form the beacon reads them. */
+  live(): LiveSettings {
+    const s = this.effective();
+    const pool = s.turnUrls.length > 0 && s.turnSecret ? { urls: s.turnUrls, secret: s.turnSecret } : undefined;
+    return {
+      limits: {
+        maxRoomSize: s.maxRoomSize,
+        warnRoomSize: s.warnRoomSize,
+        relayVideoTier: relayVideoTier({ kbps: s.relayVideoKbps, scale: s.relayVideoScale, fps: s.relayVideoFps }),
+      },
+      stunUrls: s.stunUrls,
+      turn: { full: pool },
+      // A personal server has no entitlement service, so a relay, when there is one, is for every room.
+      defaultTier: pool ? 'full' : undefined,
+      minClientVersion: s.minClientVersion,
+      announcement: s.announcement ? { id: this.announcementId(s.announcement), text: s.announcement } : undefined,
+      integrations: { giphyApiKey: s.giphyApiKey || undefined },
+      roomCreation: s.roomCreation,
+      defaultRoomAccess: s.defaultRoomAccess,
+    };
+  }
+
+  /** A changed announcement gets a new id, so people who dismissed the old one see the new one. */
+  private announcementId(text: string): string {
+    if (text === this.opts.defaults.announcement && this.opts.defaultAnnouncementId) return this.opts.defaultAnnouncementId;
+    return `a-${createHash('sha1').update(text).digest('hex').slice(0, 8)}`;
+  }
+
+  private read(): Partial<Settings> {
+    const { file } = this.opts;
+    if (!file || !fs.existsSync(file)) return {};
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (err) {
+      this.warn(`Ignoring ${file}, which could not be read: ${err instanceof Error ? err.message : String(err)}`);
+      return {};
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      this.warn(`Ignoring ${file}, which does not hold a settings object.`);
+      return {};
+    }
+    const kept: Partial<Settings> = {};
+    for (const key of SETTING_KEYS) {
+      if (!(key in parsed)) continue;
+      const value = normalize(key, (parsed as Record<string, unknown>)[key]);
+      const problem = CHECKS[key](value);
+      if (problem) this.warn(`Ignoring the saved ${key} in ${file}: ${problem}`);
+      else (kept as Record<string, unknown>)[key] = value;
+    }
+    // Saved values that no longer fit together (for example after sign-in was removed from the server's settings) would
+    // stop the server working, so the environment's values are used instead.
+    const together = validateTogether(this.merge(kept), { authConfigured: this.opts.authConfigured });
+    if (Object.keys(together).length > 0) {
+      this.warn(`Ignoring all saved settings in ${file}: ${Object.values(together).join(' ')}`);
+      return {};
+    }
+    return kept;
+  }
+
+  /** Writes to a temporary file and renames it over the real one, so a crash never leaves half a file. */
+  private write(next: Partial<Settings>): void {
+    const { file } = this.opts;
+    if (!file) return;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const temp = `${file}.${randomBytes(4).toString('hex')}.tmp`;
+    try {
+      fs.writeFileSync(temp, JSON.stringify(next, null, 2), { mode: 0o600 });
+      fs.renameSync(temp, file);
+    } catch (err) {
+      fs.rmSync(temp, { force: true });
+      throw err;
+    }
+  }
+}

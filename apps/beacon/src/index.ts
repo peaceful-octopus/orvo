@@ -1,7 +1,9 @@
 export { createOidcVerifier, type AuthOptions, type AuthVerifier, type Identity, type OidcOptions } from './auth';
 export { authSettingsFromEnv, type AuthSettings } from './auth-env';
-export { createBeaconApp, type BeaconOptions, type EntitlementVerifier, type PlanLookup } from './app';
+export { registerAdminRoutes, type AdminOptions } from './admin';
+export { createBeaconApp, type BeaconOptions, type EntitlementVerifier, type LiveSettings, type PlanLookup } from './app';
 export { relayVideoTierFromEnv } from './limits-env';
+export { SettingsStore, settingsFromEnv, type Settings } from './settings';
 export { loadOrCreateSigningKey, signingKeyFromEnv, type SigningKey } from './keys';
 export { turnCredentials, type TurnPool } from './turn';
 export { serveWebApp } from './web';
