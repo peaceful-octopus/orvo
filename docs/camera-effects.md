@@ -39,4 +39,4 @@ the camera.
   (`splitForScreens` in `apps/app/src/float/layouts.ts`). The sharer sees a note with a stop button instead of a mirror.
 - The screen's tracks carry `contentHint = 'detail'` and follow the same send limits as the camera, so a large room
   does not get more bandwidth because someone is sharing.
-- The floating view shows bubbles only (a running activity gets a window of its own)
+- The floating view shows bubbles only, and a running activity gets a window of its own; shared screens appear when the window is docked.
