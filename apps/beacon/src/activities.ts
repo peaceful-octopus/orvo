@@ -47,12 +47,13 @@ export function loadActivities(roots: string[], warn: (message: string) => void 
 /**
  * Activities run in a sandboxed iframe without `allow-same-origin`, so they load as an opaque origin. That is why module
  * scripts need CORS here. The policy stops an activity from contacting anything but itself, which keeps it from sending
- * what it sees in a call somewhere else.
+ * what it sees in a call somewhere else. There is no `frame-ancestors`: `*` does not match the desktop app's `tauri://`
+ * scheme in WebKit, which then refuses to load the frame, and a frame without the directive may be embedded anywhere.
  */
 const ACTIVITY_HEADERS: Record<string, string> = {
   'access-control-allow-origin': '*',
   'content-security-policy':
-    "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'none'; frame-ancestors *",
+    "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'none'",
   'x-content-type-options': 'nosniff',
   'cache-control': 'no-cache',
 };
