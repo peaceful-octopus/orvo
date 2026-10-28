@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Avatar } from './Avatar';
 import { useCall } from './callStore';
 import { useSettings } from './settingsStore';
 
@@ -46,7 +47,7 @@ export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, un
         className={mirrored ? 'mirrored' : undefined}
         style={{ visibility: videoOn ? 'visible' : 'hidden' }}
       />
-      {!videoOn && <span className="initial">{name.slice(0, 1).toUpperCase() || '?'}</span>}
+      {!videoOn && <Avatar seed={name || 'Guest'} />}
       <figcaption>
         {name || 'Guest'}
         {!audioOn && ' (muted)'}

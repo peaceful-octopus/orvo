@@ -70,7 +70,7 @@ test('a camera that stops by itself during a call is turned off with a message, 
   });
   await expect(ann.getByRole('alert')).toContainText('camera stopped working');
   await expect(ann.getByRole('button', { name: 'Camera on' })).toBeVisible();
-  await expect(bob.locator('.bubble').nth(1).locator('.initial')).toBeVisible(); // bob sees ann's initial, not her picture
+  await expect(bob.locator('.bubble').nth(1).locator('.avatar')).toBeVisible(); // bob sees ann's placeholder, not her picture
 });
 
 test('messages can be dismissed, and go away on their own @smoke', async ({ context }) => {

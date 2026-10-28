@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { useSettings } from '../settingsStore';
 import { DEFAULT_PALETTE, PALETTES, type Mode, type Tokens } from './palettes';
 
@@ -14,6 +15,19 @@ const cssName = (role: string) => `--${role.replace(/[A-Z]/g, (c) => `-${c.toLow
 /** Documents that show the interface: the page itself, plus any Picture-in-Picture window that is open. */
 const targets = new Set<Document>();
 let current: { palette: string; mode: Mode } = { palette: DEFAULT_PALETTE, mode: 'dark' };
+const listeners = new Set<() => void>();
+
+/** The palette and mode in use now, for components that draw with the palette's colours themselves. Updates as they change. */
+export function useCurrentTheme(): { tokens: Tokens; mode: Mode } {
+  const now = useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    () => current,
+  );
+  return { tokens: (PALETTES[now.palette] ?? PALETTES[DEFAULT_PALETTE]!)[now.mode], mode: now.mode };
+}
 
 function paint(doc: Document) {
   const palette = PALETTES[current.palette] ?? PALETTES[DEFAULT_PALETTE]!;
@@ -37,6 +51,7 @@ function apply() {
   const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
   current = { palette: palette in PALETTES ? palette : DEFAULT_PALETTE, mode: resolveMode(mode, dark) };
   for (const doc of targets) paint(doc);
+  for (const listener of listeners) listener();
 }
 
 /**

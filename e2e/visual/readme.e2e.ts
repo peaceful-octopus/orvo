@@ -74,5 +74,18 @@ test('README pictures @readme', async ({ browser }) => {
   await joel.getByRole('button', { name: 'Settings' }).click();
   await joel.waitForTimeout(500);
   await joel.screenshot({ path: `${OUT}/settings.png` });
-  void others;
+  await joel.keyboard.press('Escape');
+
+  // Everyone in a round of Snake.
+  await joel.getByRole('button', { name: 'Activities' }).click();
+  await joel.getByRole('menuitem', { name: /Snake/ }).click();
+  for (const page of others) {
+    await page.getByRole('button', { name: 'Activities' }).click();
+    await page.getByRole('menuitem', { name: 'Open it' }).click();
+  }
+  const snake = joel.frameLocator('.activity-tile iframe');
+  await snake.locator('#scores .chip').nth(2).waitFor();
+  await snake.getByRole('button', { name: 'Start' }).click();
+  await joel.waitForTimeout(900);
+  await joel.screenshot({ path: `${OUT}/activities.png` });
 });
