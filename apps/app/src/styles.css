@@ -64,6 +64,11 @@ main.call {
   padding: 1rem;
 }
 
+/* A screen or activity takes most of the window, so it starts below the logo and the sign-in and settings buttons. */
+main.call.tiled {
+  padding-top: 4.25rem;
+}
+
 /* ---- Controls ---------------------------------------------------------------------------------------------- */
 
 button,

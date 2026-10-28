@@ -337,9 +337,8 @@ export function RoomPage({ room }: { room: string }) {
   const notice = unreachableNotice(members.filter((m) => m.unreachable).map((m) => m.name));
 
   return (
-    <main className="call">
-      {/* An activity fills the corner the logo sits in. */}
-      {!tiles.length && <Wordmark className="wordmark-corner" />}
+    <main className={`call${tiles.length || screens.length ? ' tiled' : ''}`}>
+      <Wordmark className="wordmark-corner" />
       <SettingsButton />
       {reconnecting && <p className="banner">Reconnecting to the server... your call continues.</p>}
       {notice && (
