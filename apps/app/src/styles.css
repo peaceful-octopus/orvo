@@ -1019,13 +1019,54 @@ button.chevron {
   height: 100vh;
   border-radius: var(--r-panel);
   background: transparent;
-  transition: background var(--dur) var(--ease);
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
 /* A faint backdrop while the pointer is over the window shows where its edges and resize corners are. */
 .float-view.hot {
   background: var(--edge);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 65%, transparent);
 }
+
+/* Wide strips along the edges and corners that start a resize; the window's own border is too thin to hit. */
+.resize-handle {
+  position: absolute;
+  z-index: 2;
+}
+
+.resize-handle.north,
+.resize-handle.south {
+  left: 14px;
+  right: 14px;
+  height: 10px;
+  cursor: ns-resize;
+}
+
+.resize-handle.east,
+.resize-handle.west {
+  top: 14px;
+  bottom: 14px;
+  width: 10px;
+  cursor: ew-resize;
+}
+
+.resize-handle.north { top: 0; }
+.resize-handle.south { bottom: 0; }
+.resize-handle.east { right: 0; }
+.resize-handle.west { left: 0; }
+
+.resize-handle.northeast,
+.resize-handle.northwest,
+.resize-handle.southeast,
+.resize-handle.southwest {
+  width: 16px;
+  height: 16px;
+}
+
+.resize-handle.northeast { top: 0; right: 0; cursor: nesw-resize; }
+.resize-handle.southwest { bottom: 0; left: 0; cursor: nesw-resize; }
+.resize-handle.northwest { top: 0; left: 0; cursor: nwse-resize; }
+.resize-handle.southeast { bottom: 0; right: 0; cursor: nwse-resize; }
 
 .float-view .bubble,
 .float-view .bubble video {

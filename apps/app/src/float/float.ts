@@ -173,6 +173,12 @@ export function useFloat(mode: LayoutMode, count: number) {
   return { kind, active, enter, exit, withRoomyWindow };
 }
 
+export type ResizeEdge = 'North' | 'South' | 'East' | 'West' | 'NorthEast' | 'NorthWest' | 'SouthEast' | 'SouthWest';
+
+export async function startWindowResize(edge: ResizeEdge) {
+  await (await tauriWindow()).startResizeDragging(edge);
+}
+
 export async function startWindowDrag() {
   await (await tauriWindow()).startDragging();
 }

@@ -1,6 +1,7 @@
 import { BubbleField, type Member } from './BubbleField';
 import { ControlButtons } from './ControlButtons';
 import { startWindowDrag } from './float';
+import { ResizeHandles } from './ResizeHandles';
 import { UNCAPPED, type LayoutMode } from './layouts';
 
 interface Props {
@@ -30,6 +31,7 @@ export function FloatView({ members, mode, draggable, hot, inlineControls }: Pro
       className={`float-view${hot ? ' hot' : ''}${inlineControls ? ' inline-controls' : ''}`}
       onMouseDown={draggable ? () => void startWindowDrag() : undefined}
     >
+      {draggable && <ResizeHandles />}
       <BubbleField members={members} mode={mode} maxSize={UNCAPPED} adaptive />
       {inlineControls && (
         <div onMouseDown={(e) => e.stopPropagation()}>
