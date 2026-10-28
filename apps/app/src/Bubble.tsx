@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Avatar } from './Avatar';
 import { useCall } from './callStore';
 import { useSettings } from './settingsStore';
+import { useSpeaking } from './useSpeaking';
 
 interface Props {
   name: string;
@@ -21,6 +22,7 @@ export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, un
   const ref = useRef<HTMLVideoElement>(null);
   const speaker = useCall((s) => s.selected.audiooutput);
   const speakerVolume = useSettings((s) => s.speakerVolume);
+  const speaking = useSpeaking(stream, audioOn);
 
   // Other people's audio plays through the chosen speaker where the browser allows choosing one.
   useEffect(() => {
@@ -38,7 +40,7 @@ export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, un
   }, [stream]);
 
   return (
-    <figure className="bubble" data-route={route}>
+    <figure className="bubble" data-route={route} data-speaking={speaking}>
       <video
         ref={ref}
         autoPlay
