@@ -15,7 +15,7 @@ import {
 const HOVER_POLL_MS = 60;
 const HOVER_MARGIN_PX = 8;
 
-export const CONTROLS_BAR = { w: 544, h: 64 };
+export const CONTROLS_BAR = { w: 584, h: 64 };
 
 /** Window creation and closing are serialized so a quick Float/Expand toggle cannot race itself. */
 let queue: Promise<unknown> = Promise.resolve();
@@ -128,7 +128,7 @@ export function useControlsWindow(
   useEffect(() => {
     if (!active) return;
     void import('@tauri-apps/api/event').then(({ emit }) => emit(EVT_STATE, state));
-  }, [active, state.audio, state.video, state.giphyKey, state.devices, state.selected, state.canSelectOutput, state.filter, state.blurBackground, state.autoFrame, state.sharing, state.canShare]);
+  }, [active, state.audio, state.video, state.giphyKey, state.devices, state.selected, state.canSelectOutput, state.filter, state.blurBackground, state.autoFrame, state.sharing, state.canShare, state.activities, state.activity]);
 
   return { hot: mainHover || controlsHover };
 }

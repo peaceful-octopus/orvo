@@ -13,6 +13,7 @@ import { DeviceButton, DeviceSelects } from './DeviceMenu';
 import { LayoutMenu } from './BarMenus';
 import { ActivityMenu } from './activities/ActivityMenu';
 import { ActivityTile } from './activities/ActivityTile';
+import { useActivitySummary } from './activities/useActivitySummary';
 import { openActivityInstance, useActivity } from './activities/activityStore';
 import { FilterButton } from './FilterMenu';
 import { canSelectOutput } from './devices';
@@ -94,6 +95,7 @@ export function RoomPage({ room }: { room: string }) {
   const limits = useConfig((s) => s.config.limits);
   const apiKey = useConfig((s) => giphyApiKey(s.config));
   const activityInstance = useActivity(openActivityInstance);
+  const activitySummary = useActivitySummary();
   const [gifOpen, setGifOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const name = useSettings((s) => s.name);
@@ -177,6 +179,9 @@ export function RoomPage({ room }: { room: string }) {
     else if (a.type === 'filter') setMoodFilter(a.id);
     else if (a.type === 'share') void (screen ? stopScreen() : float.withRoomyWindow(shareScreen));
     else if (a.type === 'look') toggleLook(a.which, a.on);
+    else if (a.type === 'activity-start') useActivity.getState().start(a.id);
+    else if (a.type === 'activity-open') useActivity.getState().open();
+    else if (a.type === 'activity-close') useActivity.getState().close();
     else if (a.type === 'leave') void leaveCall();
     else void float.exit();
   };
@@ -188,7 +193,7 @@ export function RoomPage({ room }: { room: string }) {
   };
   const controlsWindow = useControlsWindow(
     float.active && float.kind === 'tauri',
-    { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs, ...look, sharing: Boolean(screen), canShare },
+    { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs, ...look, sharing: Boolean(screen), canShare, activities: activitySummary.options, activity: activitySummary.running },
     onControlAction,
   );
 

@@ -1,4 +1,5 @@
 import type { GifMode, GifSource } from '@orvo/effects';
+import type { ActivityOption, RunningActivity } from '../activities/ActivityPanel';
 import type { DeviceKind, DeviceLists, DeviceSelection } from '../devices';
 
 /** Events exchanged between the floating bubble window and its separate controls window. */
@@ -25,6 +26,9 @@ export interface ControlsState {
   /** Whether you are sharing your screen, and whether this system can. */
   sharing: boolean;
   canShare: boolean;
+  /** What the Play menu offers, and the activity running in the call. */
+  activities: ActivityOption[];
+  activity?: RunningActivity;
 }
 
 export type ControlAction =
@@ -36,6 +40,9 @@ export type ControlAction =
   | { type: 'device'; kind: DeviceKind; id: string }
   | { type: 'filter'; id: string }
   | { type: 'share' }
+  | { type: 'activity-start'; id: string }
+  | { type: 'activity-open' }
+  | { type: 'activity-close' }
   | { type: 'look'; which: 'blurBackground' | 'autoFrame'; on: boolean }
   | { type: 'leave' };
 

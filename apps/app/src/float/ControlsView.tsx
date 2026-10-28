@@ -1,5 +1,6 @@
 import type { GifMode, GifSource } from '@orvo/effects';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityPanel, activityPanelHeight } from '../activities/ActivityPanel';
 import { DeviceMenuPanel, menuRows, type MenuKind } from '../DeviceMenu';
 import { noDevices, noSelection } from '../devices';
 import { FilterPanel, lookIsOn } from '../FilterMenu';
@@ -58,18 +59,25 @@ export function ControlsView() {
     autoFrame: false,
     sharing: false,
     canShare: false,
+    activities: [],
   });
   const [mainHover, setMainHover] = useState(false);
   const [selfHover, setSelfHover] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [menu, setMenu] = useState<MenuKind | 'filters' | null>(null);
+  const [menu, setMenu] = useState<MenuKind | 'filters' | 'activities' | null>(null);
   const panelOpen = pickerOpen || menu !== null;
   const [lingering, setLingering] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [above, setAbove] = useState(false);
 
-  const rows = menu && menu !== 'filters' ? menuRows(menu, state.devices, state.canSelectOutput) : { sections: 0, options: 0 };
-  const menuHeight = menu === 'filters' ? FILTERS_HEIGHT : Math.min(MENU_MAX, 20 + rows.sections * 34 + rows.options * 36);
+  const deviceMenu = menu === 'mic' || menu === 'cam' ? menu : null;
+  const rows = deviceMenu ? menuRows(deviceMenu, state.devices, state.canSelectOutput) : { sections: 0, options: 0 };
+  const menuHeight =
+    menu === 'filters'
+      ? FILTERS_HEIGHT
+      : menu === 'activities'
+        ? Math.min(MENU_MAX, activityPanelHeight(state.activities, state.activity))
+        : Math.min(MENU_MAX, 20 + rows.sections * 34 + rows.options * 36);
 
   const shown = mainHover || selfHover || panelOpen || lingering || toast !== null;
 
@@ -200,7 +208,7 @@ export function ControlsView() {
     };
   }, [pickerOpen, menu, menuHeight, toast !== null]);
 
-  const toggleMenu = (next: MenuKind | 'filters') => {
+  const toggleMenu = (next: MenuKind | 'filters' | 'activities') => {
     setPickerOpen(false);
     setMenu((current) => (current === next ? null : next));
   };
@@ -236,6 +244,8 @@ export function ControlsView() {
         onDeviceMenu={toggleMenu}
         openMenu={menu}
         onFilters={() => toggleMenu('filters')}
+        onActivities={state.activities.length || state.activity ? () => toggleMenu('activities') : undefined}
+        activityInvited={Boolean(state.activity && !state.activity.opened)}
         filterOn={lookIsOn(state)}
         onShare={state.canShare ? () => void act({ type: 'share' }) : undefined}
         sharing={state.sharing}
@@ -247,9 +257,27 @@ export function ControlsView() {
           onToggle={(which, on) => void act({ type: 'look', which, on })}
         />
       )}
-      {menu && menu !== 'filters' && (
+      {menu === 'activities' && (
+        <ActivityPanel
+          options={state.activities}
+          running={state.activity}
+          onStart={(id) => {
+            setMenu(null);
+            void act({ type: 'activity-start', id });
+          }}
+          onOpen={() => {
+            setMenu(null);
+            void act({ type: 'activity-open' });
+          }}
+          onClose={() => {
+            setMenu(null);
+            void act({ type: 'activity-close' });
+          }}
+        />
+      )}
+      {deviceMenu && (
         <DeviceMenuPanel
-          menu={menu}
+          menu={deviceMenu}
           devices={state.devices}
           selected={state.selected}
           canSelectOutput={state.canSelectOutput}

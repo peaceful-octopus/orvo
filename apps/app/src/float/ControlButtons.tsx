@@ -1,4 +1,4 @@
-import { ChevronIcon, ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, ScreenShareIcon, ScreenShareOffIcon, SparklesIcon, VideoIcon, VideoOffIcon } from './icons';
+import { ActivityIcon, ChevronIcon, ExpandIcon, GifIcon, LeaveIcon, MicIcon, MicOffIcon, ScreenShareIcon, ScreenShareOffIcon, SparklesIcon, VideoIcon, VideoOffIcon } from './icons';
 
 import type { MenuKind } from '../DeviceMenu';
 
@@ -16,17 +16,21 @@ interface Props {
   onGif?: () => void;
   /** Present when device choices can be shown; adds an arrow beside the microphone and camera buttons. */
   onDeviceMenu?: (menu: MenuKind) => void;
-  openMenu?: MenuKind | 'filters' | null;
+  openMenu?: MenuKind | 'filters' | 'activities' | null;
   /** Present when the filter picker can be shown; adds a filters button. */
   onFilters?: () => void;
   filterOn?: boolean;
   /** Present when this system can share a screen. */
   onShare?: () => void;
   sharing?: boolean;
+  /** Present when the server offers activities or one is running; adds a Play button. */
+  onActivities?: () => void;
+  /** Something is running that you have not opened. */
+  activityInvited?: boolean;
 }
 
 /** The floating view's control strip: icon buttons plus quick reactions. */
-export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif, onDeviceMenu, openMenu, onFilters, filterOn, onShare, sharing }: Props) {
+export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onReact, onExpand, onLeave, onGif, onDeviceMenu, openMenu, onFilters, filterOn, onShare, sharing, onActivities, activityInvited }: Props) {
   const chevron = (menu: MenuKind, label: string) => (
     <button className="chevron" aria-label={label} aria-haspopup="menu" aria-expanded={openMenu === menu} title={label} onClick={() => onDeviceMenu?.(menu)}>
       <ChevronIcon />
@@ -61,6 +65,12 @@ export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onR
       {onShare && (
         <button className={`icon${sharing ? ' on' : ''}`} aria-label={sharing ? 'Stop sharing' : 'Share screen'} title={sharing ? 'Stop sharing your screen' : 'Share your screen'} onClick={onShare}>
           {sharing ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
+        </button>
+      )}
+      {onActivities && (
+        <button className="icon" aria-label="Activities" aria-haspopup="menu" aria-expanded={openMenu === 'activities'} title="Activities" onClick={onActivities}>
+          <ActivityIcon />
+          {activityInvited && <i className="dot" aria-hidden="true" />}
         </button>
       )}
       {onGif && (

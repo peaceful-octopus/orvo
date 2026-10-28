@@ -86,7 +86,7 @@ Rules to design around:
 - **Late joiners get nothing replayed.** If a newcomer needs the current picture, the host sends it when `onParticipants` reports them (Snake does this).
 - **Keyboard input needs focus.** Keys reach the frame only after it has focus. The app focuses it when it loads, and your page should show a hint when `document.hasFocus()` is false.
 - **If the host leaves, the activity ends** for everyone. There is no host migration yet.
-- **Floating windows.** In the desktop app the floating window shows the activity as a rounded pane beside the bubbles (above them with many people), and the window grows to hold it. Floating or docking moves the activity to a new frame, so the page reloads and its state is lost: a host's game returns to its lobby. Start or open an activity from the docked window; the floating controls have no Play button yet. Drag the floating window by the pane's caption, because the frame itself takes the mouse.
+- **Floating windows.** In the desktop app the floating window shows the activity as a rounded pane beside the bubbles (above them with many people), and the window grows to hold it. Floating or docking moves the activity to a new frame, so the page reloads and its state is lost: a host's game returns to its lobby. The floating controls have a Play button with the same menu as the docked window. Drag the floating window by the pane's caption, because the frame itself takes the mouse.
 
 ## Host API reference (version 1)
 
@@ -131,6 +131,6 @@ Replay uses the mesh's per-kind cache of the last message sent. `activity-msg` i
 ## Not in version 1
 
 - A jukebox. It needs a granted `audio` capability and a place in the microphone path (`apps/app/src/noise.ts`) to mix music in after noise suppression.
-- Host migration, several activities at once, keeping an activity's state when the window floats or docks, and starting or opening an activity from the floating controls.
+- Host migration, several activities at once, and keeping an activity's state when the window floats or docks.
 - Limits on who may embed an activity. The CSP has no `frame-ancestors`, so any website can embed an activity page. `*` is not an option: WebKit does not match it against the desktop app's `tauri://localhost` scheme and refuses to load the frame (the macOS app showed an empty pane). That is acceptable while activities cannot change anything outside their own frame. **Do this before the API gains state-changing abilities** (acting for the user, sending messages, spending anything), because a hostile page could then frame the activity and trick someone into clicking it (clickjacking). The server would build the header per request from `'self'`, the desktop origins (`tauri://localhost`, `http://tauri.localhost`) and an operator setting such as `APP_ORIGINS` for a web app hosted elsewhere. It cannot reflect the requester's origin, because the frame sends no `Referer` (`referrerpolicy="no-referrer"`) and navigation requests carry no `Origin`. Confirm that an explicit `tauri://localhost` entry matches in WebKit on a Mac before relying on it.
 - Signing of third-party activities. Today the operator decides what the server offers, and the sandbox limits what any activity can do.

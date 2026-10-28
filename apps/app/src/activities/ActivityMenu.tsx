@@ -1,26 +1,23 @@
-import { ACTIVITY_API_VERSION } from '@orvo/protocol';
-import { useCall } from '../callStore';
-import { useConfig } from '../configStore';
-import { COPY } from '../copy';
 import { usePopover } from '../DeviceMenu';
+import { COPY } from '../copy';
 import { ActivityIcon } from '../float/icons';
-import { openActivityInstance, useActivity } from './activityStore';
+import { ActivityPanel } from './ActivityPanel';
+import { useActivity } from './activityStore';
+import { useActivitySummary } from './useActivitySummary';
 
 /** The button that starts or opens an activity. It is absent when the server offers none and none is running. */
 export function ActivityMenu() {
   const { open, setOpen, ref } = usePopover();
-  const manifests = useConfig((s) => s.config.activities)?.filter((m) => m.apiVersion === ACTIVITY_API_VERSION) ?? [];
-  const current = useActivity((s) => s.room.current);
-  const selfId = useActivity((s) => s.selfId);
-  const opened = useActivity(openActivityInstance) !== undefined;
-  const remotes = useCall((s) => s.remotes);
-  if (!manifests.length && !current) return null;
+  const { options, running } = useActivitySummary();
+  if (!options.length && !running) return null;
 
-  const running = current && manifests.find((m) => m.id === current.activityId);
-  const starter = current?.starter === selfId ? null : (current && remotes[current.starter]?.name) || 'Guest';
   const { start, open: openRunning, close } = useActivity.getState();
+  const act = (run: () => void) => () => {
+    run();
+    setOpen(false);
+  };
   // A dot shows when someone has started something you have not opened.
-  const invited = Boolean(current && !opened);
+  const invited = Boolean(running && !running.opened);
 
   return (
     <div className="split" ref={ref}>
@@ -38,52 +35,13 @@ export function ActivityMenu() {
       </button>
       {open && (
         <div className="popover">
-          <div className="device-menu" role="menu" aria-label={COPY.activities.menu}>
-            {current ? (
-              <>
-                <h3>{running ? COPY.activities.running(running.name, starter) : COPY.activities.unsupported}</h3>
-                {!opened && running && (
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      openRunning();
-                      setOpen(false);
-                    }}
-                  >
-                    {COPY.activities.join}
-                  </button>
-                )}
-                {(opened || current.starter === selfId) && (
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      close();
-                      setOpen(false);
-                    }}
-                  >
-                    {current.starter === selfId ? COPY.activities.end : COPY.activities.close}
-                  </button>
-                )}
-              </>
-            ) : (
-              manifests.map((m) => (
-                <button
-                  key={m.id}
-                  role="menuitem"
-                  onClick={() => {
-                    start(m.id);
-                    setOpen(false);
-                  }}
-                >
-                  <span className="tick">{m.icon ?? ''}</span>
-                  <span>
-                    {m.name}
-                    <small className="hint">{m.description}</small>
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
+          <ActivityPanel
+            options={options}
+            running={running}
+            onStart={(id) => act(() => start(id))()}
+            onOpen={act(openRunning)}
+            onClose={act(close)}
+          />
         </div>
       )}
     </div>

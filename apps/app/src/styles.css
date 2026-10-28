@@ -1534,6 +1534,20 @@ main.admin-page {
   background: var(--accent);
 }
 
+.float-controls button.icon {
+  position: relative;
+}
+
+.float-controls button.icon .dot {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 .device-menu small.hint {
   display: block;
   color: var(--muted);
