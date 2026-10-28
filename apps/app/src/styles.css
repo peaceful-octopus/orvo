@@ -583,7 +583,7 @@ details.devices .device-selects {
   left: 0;
 }
 
-/* Campfire layout: a glow in the middle of the ring, in the colour opposite the palette's accent so it does not blend into the speaking rings. It breathes, drifts and ripples. */
+/* Campfire layout: a warm glow in the middle of the ring, drawn from the palette's accent, that breathes and drifts. */
 .fire {
   position: absolute;
   top: 0;
@@ -600,8 +600,8 @@ details.devices .device-selects {
 .fire .glow {
   background: radial-gradient(
     circle closest-side,
-    color-mix(in srgb, var(--fire) 38%, transparent),
-    color-mix(in srgb, var(--fire) 16%, transparent) 55%,
+    color-mix(in srgb, var(--accent) 38%, transparent),
+    color-mix(in srgb, var(--accent) 16%, transparent) 55%,
     transparent
   );
   animation: fire-breathe 6s ease-in-out infinite;
@@ -610,14 +610,14 @@ details.devices .device-selects {
 .fire .embers {
   background: radial-gradient(
     circle closest-side at 50% 55%,
-    color-mix(in srgb, var(--fire-light) 30%, transparent),
+    color-mix(in srgb, var(--accent-hover) 30%, transparent),
     transparent 70%
   );
   animation: fire-drift 11s ease-in-out infinite;
 }
 
 .fire .ripple {
-  border: 1px solid color-mix(in srgb, var(--fire) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   animation: fire-ripple 7s ease-out infinite;
 }
 

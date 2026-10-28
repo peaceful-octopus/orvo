@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from 'react';
 import { useSettings } from '../settingsStore';
-import { complementOf } from './avatar';
 import { DEFAULT_PALETTE, PALETTES, type Mode, type Tokens } from './palettes';
 
 export type ModePreference = 'system' | Mode;
@@ -35,9 +34,6 @@ function paint(doc: Document) {
   const tokens = palette[current.mode];
   const root = doc.documentElement;
   for (const [role, value] of Object.entries(tokens) as [keyof Tokens, string][]) root.style.setProperty(cssName(role), value);
-  const fire = complementOf(tokens.accent, tokens.bg);
-  root.style.setProperty('--fire', fire.base);
-  root.style.setProperty('--fire-light', fire.light);
   root.dataset.palette = current.palette;
   root.dataset.mode = current.mode;
   root.style.colorScheme = current.mode;
