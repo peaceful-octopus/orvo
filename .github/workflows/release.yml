@@ -1,6 +1,7 @@
 name: Release
 # Push a tag such as v1.0.0 (after `pnpm version:set 1.0.0` and a commit) to build the Windows and macOS installers and attach
-# them, with the update manifest the desktop app polls, to a draft GitHub Release. Publish the draft to roll it out.
+# them, with the update manifest the desktop app polls, to a draft GitHub Release. Publish the draft to roll it out. The
+# same tag also publishes the server image to ghcr.io, so the server and the apps are released together.
 # See docs/releasing.md.
 on:
   push:
@@ -58,3 +59,46 @@ jobs:
           releaseName: Orvo ${{ github.ref_name }}
           releaseDraft: true
           includeUpdaterJson: true
+
+  # The server image is released with the clients, so a server and the apps that talk to it share a version. It is
+  # published right away (unlike the draft desktop release): `latest`, the version and the commit.
+  server:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: The tag must match the version in the files
+        run: |
+          pnpm version:check
+          version=$(node -p "require('./package.json').version")
+          test "v$version" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=short,prefix=
+            type=raw,value=latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

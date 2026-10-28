@@ -30,6 +30,10 @@ git push origin main v1.0.0
 Versions are `x.y.z` numbers only (the Windows MSI and the app's version comparison need it). CI fails if the files
 disagree (`pnpm version:check`), and the release workflow fails if the tag differs from the version.
 
+The same tag also builds the server image and publishes it to `ghcr.io/<owner>/orvo` as `latest`, the version (`0.2.0`) and the short commit, so the server and the apps are released together. Unlike the desktop release this is not a draft: `latest` moves as soon as the job finishes, and a server that pulls `latest` is updated on its next pull. Pin `ORVO_IMAGE` to a version tag to avoid that.
+
+The image job signs in with the workflow's own token, so the package must allow this repository's Actions to write to it: on the package's page (Package settings → Manage Actions access), add the repository with the Write role. A package that was first pushed by hand needs this once.
+
 When the workflow finishes, open the draft release, check the assets, and publish it. Apps check for updates on
 start and every six hours, and show a banner outside calls with **Restart and update**.
 
