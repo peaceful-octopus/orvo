@@ -338,7 +338,8 @@ export function RoomPage({ room }: { room: string }) {
 
   return (
     <main className="call">
-      <Wordmark className="wordmark-corner" />
+      {/* An activity fills the corner the logo sits in. */}
+      {!tiles.length && <Wordmark className="wordmark-corner" />}
       <SettingsButton />
       {reconnecting && <p className="banner">Reconnecting to the server... your call continues.</p>}
       {notice && (
