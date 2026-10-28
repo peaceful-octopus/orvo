@@ -1127,6 +1127,11 @@ button.chevron {
   max-height: 100%;
 }
 
+.controls-view .device-menu.activity-menu {
+  width: 22rem;
+  max-width: 100%;
+}
+
 .controls-view .device-menu {
   width: 100%;
   max-width: none;

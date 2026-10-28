@@ -29,13 +29,13 @@ interface Props {
 
 /** Height the panel needs, for sizing a window around it. */
 export function activityPanelHeight(options: ActivityOption[], running?: RunningActivity) {
-  return 20 + (running ? 34 + (running.opened ? 1 : 2) * 36 : options.length * 56);
+  return 20 + (running ? 34 + (running.opened ? 1 : 2) * 36 : options.length * 72);
 }
 
 /** Starting an activity, or opening or closing the one that is running. */
 export function ActivityPanel({ options, running, onStart, onOpen, onClose }: Props) {
   return (
-    <div className="device-menu" role="menu" aria-label={COPY.activities.menu}>
+    <div className="device-menu activity-menu" role="menu" aria-label={COPY.activities.menu}>
       {running ? (
         <>
           <h3>{running.name ? COPY.activities.running(running.name, running.starter) : COPY.activities.unsupported}</h3>
