@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { avatarColors, hashString } from './avatar';
+import { avatarColors, complementOf, hashString, hexToHsl } from './avatar';
 import { contrast } from './contrast';
 import { PALETTES } from './palettes';
 
@@ -44,5 +44,23 @@ describe('avatarColors', () => {
         }
       });
     });
+  });
+});
+
+describe('complementOf', () => {
+  it('turns the hue half way around the wheel', () => {
+    const hue = (hex: string) => hexToHsl(hex).h;
+    for (const palette of Object.values(PALETTES)) {
+      for (const t of [palette.dark, palette.light]) {
+        const diff = Math.abs(hue(complementOf(t.accent, t.bg).base) - hue(t.accent));
+        expect(Math.min(diff, 360 - diff)).toBeGreaterThan(160);
+      }
+    }
+  });
+
+  it('stays visible on the page in every palette', () => {
+    for (const palette of Object.values(PALETTES)) {
+      for (const t of [palette.dark, palette.light]) expect(contrast(complementOf(t.accent, t.bg).base, t.bg)).toBeGreaterThanOrEqual(1.9);
+    }
   });
 });

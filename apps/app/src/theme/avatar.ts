@@ -13,10 +13,12 @@ export interface AvatarColors {
 const HUE_STEPS = 24;
 /** The figure must stand out from the gradient's start by at least this much; the end is darker or lighter still. */
 const MIN_FIGURE_CONTRAST = 2.5;
+/** The campfire's glow colour must stand out from the page background by at least this much. */
+const MIN_GLOW_CONTRAST = 2;
 
 type Hsl = { h: number; s: number; l: number };
 
-function hexToHsl(hex: string): Hsl {
+export function hexToHsl(hex: string): Hsl {
   const [r, g, b] = [0, 1, 2].map((i) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255) as [number, number, number];
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
@@ -28,7 +30,7 @@ function hexToHsl(hex: string): Hsl {
   return { h: h * 60, s, l };
 }
 
-function hslToHex({ h, s, l }: Hsl): string {
+export function hslToHex({ h, s, l }: Hsl): string {
   const a = s * Math.min(l, 1 - l);
   const channel = (n: number) => {
     const k = (n + h / 30) % 12;
@@ -84,4 +86,23 @@ export function avatarColors(seed: string, tokens: Tokens, mode: Mode): AvatarCo
   }
   const to = dark ? mix(from, tokens.bg, 0.8) : mix(from, tokens.text, 0.4);
   return { from, to, figure };
+}
+
+/**
+ * The colour opposite the palette's accent on the colour wheel, for things that sit beside accent-coloured ones (the
+ * campfire's glow beside the speaking rings) without blending into them. It is moved lighter on a dark page and darker
+ * on a light one until it shows against `bg`. `light` is a paler version for highlights.
+ */
+export function complementOf(accent: string, bg: string): { base: string; light: string } {
+  const { h, s, l } = hexToHsl(accent);
+  const hue = (h + 180) % 360;
+  const sat = Math.min(Math.max(s, 0.5), 0.85);
+  const towardsLight = hexToHsl(bg).l < 0.5;
+  let lightness = Math.min(Math.max(l, 0.4), 0.7);
+  let base = hslToHex({ h: hue, s: sat, l: lightness });
+  while (contrast(base, bg) < MIN_GLOW_CONTRAST && lightness > 0.15 && lightness < 0.9) {
+    lightness += towardsLight ? 0.02 : -0.02;
+    base = hslToHex({ h: hue, s: sat, l: lightness });
+  }
+  return { base, light: hslToHex({ h: hue, s: sat, l: Math.min(lightness + 0.15, 0.85) }) };
 }
