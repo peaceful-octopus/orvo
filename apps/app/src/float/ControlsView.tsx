@@ -92,7 +92,7 @@ export function ControlsView() {
   }, [mainHover, selfHover]);
 
   // macOS gives a window that is not focused no mouse-move events, and this one never takes focus, so the page cannot
-  // tell the pointer is over it. While it is showing, find out by comparing the cursor with the window, as the bubble
+  // tell the pointer is over it, and buttons do not highlight either. While it is showing, find out by comparing the cursor with the window, as the bubble
   // window does.
   const shownRef = useRef(shown);
   shownRef.current = shown;
@@ -102,14 +102,27 @@ export function ControlsView() {
     void import('@tauri-apps/api/window').then(({ getCurrentWindow, cursorPosition }) => {
       if (cancelled) return;
       const me = getCurrentWindow();
+      let hovered: Element | null = null;
       timer = setInterval(() => {
-        if (!shownRef.current) return;
+        if (!shownRef.current) {
+          hovered?.removeAttribute('data-hover');
+          hovered = null;
+          return;
+        }
         void Promise.all([cursorPosition(), me.outerPosition(), me.outerSize(), me.scaleFactor()])
           .then(([c, p, s, scale]) => {
             const x = c.x - p.x;
             const y = c.y - p.y;
             const inside = x >= 0 && y >= 0 && x < s.width && y < s.height;
-            setSelfHover(inside && isContent(document.elementFromPoint(x / scale, y / scale)));
+            const under = inside ? document.elementFromPoint(x / scale, y / scale) : null;
+            setSelfHover(isContent(under));
+            // The same applies to :hover, so mark the button under the cursor for the styles to use.
+            const button = under?.closest('button') ?? null;
+            if (hovered !== button) {
+              hovered?.removeAttribute('data-hover');
+              button?.setAttribute('data-hover', '');
+              hovered = button;
+            }
           })
           .catch(() => {});
       }, POLL_MS);

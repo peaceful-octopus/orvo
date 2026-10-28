@@ -45,6 +45,7 @@ async function open() {
     skipTaskbar: true,
     resizable: true,
     focus: true,
+    acceptFirstMouse: true,
     visible: true,
   });
   await new Promise<void>((resolve) => {

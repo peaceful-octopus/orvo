@@ -35,6 +35,7 @@ async function openControls() {
     skipTaskbar: true,
     resizable: false,
     focus: false,
+    acceptFirstMouse: true, // macOS: the first click works the button instead of only focusing the window
     visible: true,
   });
   await new Promise<void>((resolve) => {

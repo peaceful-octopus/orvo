@@ -1602,3 +1602,12 @@ main.admin-page {
   color: var(--muted);
   font-size: 0.75rem;
 }
+
+/* macOS sends no mouse events to the controls window while it is unfocused, so it marks the hovered button itself. */
+button:not(:disabled)[data-hover] {
+  background: var(--hover);
+}
+
+button.icon.leave:not(:disabled)[data-hover] {
+  background: var(--danger-hover);
+}
