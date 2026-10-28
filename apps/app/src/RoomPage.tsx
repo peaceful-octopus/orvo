@@ -12,6 +12,7 @@ import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
 import { DeviceButton, DeviceSelects } from './DeviceMenu';
 import { LayoutMenu } from './BarMenus';
 import { ActivityMenu } from './activities/ActivityMenu';
+import { ActivityRelay } from './activities/ActivityRelay';
 import { ActivityTile } from './activities/ActivityTile';
 import { useActivitySummary } from './activities/useActivitySummary';
 import { openActivityInstance, useActivity } from './activities/activityStore';
@@ -152,7 +153,7 @@ export function RoomPage({ room }: { room: string }) {
     if (!name && accountName) setName(accountName);
   }, [name, accountName, setName]);
 
-  const float = useFloat(mode, members.length, tiles.length > 0);
+  const float = useFloat(mode, members.length);
 
   // If the call ends while the window is small (for instance the owner removed you), the full window comes back.
   const { active: floating, exit: exitFloat } = float;
@@ -303,7 +304,6 @@ export function RoomPage({ room }: { room: string }) {
     <FloatView
       members={members}
       mode={mode}
-      tiles={tiles}
       draggable={inWindow}
       hot={inWindow ? controlsWindow.hot : undefined}
       inlineControls={
@@ -324,7 +324,14 @@ export function RoomPage({ room }: { room: string }) {
   );
 
   // In Tauri the window itself shrinks into the floating view.
-  if (float.active && float.kind === 'tauri') return floatView(true);
+  if (float.active && float.kind === 'tauri') {
+    return (
+      <>
+        {floatView(true)}
+        {activityInstance && <ActivityRelay />}
+      </>
+    );
+  }
 
   const status = roomStatus(members.length, limits);
   const notice = unreachableNotice(members.filter((m) => m.unreachable).map((m) => m.name));

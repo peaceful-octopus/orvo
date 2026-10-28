@@ -5,6 +5,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { useConfig } from './configStore';
+import { ActivityWindow } from './float/ActivityWindow';
+import { closeActivityWindow } from './float/activityWindows';
 import { ControlsView } from './float/ControlsView';
 import { closeControlsWindow } from './float/controlsWindow';
 import { telemetry } from './telemetry';
@@ -12,8 +14,9 @@ import { startUpdateChecks } from './updater';
 import { startTheme } from './theme/theme';
 import './styles.css';
 
-// The floating view's controls run in their own window; it only relays button presses to the call window.
-const controlsOnly = new URLSearchParams(location.search).get('view') === 'controls';
+// The floating view's controls and the running activity each get a window of their own; they only relay to the call window.
+const view = new URLSearchParams(location.search).get('view');
+const secondary = view === 'controls' || view === 'activity';
 
 startTheme();
 
@@ -40,11 +43,11 @@ if ('__TAURI_INTERNALS__' in window) {
 }
 
 // Installable as an app on phones and desktops. The desktop app is not a browser and needs none of this.
-if ('serviceWorker' in navigator && !('__TAURI_INTERNALS__' in window) && !import.meta.env.DEV && !controlsOnly) {
+if ('serviceWorker' in navigator && !('__TAURI_INTERNALS__' in window) && !import.meta.env.DEV && !secondary) {
   window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
 
-if (!controlsOnly) {
+if (!secondary) {
   void useConfig.getState().refresh();
   // The server's settings can change while the page is open (the operator edits them in the admin page).
   const revalidate = () => void useConfig.getState().revalidate().catch(() => {});
@@ -52,12 +55,15 @@ if (!controlsOnly) {
   setInterval(revalidate, 5 * 60_000);
   telemetry.start();
   startUpdateChecks();
-  // A reload can leave the previous page's controls window behind with nothing to control.
-  if ('__TAURI_INTERNALS__' in window) void closeControlsWindow().catch(() => {});
+  // A reload can leave the previous page's controls and activity windows behind with nothing to control.
+  if ('__TAURI_INTERNALS__' in window) {
+    void closeControlsWindow().catch(() => {});
+    void closeActivityWindow().catch(() => {});
+  }
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MotionConfig reducedMotion="user">{controlsOnly ? <ControlsView /> : <App />}</MotionConfig>
+    <MotionConfig reducedMotion="user">{view === 'controls' ? <ControlsView /> : view === 'activity' ? <ActivityWindow /> : <App />}</MotionConfig>
   </StrictMode>,
 );

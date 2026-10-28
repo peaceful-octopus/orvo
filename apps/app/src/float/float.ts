@@ -59,7 +59,7 @@ interface TauriSaved {
 /**
  * Floating bubbles over other apps: the app window itself becomes a small transparent always-on-top window.
  */
-export function useFloat(mode: LayoutMode, count: number, withTile = false) {
+export function useFloat(mode: LayoutMode, count: number) {
   const kind = floatKind();
   const [active, setActive] = useState(false);
 
@@ -69,7 +69,7 @@ export function useFloat(mode: LayoutMode, count: number, withTile = false) {
   const ownResizeAt = useRef(0);
 
   const enter = useCallback(async () => {
-    const size = floatWindowSize(mode, count, bubble.current, withTile);
+    const size = floatWindowSize(mode, count, bubble.current);
     ownResizeAt.current = Date.now();
     if (kind === 'tauri') {
       const { LogicalSize } = await import('@tauri-apps/api/dpi');
@@ -86,7 +86,7 @@ export function useFloat(mode: LayoutMode, count: number, withTile = false) {
       document.documentElement.classList.add('floating');
       setActive(true);
     }
-  }, [kind, mode, count, withTile]);
+  }, [kind, mode, count]);
 
   const exit = useCallback(async () => {
     if (kind === 'tauri' && saved) {
@@ -131,7 +131,7 @@ export function useFloat(mode: LayoutMode, count: number, withTile = false) {
     if (!active) return;
     // A row or column keeps whichever way the window was stretched; the new count only changes its length.
     const fitted = (current: { w: number; h: number }) =>
-      floatWindowSize(adaptiveMode(mode, count, current), count, bubble.current, withTile);
+      floatWindowSize(adaptiveMode(mode, count, current), count, bubble.current);
     if (kind === 'tauri') {
       ownResizeAt.current = Date.now();
       void import('@tauri-apps/api/dpi').then(async ({ LogicalSize }) => {
@@ -141,7 +141,7 @@ export function useFloat(mode: LayoutMode, count: number, withTile = false) {
         await win.setSize(new LogicalSize(size.w, size.h));
       });
     }
-  }, [active, kind, mode, count, withTile]);
+  }, [active, kind, mode, count]);
 
   // Remember the size the person drags the window to, for the next time and the next session.
   useEffect(() => {
@@ -156,7 +156,7 @@ export function useFloat(mode: LayoutMode, count: number, withTile = false) {
           if (Date.now() - ownResizeAt.current < OWN_RESIZE_MS) return;
           const inner = (await win.innerSize()).toLogical(await win.scaleFactor());
           const size = { w: inner.width, h: inner.height };
-          bubble.current = bubbleForWindow(adaptiveMode(mode, count, size), count, size, withTile);
+          bubble.current = bubbleForWindow(adaptiveMode(mode, count, size), count, size);
           saveBubble(bubble.current);
         }, SAVE_DELAY_MS);
       });
@@ -168,7 +168,7 @@ export function useFloat(mode: LayoutMode, count: number, withTile = false) {
       clearTimeout(timer);
       unlisten?.();
     };
-  }, [active, kind, mode, count, withTile]);
+  }, [active, kind, mode, count]);
 
   return { kind, active, enter, exit, withRoomyWindow };
 }

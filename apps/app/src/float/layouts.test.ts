@@ -177,37 +177,3 @@ describe('adaptiveMode', () => {
     expect(adaptiveMode('column', 3, { w: 0, h: 0 }, 'column')).toBe('column');
   });
 });
-
-describe('the floating window around an activity', () => {
-  const bubble = 128;
-  const fits = (count: number) => {
-    const size = floatWindowSize('row', count, bubble, true);
-    const split = splitForScreens(size, 1);
-    return { size, split, shown: layout(split.direction, count, split.bubbles, UNCAPPED).size, pane: split.screens[0]! };
-  };
-
-  it.each([1, 2, 3, 4, 5, 8, 10])('keeps the bubbles at their size and leaves a pane for %i people', (count) => {
-    const { shown, pane } = fits(count);
-    expect(shown).toBeGreaterThanOrEqual(bubble - 1);
-    expect(pane.w).toBeGreaterThan(bubble * 2);
-    expect(pane.h).toBeGreaterThan(bubble * 1.5);
-  });
-
-  it('puts the pane beside a few bubbles and above many', () => {
-    expect(fits(2).split.direction).toBe('column');
-    expect(fits(8).split.direction).toBe('row');
-  });
-
-  it('is larger than the same window without the activity', () => {
-    const plain = floatWindowSize('row', 2, bubble);
-    const withTile = floatWindowSize('row', 2, bubble, true);
-    expect(withTile.w * withTile.h).toBeGreaterThan(plain.w * plain.h);
-  });
-
-  it('reads the bubble size back from the window it made', () => {
-    for (const count of [1, 2, 4, 8]) {
-      const size = floatWindowSize('row', count, bubble, true);
-      expect(Math.abs(bubbleForWindow('row', count, size, true) - bubble)).toBeLessThanOrEqual(12);
-    }
-  });
-});

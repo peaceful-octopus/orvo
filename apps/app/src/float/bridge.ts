@@ -46,6 +46,24 @@ export type ControlAction =
   | { type: 'look'; which: 'blurBackground' | 'autoFrame'; on: boolean }
   | { type: 'leave' };
 
+/** The activity's own floating window, and the events it exchanges with the call window. */
+export const ACTIVITY_LABEL = 'float-activity';
+/** The activity window has loaded and wants to know what to show. */
+export const EVT_ACTIVITY_READY = 'float:activity-ready';
+export const EVT_ACTIVITY_INFO = 'float:activity-info';
+/** A message from the call for the activity's frame, and a message the frame posted for the call. */
+export const EVT_ACTIVITY_TO_FRAME = 'float:activity-to-frame';
+export const EVT_ACTIVITY_FROM_FRAME = 'float:activity-from-frame';
+/** The person closed the activity window. */
+export const EVT_ACTIVITY_CLOSE = 'float:activity-close';
+
+export interface ActivityWindowInfo {
+  src: string;
+  title: string;
+  caption: string;
+  closeLabel: string;
+}
+
 export interface Rect {
   x: number;
   y: number;
@@ -66,4 +84,16 @@ export function placeControls(main: Rect, size: { w: number; h: number }, monito
   // With no room on either side, overlap the bubbles rather than leave the window off the monitor.
   const y = clamp(above ? aboveY : below, monitor.y, monitor.y + monitor.h - size.h);
   return { x: Math.round(x), y: Math.round(y), above };
+}
+
+/**
+ * Where the activity window first goes, in physical pixels: to the right of the bubble window, or to its left when
+ * there is no room, and never off the monitor.
+ */
+export function placeBeside(main: Rect, size: { w: number; h: number }, monitor: Rect, gap: number) {
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)));
+  const right = main.x + main.w + gap;
+  const left = main.x - gap - size.w;
+  const x = right + size.w <= monitor.x + monitor.w ? right : left >= monitor.x ? left : right;
+  return { x: Math.round(clamp(x, monitor.x, monitor.x + monitor.w - size.w)), y: Math.round(clamp(main.y, monitor.y, monitor.y + monitor.h - size.h)) };
 }

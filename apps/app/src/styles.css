@@ -1499,14 +1499,52 @@ main.admin-page {
   height: 2rem;
 }
 
-.float-view .activity-tile {
+.activity-window {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
   border-radius: 0.75rem;
+  border: 1px solid var(--border-strong);
+  background: var(--raised);
+  overflow: hidden;
 }
 
-/* The frame takes the mouse for itself, so the caption is where the floating window is dragged by. */
-.float-view .activity-tile figcaption {
-  pointer-events: auto;
+.activity-window header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex: none;
+  padding: 0.2rem 0.3rem 0.2rem 0.75rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8125rem;
   cursor: grab;
+  user-select: none;
+}
+
+.activity-window header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-window header button.icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+}
+
+.activity-window iframe {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: var(--bg);
 }
 
 .activity-unsupported {

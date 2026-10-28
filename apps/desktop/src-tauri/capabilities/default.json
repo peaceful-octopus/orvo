@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Window controls needed for the floating bubble view and its separate controls window",
+  "description": "Window controls needed for the floating bubble view, its separate controls window and the activity window",
   "windows": [
     "main",
-    "float-controls"
+    "float-controls",
+    "float-activity"
   ],
   "permissions": [
     "core:default",

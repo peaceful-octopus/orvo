@@ -86,7 +86,7 @@ Rules to design around:
 - **Late joiners get nothing replayed.** If a newcomer needs the current picture, the host sends it when `onParticipants` reports them (Snake does this).
 - **Keyboard input needs focus.** Keys reach the frame only after it has focus. The app focuses it when it loads, and your page should show a hint when `document.hasFocus()` is false.
 - **If the host leaves, the activity ends** for everyone. There is no host migration yet.
-- **Floating windows.** In the desktop app the floating window shows the activity as a rounded pane beside the bubbles (above them with many people), and the window grows to hold it. Floating or docking moves the activity to a new frame, so the page reloads and its state is lost: a host's game returns to its lobby. The floating controls have a Play button with the same menu as the docked window. Drag the floating window by the pane's caption, because the frame itself takes the mouse.
+- **Floating windows.** In the desktop app, floating the call moves the activity into a window of its own, always on top, that you can place and resize apart from the bubbles. It starts beside the bubble window and remembers its size. The call window still runs the bridge, so everything the frame sends is checked there; the activity window only carries messages between its frame and the call window. Floating or docking gives the activity a new frame, so the page reloads and its state is lost: a host's game returns to its lobby. The floating controls have a Play button with the same menu as the docked window. Drag the activity window by its title bar.
 
 ## Host API reference (version 1)
 
