@@ -65,6 +65,18 @@ export function BubbleField({ members, mode, maxSize, screens = [], tiles = [], 
   direction.current = bubbleMode;
   const { size, positions } = layout(bubbleMode, members.length, bubbleArea, maxSize);
 
+  // Around a ring of bubbles, a glow where the fire would be.
+  const ringed = bubbleMode === 'campfire' && !tileCount && members.length > 1 && positions[0];
+  const fire = ringed
+    ? (() => {
+        const cx = bubbleArea.w / 2;
+        const cy = bubbleArea.h / 2;
+        const from = positions[0]!;
+        const radius = Math.hypot(from.x + size / 2 - cx, from.y + size / 2 - cy) + size * 0.3;
+        return { x: cx - radius, y: cy - radius, d: radius * 2 };
+      })()
+    : undefined;
+
   // Whoever is here when the field first appears is simply there; people who arrive later pop in.
   const known = useRef<Set<string> | null>(null);
   const first = known.current === null;
@@ -74,6 +86,19 @@ export function BubbleField({ members, mode, maxSize, screens = [], tiles = [], 
 
   return (
     <div ref={ref} className="field">
+      {fire && (
+        <motion.div
+          className="fire"
+          aria-hidden="true"
+          initial={false}
+          animate={{ x: fire.x, y: fire.y, width: fire.d, height: fire.d }}
+          transition={spring}
+        >
+          <i className="glow" />
+          <i className="embers" />
+          <i className="ripple" />
+        </motion.div>
+      )}
       {members.map((m, i) => {
         const at = positions[i];
         if (!at) return null;

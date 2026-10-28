@@ -583,6 +583,98 @@ details.devices .device-selects {
   left: 0;
 }
 
+/* Campfire layout: a warm glow in the middle of the ring, drawn from the palette's accent, that breathes and drifts. */
+.fire {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.fire i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.fire .glow {
+  background: radial-gradient(
+    circle closest-side,
+    color-mix(in srgb, var(--accent) 38%, transparent),
+    color-mix(in srgb, var(--accent) 16%, transparent) 55%,
+    transparent
+  );
+  animation: fire-breathe 6s ease-in-out infinite;
+}
+
+.fire .embers {
+  background: radial-gradient(
+    circle closest-side at 50% 55%,
+    color-mix(in srgb, var(--accent-hover) 30%, transparent),
+    transparent 70%
+  );
+  animation: fire-drift 11s ease-in-out infinite;
+}
+
+.fire .ripple {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: fire-ripple 7s ease-out infinite;
+}
+
+@keyframes fire-breathe {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes fire-drift {
+  0%,
+  100% {
+    transform: translate(-3%, 2%) scale(0.9);
+    opacity: 0.7;
+  }
+  33% {
+    transform: translate(4%, -3%) scale(1.02);
+    opacity: 1;
+  }
+  66% {
+    transform: translate(-1%, 4%) scale(0.95);
+    opacity: 0.8;
+  }
+}
+
+@keyframes fire-ripple {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fire i {
+    animation: none;
+  }
+
+  .fire .ripple {
+    display: none;
+  }
+}
+
+/* The floating window shows bubbles alone over whatever is behind it. */
+.float-view .fire {
+  display: none;
+}
+
 .bubble {
   position: relative;
   width: 100%;

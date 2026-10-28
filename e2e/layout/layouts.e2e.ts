@@ -22,6 +22,7 @@ test('layout buttons arrange bubbles in a row, column and ring @layout', async (
 
   await page.getByRole('button', { name: 'Layout' }).click();
   await page.getByRole('menuitemradio', { name: 'Row' }).click();
+  await expect(page.locator('.fire')).toHaveCount(0);
   const row = await centers();
   expect(spread(row.map((c) => c.y))).toBeLessThanOrEqual(1);
   expect(spread(row.map((c) => c.x))).toBeGreaterThan(100);
@@ -35,6 +36,7 @@ test('layout buttons arrange bubbles in a row, column and ring @layout', async (
   await page.getByRole('button', { name: 'Layout' }).click();
   await page.getByRole('menuitemradio', { name: 'Campfire' }).click();
   const ring = await centers();
+  await expect(page.locator('.fire')).toHaveCount(1);
   expect(spread(ring.map((c) => c.x))).toBeGreaterThan(50);
   expect(spread(ring.map((c) => c.y))).toBeGreaterThan(50);
 });
