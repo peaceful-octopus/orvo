@@ -106,6 +106,7 @@ export function ActivityTile() {
         className="icon activity-close"
         aria-label={current.starter === selfId ? COPY.activities.end : COPY.activities.close}
         title={current.starter === selfId ? COPY.activities.end : COPY.activities.close}
+        onMouseDown={(e) => e.stopPropagation()} // the floating window drags by its content; the button must still click
         onClick={() => useActivity.getState().close()}
       >
         <RemoveIcon />

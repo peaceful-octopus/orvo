@@ -66,12 +66,33 @@ export const MIN_FLOAT_BUBBLE = 48;
 export const MAX_FLOAT_BUBBLE = 800;
 const FLOAT_PAD = 8;
 
-/** Window size that fits `count` bubbles at diameter `bubble`, for the floating window. */
-export function floatWindowSize(mode: LayoutMode, count: number, bubble = FLOAT_BUBBLE): Bounds {
+/** Share of the window given to shared screens and other tiles; the rest holds the bubbles. */
+const SCREEN_SHARE = 0.74;
+/** Height of a tile's part of the window, as a fraction of its width, for a window sized around an activity. */
+const TILE_ASPECT = 0.75;
+/** A window this much wider than tall puts the tile on the left and the bubbles in a column on the right. */
+const WIDE = 1.15;
+
+/**
+ * Window size that fits `count` bubbles at diameter `bubble`, for the floating window. With `withTile` (a running
+ * activity) the window also holds a pane beside or above the bubbles, laid out as `splitForScreens` will lay it out.
+ */
+export function floatWindowSize(mode: LayoutMode, count: number, bubble = FLOAT_BUBBLE, withTile = false): Bounds {
   const n = Math.max(count, 1);
   const gap = bubble * GAP;
   const line = n * bubble + (n - 1) * gap + FLOAT_PAD * 2;
   const thin = bubble + FLOAT_PAD * 2;
+
+  if (withTile) {
+    // The bubbles take the narrow part of the window, so the window is as wide as the bubbles' thickness needs.
+    const side = thin / (1 - SCREEN_SHARE);
+    const w = side;
+    const h = Math.max(line, side * SCREEN_SHARE * TILE_ASPECT);
+    if (w >= h * WIDE) return { w, h };
+    // Too many bubbles for a column beside the pane: a square, with the bubbles in a row below it.
+    const square = Math.max(line, side);
+    return { w: square, h: square };
+  }
 
   if (mode === 'row') return { w: line, h: thin };
   if (mode === 'column') return { w: thin, h: line };
@@ -82,10 +103,11 @@ export function floatWindowSize(mode: LayoutMode, count: number, bubble = FLOAT_
 }
 
 /** The bubble diameter a floating window of this size currently shows, kept within sane limits. */
-export function bubbleForWindow(mode: LayoutMode, count: number, size: Bounds): number {
+export function bubbleForWindow(mode: LayoutMode, count: number, size: Bounds, withTile = false): number {
   // floatWindowSize adds padding around the bubbles, so measure inside it to get the same number back.
   const inner = { w: Math.max(size.w - FLOAT_PAD * 2, 1), h: Math.max(size.h - FLOAT_PAD * 2, 1) };
-  const d = layout(mode, count, inner, UNCAPPED).size;
+  const split = withTile ? splitForScreens(inner, 1) : undefined;
+  const d = split ? layout(split.direction, count, split.bubbles, UNCAPPED).size : layout(mode, count, inner, UNCAPPED).size;
   return Math.round(Math.min(MAX_FLOAT_BUBBLE, Math.max(MIN_FLOAT_BUBBLE, d)));
 }
 
@@ -96,9 +118,6 @@ export interface Rect {
   h: number;
 }
 
-/** Share of the window given to shared screens; the rest holds the bubbles. */
-const SCREEN_SHARE = 0.74;
-
 /**
  * Divides a window between shared screens and the bubbles. Screens get the larger part: the left side of a wide
  * window (bubbles in a column on the right) or the top of a tall one (bubbles in a row below). Several screens share
@@ -106,7 +125,7 @@ const SCREEN_SHARE = 0.74;
  */
 export function splitForScreens(bounds: Bounds, screens: number): { screens: Rect[]; bubbles: Rect; direction: 'row' | 'column' } {
   if (screens <= 0) return { screens: [], bubbles: { x: 0, y: 0, w: bounds.w, h: bounds.h }, direction: 'row' };
-  const wide = bounds.w >= bounds.h * 1.15;
+  const wide = bounds.w >= bounds.h * WIDE;
   const area: Rect = wide ? { x: 0, y: 0, w: bounds.w * SCREEN_SHARE, h: bounds.h } : { x: 0, y: 0, w: bounds.w, h: bounds.h * SCREEN_SHARE };
   const bubbles: Rect = wide
     ? { x: area.w, y: 0, w: bounds.w - area.w, h: bounds.h }

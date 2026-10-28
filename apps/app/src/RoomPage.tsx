@@ -150,7 +150,7 @@ export function RoomPage({ room }: { room: string }) {
     if (!name && accountName) setName(accountName);
   }, [name, accountName, setName]);
 
-  const float = useFloat(mode, members.length);
+  const float = useFloat(mode, members.length, tiles.length > 0);
 
   // If the call ends while the window is small (for instance the owner removed you), the full window comes back.
   const { active: floating, exit: exitFloat } = float;
@@ -298,6 +298,7 @@ export function RoomPage({ room }: { room: string }) {
     <FloatView
       members={members}
       mode={mode}
+      tiles={tiles}
       draggable={inWindow}
       hot={inWindow ? controlsWindow.hot : undefined}
       inlineControls={

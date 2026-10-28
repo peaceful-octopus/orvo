@@ -1499,6 +1499,16 @@ main.admin-page {
   height: 2rem;
 }
 
+.float-view .activity-tile {
+  border-radius: 0.75rem;
+}
+
+/* The frame takes the mouse for itself, so the caption is where the floating window is dragged by. */
+.float-view .activity-tile figcaption {
+  pointer-events: auto;
+  cursor: grab;
+}
+
 .activity-unsupported {
   display: grid;
   place-content: center;
