@@ -407,24 +407,22 @@ export function RoomPage({ room }: { room: string }) {
         <div className="sep" aria-hidden="true" />
         {canShare && (
           <button
-            className={`icon tool${screen ? ' on' : ''}`}
+            className={`icon${screen ? ' on' : ''}`}
             aria-label={screen ? 'Stop sharing' : 'Share screen'}
             title={screen ? 'Stop sharing your screen' : 'Share your screen'}
             onClick={() => void (screen ? stopScreen() : shareScreen())}
           >
             {screen ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
-            <span>{screen ? 'Stop' : 'Share'}</span>
           </button>
         )}
         {roomAccess?.owner && <RoomMenu access={roomAccess} onChange={(patch) => void setRoomAccess(patch)} />}
         <button
-          className="icon tool"
+          className="icon"
           aria-label={copied ? 'Link copied' : 'Copy room link'}
           title={copied ? 'Link copied' : 'Copy a link to this room'}
           onClick={() => void copyInvite()}
         >
           {copied ? <CheckIcon /> : <LinkIcon />}
-          <span>{copied ? 'Copied' : 'Copy link'}</span>
         </button>
       </nav>
       {kicking && (

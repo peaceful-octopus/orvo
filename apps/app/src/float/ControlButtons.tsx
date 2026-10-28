@@ -39,6 +39,21 @@ export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onR
   const needsCamera = video ? undefined : 'Turn your camera on to use reactions';
   return (
     <div className="float-controls" role="toolbar" aria-label="Call controls">
+      {onFilters && (
+        <button className={`icon${filterOn ? ' on' : ''}`} aria-label="Filters" aria-haspopup="menu" aria-expanded={openMenu === 'filters'} title="Filters" onClick={onFilters}>
+          <SparklesIcon />
+        </button>
+      )}
+      {onActivities && (
+        <button className="icon" aria-label="Activities" aria-haspopup="menu" aria-expanded={openMenu === 'activities'} title="Activities" onClick={onActivities}>
+          <ActivityIcon />
+          {activityInvited && <i className="dot" aria-hidden="true" />}
+        </button>
+      )}
+      <button className="icon" onClick={onExpand} aria-label="Expand" title="Back to full window">
+        <ExpandIcon />
+      </button>
+      <span className="sep" />
       <div className="split">
         <button className="icon" onClick={onToggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
           {audio ? <MicIcon /> : <MicOffIcon />}
@@ -51,40 +66,28 @@ export function ControlButtons({ audio, video, onToggleAudio, onToggleVideo, onR
         </button>
         {onDeviceMenu && chevron('cam', 'Camera options')}
       </div>
+      <button className="icon leave" onClick={onLeave} aria-label="Leave" title="Leave the call">
+        <LeaveIcon />
+      </button>
       <span className="sep" />
       {QUICK_REACTIONS.map((emoji) => (
         <button key={emoji} className="icon emoji" disabled={!video} title={needsCamera} aria-label={`React with ${emoji}`} onClick={() => onReact(emoji)}>
           {emoji}
         </button>
       ))}
-      {onFilters && (
-        <button className={`icon${filterOn ? ' on' : ''}`} aria-label="Filters" aria-haspopup="menu" aria-expanded={openMenu === 'filters'} title="Filters" onClick={onFilters}>
-          <SparklesIcon />
-        </button>
-      )}
-      {onShare && (
-        <button className={`icon${sharing ? ' on' : ''}`} aria-label={sharing ? 'Stop sharing' : 'Share screen'} title={sharing ? 'Stop sharing your screen' : 'Share your screen'} onClick={onShare}>
-          {sharing ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
-        </button>
-      )}
-      {onActivities && (
-        <button className="icon" aria-label="Activities" aria-haspopup="menu" aria-expanded={openMenu === 'activities'} title="Activities" onClick={onActivities}>
-          <ActivityIcon />
-          {activityInvited && <i className="dot" aria-hidden="true" />}
-        </button>
-      )}
       {onGif && (
         <button className="icon" disabled={!video} onClick={onGif} aria-label="GIF" title={needsCamera ?? 'Show a GIF on your video'}>
           <GifIcon />
         </button>
       )}
-      <span className="sep" />
-      <button className="icon" onClick={onExpand} aria-label="Expand" title="Back to full window">
-        <ExpandIcon />
-      </button>
-      <button className="icon leave" onClick={onLeave} aria-label="Leave" title="Leave the call">
-        <LeaveIcon />
-      </button>
+      {onShare && (
+        <>
+          <span className="sep" />
+          <button className={`icon${sharing ? ' on' : ''}`} aria-label={sharing ? 'Stop sharing' : 'Share screen'} title={sharing ? 'Stop sharing your screen' : 'Share your screen'} onClick={onShare}>
+            {sharing ? <ScreenShareOffIcon /> : <ScreenShareIcon />}
+          </button>
+        </>
+      )}
     </div>
   );
 }
