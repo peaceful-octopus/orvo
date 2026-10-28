@@ -1,5 +1,5 @@
 import type { GifMode, GifSource } from '@orvo/effects';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { DeviceMenuPanel, menuRows, type MenuKind } from '../DeviceMenu';
 import { noDevices, noSelection } from '../devices';
 import { FilterPanel, lookIsOn } from '../FilterMenu';
@@ -23,6 +23,7 @@ const GifPicker = lazy(() => import('../GifPicker'));
 
 const PICKER = { w: 480, h: 560 };
 const HIDE_DELAY_MS = 300;
+const POLL_MS = 60;
 /** Tallest the device menu's window grows; longer lists scroll. */
 const MENU_MAX = 420;
 /** Height of the filters panel: three rows of swatches and two switches. */
@@ -40,6 +41,9 @@ const overContent = (e: React.MouseEvent<HTMLElement>) => {
   const target = e.target as HTMLElement;
   return target !== e.currentTarget && !target.classList.contains('modal-backdrop');
 };
+
+/** True when this element is part of the controls, menus or picker and not the transparent area around them. */
+const isContent = (el: Element | null) => el !== null && !el.classList.contains('controls-view') && !el.classList.contains('modal-backdrop') && el !== document.body && el !== document.documentElement;
 
 /** Contents of the separate controls window: fades in over the bubble window and follows it. */
 export function ControlsView() {
@@ -78,6 +82,35 @@ export function ControlsView() {
     const t = setTimeout(() => setLingering(false), HIDE_DELAY_MS);
     return () => clearTimeout(t);
   }, [mainHover, selfHover]);
+
+  // macOS gives a window that is not focused no mouse-move events, and this one never takes focus, so the page cannot
+  // tell the pointer is over it. While it is showing, find out by comparing the cursor with the window, as the bubble
+  // window does.
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    void import('@tauri-apps/api/window').then(({ getCurrentWindow, cursorPosition }) => {
+      if (cancelled) return;
+      const me = getCurrentWindow();
+      timer = setInterval(() => {
+        if (!shownRef.current) return;
+        void Promise.all([cursorPosition(), me.outerPosition(), me.outerSize(), me.scaleFactor()])
+          .then(([c, p, s, scale]) => {
+            const x = c.x - p.x;
+            const y = c.y - p.y;
+            const inside = x >= 0 && y >= 0 && x < s.width && y < s.height;
+            setSelfHover(inside && isContent(document.elementFromPoint(x / scale, y / scale)));
+          })
+          .catch(() => {});
+      }, POLL_MS);
+    });
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   // Escape closes whichever panel is open.
   useEffect(() => {
