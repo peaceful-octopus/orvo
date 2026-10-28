@@ -18,14 +18,19 @@ while you do something else.
 - **Mood filters, background blur and framing.** Apply a colour filter, blur your background, or have the camera keep
   you centred. These run on your own computer before the video is sent.
 - **Quieter calls.** Optional background noise and typing suppression, with a strength slider.
+- **Activities.** Play together without leaving the call. The Play button lists what the server offers, and Snake comes
+  with it. Each activity runs in a sandbox that cannot reach your camera, microphone or the network, and the game traffic goes
+  directly between players. A server operator can add their own; see [docs/activities.md](docs/activities.md).
 - **Your look.** Light and dark modes and three colour palettes.
 - **Private by design.** Video and audio go directly between participants (peer-to-peer over WebRTC). A relay is used
   only when two people cannot reach each other directly.
 - **Optional accounts.** A server can let people sign in, limit who may start rooms, and mark a room as signed-in only.
-- **Desktop app for Windows and macOS.** A small floating window keeps the faces on screen over your other work, and
-  the app updates itself.
+- **Desktop app for Windows and macOS.** A small floating window keeps the faces on screen over your other work, with an
+  activity in a window of its own, and the app updates itself.
 
 ![Effects menu](docs/screenshots/effects.png)
+
+![Three people playing Snake in a call](docs/screenshots/activities.png)
 
 ## Get it
 
