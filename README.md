@@ -31,8 +31,8 @@ while you do something else.
 
 **Desktop app.** Download the installer for Windows or macOS from the
 [latest release](https://github.com/peaceful-octopus/orvo/releases/latest). The installers are not code-signed yet:
-Windows SmartScreen asks you to choose More info, then Run anyway, and on macOS you right-click the app and choose Open
-the first time.
+Windows SmartScreen asks you to choose More info, then Run anyway, and on macOS 15 and later you open the app once, then choose Open Anyway in System Settings, Privacy & Security (or run
+`xattr -dr com.apple.quarantine /Applications/Orvo.app`).
 
 **In a browser.** Open the address of an Orvo server. On a phone you can install it to the home screen.
 

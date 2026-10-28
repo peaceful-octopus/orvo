@@ -1,7 +1,9 @@
 name: Desktop build
 # Builds the desktop installers on demand (Actions tab, "Run workflow") and keeps them as downloadable artifacts for a
 # week. Unlike the Release workflow it needs no tag, publishes nothing and does not sign updates. macOS builds are
-# unsigned, so Gatekeeper asks you to open them with right-click, Open the first time.
+# not signed with a Developer ID or notarized, so Gatekeeper blocks the first launch. On macOS 15 and later, try to open
+# the app once, then choose Open Anyway in System Settings, Privacy & Security (or run
+# `xattr -dr com.apple.quarantine /Applications/Orvo.app`). Right-click, Open no longer works there.
 on:
   workflow_dispatch:
 

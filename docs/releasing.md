@@ -38,9 +38,14 @@ with a **Restart and update** button when the update server is reachable, and `u
 
 ## Not signed yet
 
-The installers are not code-signed. macOS Gatekeeper blocks the first launch (right-click the app, Open), and Windows SmartScreen warns on first run ("Windows protected your PC", then
+The installers are not code-signed. macOS Gatekeeper blocks the first launch (on macOS 15 and later, open the app once, then choose Open Anyway in System Settings, Privacy & Security, or run `xattr -dr com.apple.quarantine /Applications/Orvo.app`), and Windows SmartScreen warns on first run ("Windows protected your PC", then
 More info → Run anyway). The update signature above is separate: it protects updates, not the first install. Code
 signing needs a certificate or Azure Trusted Signing; Tauri's `bundle.windows.signCommand` is where it plugs in.
+
+On macOS, ad-hoc signing needs no account but does not stop the Gatekeeper warning, and neither does a self-signed
+certificate. Only a Developer ID certificate plus notarization, which needs the paid Apple Developer Program, does.
+Tauri reads it from the `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`,
+`APPLE_PASSWORD` and `APPLE_TEAM_ID` environment variables, which the workflows would pass to the build step.
 
 ## Building an installer locally
 
