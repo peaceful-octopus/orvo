@@ -595,8 +595,9 @@ details.devices .device-selects {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  /* Each layer gets its own compositor layer and only its transform changes, so the gradients are painted once. */
-  will-change: transform;
+  /* Each layer gets its own compositor layer. The glow and embers change only their opacity: scaling a gradient
+     resamples it every frame, and the quantisation steps in its bright centre crawl and read as flicker. */
+  will-change: opacity;
 }
 
 /* The falloff is eased over many stops (alpha ~ (1 - distance)^2.5); a straight two-stop fade shows visible bands that
@@ -644,29 +645,29 @@ details.devices .device-selects {
 @keyframes fire-breathe {
   0%,
   100% {
-    transform: scale(0.96);
+    opacity: 0.7;
   }
   50% {
-    transform: scale(1.04);
+    opacity: 1;
   }
 }
 
 @keyframes fire-drift {
   0%,
   100% {
-    transform: translate(-3%, 2%) scale(0.92);
+    opacity: 1;
   }
-  33% {
-    transform: translate(4%, -3%) scale(1);
+  40% {
+    opacity: 0.45;
   }
-  66% {
-    transform: translate(-1%, 4%) scale(0.96);
+  70% {
+    opacity: 0.8;
   }
 }
 
 @keyframes fire-ripple {
   0% {
-    transform: scale(0.35);
+    transform: scale(0.6);
     opacity: 0;
   }
   20% {
