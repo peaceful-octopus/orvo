@@ -47,6 +47,9 @@ interface Props {
   onKick?: (id: string, name: string) => void;
 }
 
+/** The glow reaches this much beyond the ring of bubbles, toward the edges of the window. */
+const GLOW_SCALE = 1.4;
+
 const spring = { type: 'spring', stiffness: 220, damping: 26 } as const;
 
 /** Lays out circular bubbles in a row, column or ring, animating between arrangements. */
@@ -73,7 +76,7 @@ export function BubbleField({ members, mode, maxSize, screens = [], tiles = [], 
         const cy = bubbleArea.h / 2;
         const from = positions[0]!;
         const radius = Math.hypot(from.x + size / 2 - cx, from.y + size / 2 - cy) + size * 0.3;
-        return { x: cx - radius, y: cy - radius, d: radius * 2 };
+        return { x: cx - radius * GLOW_SCALE, y: cy - radius * GLOW_SCALE, d: radius * 2 * GLOW_SCALE };
       })()
     : undefined;
 
@@ -95,8 +98,6 @@ export function BubbleField({ members, mode, maxSize, screens = [], tiles = [], 
           transition={spring}
         >
           <i className="glow" />
-          <i className="embers" />
-          <i className="ripple" />
         </motion.div>
       )}
       {members.map((m, i) => {

@@ -583,7 +583,7 @@ details.devices .device-selects {
   left: 0;
 }
 
-/* Campfire layout: a warm glow in the middle of the ring, drawn from the palette's accent, that breathes and drifts. */
+/* Campfire layout: a glow from the palette's accent in the middle of the ring. */
 .fire {
   position: absolute;
   top: 0;
@@ -591,18 +591,11 @@ details.devices .device-selects {
   pointer-events: none;
 }
 
-.fire i {
+/* The falloff is eased over many stops (alpha ~ (1 - distance)^2.5); a straight two-stop fade shows visible bands. */
+.fire .glow {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  /* Each layer gets its own compositor layer. The glow and embers change only their opacity: scaling a gradient
-     resamples it every frame, and the quantisation steps in its bright centre crawl and read as flicker. */
-  will-change: opacity;
-}
-
-/* The falloff is eased over many stops (alpha ~ (1 - distance)^2.5); a straight two-stop fade shows visible bands that
-   crawl as the layer moves. */
-.fire .glow {
   background: radial-gradient(
     circle closest-side,
     color-mix(in srgb, var(--accent) 38%, transparent),
@@ -613,80 +606,6 @@ details.devices .device-selects {
     color-mix(in srgb, var(--accent) 1%, transparent) 75%,
     transparent
   );
-  animation: fire-breathe 8s ease-in-out infinite;
-}
-
-.fire .embers {
-  background: radial-gradient(
-    circle closest-side at 50% 55%,
-    color-mix(in srgb, var(--accent-hover) 30%, transparent),
-    color-mix(in srgb, var(--accent-hover) 18%, transparent) 20%,
-    color-mix(in srgb, var(--accent-hover) 8%, transparent) 40%,
-    color-mix(in srgb, var(--accent-hover) 2%, transparent) 60%,
-    transparent 80%
-  );
-  animation: fire-drift 13s ease-in-out infinite;
-}
-
-.fire .ripple {
-  /* A soft band, not a hairline: a thin line moving across pixels shimmers. */
-  background: radial-gradient(
-    circle closest-side,
-    transparent 60%,
-    color-mix(in srgb, var(--accent) 6%, transparent) 72%,
-    color-mix(in srgb, var(--accent) 18%, transparent) 86%,
-    color-mix(in srgb, var(--accent) 6%, transparent) 95%,
-    transparent
-  );
-  will-change: transform, opacity;
-  animation: fire-ripple 9s ease-out infinite;
-}
-
-@keyframes fire-breathe {
-  0%,
-  100% {
-    opacity: 0.7;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes fire-drift {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  40% {
-    opacity: 0.45;
-  }
-  70% {
-    opacity: 0.8;
-  }
-}
-
-@keyframes fire-ripple {
-  0% {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fire i {
-    animation: none;
-  }
-
-  .fire .ripple {
-    display: none;
-  }
 }
 
 /* The floating window shows bubbles alone over whatever is behind it. */
