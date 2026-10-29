@@ -15,7 +15,8 @@
     "@orvo/protocol": "workspace:*",
     "@orvo/signaling": "workspace:*",
     "fastify": "^5.12.7",
-    "ioredis": "^6.0.0"
+    "ioredis": "^6.0.0",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@orvo/testkit": "workspace:*",
@@ -23,7 +24,6 @@
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
     "ioredis-mock": "^8.13.1",
-    "tsx": "^4.23.15",
     "ws": "^8.22.0",
     "yaml": "^2.9.1"
   }

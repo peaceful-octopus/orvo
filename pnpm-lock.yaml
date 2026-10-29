@@ -342,6 +342,9 @@ importers:
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
     devDependencies:
       '@orvo/testkit':
         specifier: workspace:*
@@ -358,9 +361,6 @@ importers:
       ioredis-mock:
         specifier: ^8.13.1
         version: 8.13.1(@types/ioredis-mock@8.2.8(ioredis@6.0.0))(ioredis@6.0.0)
-      tsx:
-        specifier: ^4.23.15
-        version: 4.23.15
       ws:
         specifier: ^8.22.0
         version: 8.22.0

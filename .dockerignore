@@ -1,8 +1,14 @@
 .git
+.github
 **/node_modules
 **/dist
 apps/desktop/src-tauri
-data
+**/data
+**/data-e2e-*
+deploy
+docs
+e2e
 test-results
 playwright-report
 *.log
+*.md
