@@ -14,8 +14,9 @@ import {
 } from '@orvo/rtc';
 import type { DataMessage } from '@orvo/protocol';
 import { create } from 'zustand';
+import { activityChime } from './activities/activityChime';
 import { useActivity } from './activities/activityStore';
-import { playChime } from './chime';
+import { playChime, type ChimeKind } from './chime';
 import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {
   deviceConstraint,
@@ -124,6 +125,9 @@ async function acquireTrack(kind: 'audioinput' | 'videoinput', id: string): Prom
   return { track: stream.getTracks()[0]!, id: used };
 }
 
+/** How long after you arrive an activity starting is taken to be one that was already running. */
+const ACTIVITY_ARRIVAL_GRACE_MS = 6000;
+
 const lookFromSettings = () => {
   const { blurBackground, autoFrame } = useSettings.getState();
   return { blurBackground, autoFrame };
@@ -191,10 +195,24 @@ export const useCall = create<CallState>((set, get) => {
 
   /** False until the join has finished, so the people already in the room do not each chime. */
   let chimesOn = false;
-  const chime = (kind: 'join' | 'leave') => {
+  let chimesSince = 0;
+  /** Set when the person who started the activity leaves, so their leaving chime is not followed by an ending one. */
+  let starterLeft = false;
+  const chime = (kind: ChimeKind) => {
     const { chimes, speakerVolume } = useSettings.getState();
     if (chimes) playChime(kind, speakerVolume / 100, get().selected.audiooutput);
   };
+
+  // An activity that is already running when you join is announced to you just after you arrive; that is not news.
+  useActivity.subscribe((now, before) => {
+    const kind = activityChime(before.room, now.room, now.selfId);
+    const ended = kind === 'activity-end';
+    const skip = ended && starterLeft;
+    if (ended) starterLeft = false;
+    if (!kind || !chimesOn || skip) return;
+    if (kind === 'activity-start' && Date.now() - chimesSince < ACTIVITY_ARRIVAL_GRACE_MS) return;
+    chime(kind);
+  });
 
   const onEvent = (event: RoomEvent) => {
     switch (event.type) {
@@ -232,6 +250,7 @@ export const useCall = create<CallState>((set, get) => {
           delete remotes[event.id];
           return { remotes };
         });
+        starterLeft = useActivity.getState().room.current?.starter === event.id;
         useActivity.getState().peerLeft(event.id);
         break;
       case 'kicked':
@@ -409,6 +428,7 @@ export const useCall = create<CallState>((set, get) => {
         void effects.setLook(lookFromSettings());
         set({ phase: 'in-call', roomAccess: transport.roomAccess });
         chimesOn = true;
+        chimesSince = Date.now();
         broadcastState();
         const selfId = transport.peerId;
         if (selfId) useActivity.getState().bind(selfId, (message) => transport?.send(message));

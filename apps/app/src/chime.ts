@@ -1,4 +1,4 @@
-export type ChimeKind = 'join' | 'leave';
+export type ChimeKind = 'join' | 'leave' | 'activity-start' | 'activity-end';
 
 export interface ChimeNote {
   /** Hertz. */
@@ -15,21 +15,32 @@ export interface ChimeNote {
 const MASTER = 0.18;
 const ATTACK = 0.02;
 
-/**
- * Two soft bell notes a fourth apart. Joining rises (G5 to C6), which sounds like a welcome; leaving falls (C6 to G5)
- * and is shorter and quieter, so it does not call attention to itself.
- */
-export function chimeNotes(kind: ChimeKind): ChimeNote[] {
-  return kind === 'join'
-    ? [
-        { freq: 783.99, start: 0, decay: 0.9, gain: 1 },
-        { freq: 1046.5, start: 0.13, decay: 1.2, gain: 0.85 },
-      ]
-    : [
-        { freq: 1046.5, start: 0, decay: 0.6, gain: 0.6 },
-        { freq: 783.99, start: 0.12, decay: 0.8, gain: 0.5 },
-      ];
-}
+const NOTES: Record<ChimeKind, ChimeNote[]> = {
+  // Two soft bell notes a fourth apart. Joining rises (G5 to C6), which sounds like a welcome; leaving falls
+  // (C6 to G5) and is shorter and quieter, so it does not call attention to itself.
+  join: [
+    { freq: 783.99, start: 0, decay: 0.9, gain: 1 },
+    { freq: 1046.5, start: 0.13, decay: 1.2, gain: 0.85 },
+  ],
+  leave: [
+    { freq: 1046.5, start: 0, decay: 0.6, gain: 0.6 },
+    { freq: 783.99, start: 0.12, decay: 0.8, gain: 0.5 },
+  ],
+  // Three notes, so they cannot be mistaken for someone arriving or leaving. Starting is a quick, bright rising
+  // C major arpeggio (C6, E6, G6); ending is the same notes falling, slower and softer.
+  'activity-start': [
+    { freq: 1046.5, start: 0, decay: 0.55, gain: 0.8 },
+    { freq: 1318.51, start: 0.09, decay: 0.55, gain: 0.8 },
+    { freq: 1567.98, start: 0.18, decay: 0.95, gain: 0.85 },
+  ],
+  'activity-end': [
+    { freq: 1567.98, start: 0, decay: 0.5, gain: 0.5 },
+    { freq: 1318.51, start: 0.12, decay: 0.5, gain: 0.45 },
+    { freq: 1046.5, start: 0.24, decay: 0.8, gain: 0.45 },
+  ],
+};
+
+export const chimeNotes = (kind: ChimeKind): ChimeNote[] => NOTES[kind];
 
 let context: AudioContext | undefined;
 function sharedContext(): AudioContext | undefined {

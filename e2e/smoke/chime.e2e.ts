@@ -33,8 +33,8 @@ test('a chime plays when someone joins or leaves, not for people already there, 
   // Switched off in Settings, a later arrival is silent.
   await ann.getByRole('button', { name: 'Settings' }).click();
   const dialog = ann.getByRole('dialog', { name: 'Settings' });
-  await expect(dialog.getByLabel('Play a soft chime when someone joins or leaves')).toBeChecked();
-  await dialog.getByLabel('Play a soft chime when someone joins or leaves').uncheck();
+  await expect(dialog.getByLabel('Play soft chimes when people join or leave and when activities start or end')).toBeChecked();
+  await dialog.getByLabel('Play soft chimes when people join or leave and when activities start or end').uncheck();
   await ann.keyboard.press('Escape');
   const silent = await chimes(ann);
   const cy = await joinRoom(context, room, 'cy');
@@ -42,4 +42,26 @@ test('a chime plays when someone joins or leaves, not for people already there, 
   await ann.waitForTimeout(1000);
   expect(await chimes(ann)).toBe(silent);
   await cy.close();
+});
+
+test('a chime plays when someone else starts or ends an activity, and not for your own @smoke', async ({ context }) => {
+  await context.addInitScript(COUNT_CHIMES);
+  const room = `e2e-chime-activity-${Date.now()}`;
+  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  await expectAllConnected([ann, bob]);
+  // An activity starting just after you arrive is taken to be one that was already running.
+  await ann.waitForTimeout(7000);
+  const [annBefore, bobBefore] = [await chimes(ann), await chimes(bob)];
+
+  await ann.getByRole('button', { name: 'Activities' }).click();
+  await ann.getByRole('menuitem', { name: /Snake/ }).click();
+  await expect(ann.locator('.activity-tile')).toBeVisible();
+  await expect.poll(() => chimes(bob)).toBeGreaterThan(bobBefore);
+  expect(await chimes(ann)).toBe(annBefore);
+
+  const bobHeard = await chimes(bob);
+  await ann.getByRole('button', { name: 'Activities' }).click();
+  await ann.getByRole('menuitem', { name: 'End for everyone' }).click();
+  await expect.poll(() => chimes(bob)).toBeGreaterThan(bobHeard);
+  expect(await chimes(ann)).toBe(annBefore);
 });
