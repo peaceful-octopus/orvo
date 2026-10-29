@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Avatar } from './Avatar';
 import { useCall } from './callStore';
+import { COPY } from './copy';
 import { useSettings } from './settingsStore';
 import { useSpeaking } from './useSpeaking';
 
@@ -52,6 +53,11 @@ export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, un
       {!videoOn && <Avatar seed={name || 'Guest'} />}
       <figcaption>
         {name || 'Guest'}
+        {route === 'relay' && (
+          <span className="relay-badge" role="img" aria-label={COPY.relayed} title={COPY.relayed}>
+            📡
+          </span>
+        )}
         {!audioOn && ' (muted)'}
         {unreachable && " (can't connect)"}
       </figcaption>

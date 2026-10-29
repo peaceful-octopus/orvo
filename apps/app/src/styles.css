@@ -678,6 +678,11 @@ details.devices .device-selects {
   text-overflow: ellipsis;
 }
 
+.bubble .relay-badge {
+  margin-left: 0.3em;
+  font-size: 0.85em;
+}
+
 .alone {
   display: flex;
   align-items: center;

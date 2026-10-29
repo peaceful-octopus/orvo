@@ -33,8 +33,8 @@ test('a chime plays when someone joins or leaves, not for people already there, 
   // Switched off in Settings, a later arrival is silent.
   await ann.getByRole('button', { name: 'Settings' }).click();
   const dialog = ann.getByRole('dialog', { name: 'Settings' });
-  await expect(dialog.getByLabel('Play soft chimes when people join or leave and when activities start or end')).toBeChecked();
-  await dialog.getByLabel('Play soft chimes when people join or leave and when activities start or end').uncheck();
+  await expect(dialog.getByLabel('Play entry and exit chime')).toBeChecked();
+  await dialog.getByLabel('Play entry and exit chime').uncheck();
   await ann.keyboard.press('Escape');
   const silent = await chimes(ann);
   const cy = await joinRoom(context, room, 'cy');

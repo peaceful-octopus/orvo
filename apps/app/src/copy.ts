@@ -3,6 +3,8 @@
  * text is still written where it is used.
  */
 export const COPY = {
+  /** Shown next to the name of someone whose call reaches you through a relay server. */
+  relayed: 'Connected through a relay',
   mediaDenied: {
     title: 'Orvo cannot see your camera or microphone',
     body: 'Allow access in your browser or system settings, then try again.',

@@ -212,7 +212,7 @@ function SettingsPane({ onClose }: { onClose(): void }) {
           <span className="setting-label">Sounds</span>
           <label className="toggle">
             <input type="checkbox" checked={chimes} onChange={(e) => setChimes(e.target.checked)} />
-            Play soft chimes when people join or leave and when activities start or end
+            Play entry and exit chime
           </label>
           <span className="hint">The chime follows the speaker volume.</span>
         </div>

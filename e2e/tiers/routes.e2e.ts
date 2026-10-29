@@ -10,6 +10,7 @@ test('connections between browsers on one machine are detected as direct @tiers'
     // Only the other person's bubble carries a route; it is read from the connection's selected candidate pair.
     await expect(page.locator('.bubble[data-route="direct"]')).toHaveCount(1);
     await expect(page.locator('.bubble[data-route="relay"]')).toHaveCount(0);
+    await expect(page.locator('.relay-badge')).toHaveCount(0);
   }
 });
 
