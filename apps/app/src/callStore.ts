@@ -429,6 +429,7 @@ export const useCall = create<CallState>((set, get) => {
         set({ phase: 'in-call', roomAccess: transport.roomAccess });
         chimesOn = true;
         chimesSince = Date.now();
+        chime('join');
         broadcastState();
         const selfId = transport.peerId;
         if (selfId) useActivity.getState().bind(selfId, (message) => transport?.send(message));
@@ -540,6 +541,9 @@ export const useCall = create<CallState>((set, get) => {
     },
 
     leave() {
+      // Your own exit chimes too, and silences the rest: tearing down the call would otherwise read as an activity ending.
+      if (chimesOn) chime('leave');
+      chimesOn = false;
       useActivity.getState().unbind();
       get().stopScreen();
       effects?.dispose();

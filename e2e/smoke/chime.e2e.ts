@@ -1,34 +1,37 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectAllConnected, joinRoom } from '../helpers';
 
-/** Counts the oscillators the app starts; only the chime makes them. */
+/** Counts the oscillators the app starts; only the chime makes them. An entry or exit chime starts four. */
+const OSCILLATORS_PER_CHIME = 4;
+// The count lives in sessionStorage because leaving a call reloads the page.
 const COUNT_CHIMES = () => {
-  const w = window as unknown as { __chimes: number };
-  w.__chimes = 0;
   const original = AudioContext.prototype.createOscillator;
   AudioContext.prototype.createOscillator = function (this: AudioContext) {
-    w.__chimes += 1;
+    sessionStorage.setItem('chimes', String(Number(sessionStorage.getItem('chimes') ?? 0) + 1));
     return original.call(this);
   };
 };
-const chimes = (page: Page) => page.evaluate(() => (window as unknown as { __chimes: number }).__chimes);
+const chimes = (page: Page) => page.evaluate(() => Number(sessionStorage.getItem('chimes') ?? 0));
 
 test('a chime plays when someone joins or leaves, not for people already there, and can be turned off @smoke', async ({ context }) => {
   await context.addInitScript(COUNT_CHIMES);
   const room = `e2e-chime-${Date.now()}`;
   const ann = await joinRoom(context, room, 'ann');
   await expect(ann.locator('.bubble')).toHaveCount(1);
-  expect(await chimes(ann)).toBe(0);
+  // Connecting to the room chimes once, even though nobody else is there.
+  await expect.poll(() => chimes(ann)).toBe(OSCILLATORS_PER_CHIME);
 
   const bob = await joinRoom(context, room, 'bob');
   await expectAllConnected([ann, bob]);
-  // Ann hears bob arrive. Bob arrived to a room with ann in it and hears nothing.
-  await expect.poll(() => chimes(ann)).toBeGreaterThan(0);
-  expect(await chimes(bob)).toBe(0);
+  // Ann hears bob arrive. Bob hears only his own arrival, not a chime for ann, who was already there.
+  await expect.poll(() => chimes(ann)).toBe(2 * OSCILLATORS_PER_CHIME);
+  await bob.waitForTimeout(1000);
+  expect(await chimes(bob)).toBe(OSCILLATORS_PER_CHIME);
 
-  const heard = await chimes(ann);
+  // Leaving chimes for bob and for ann, once each.
   await bob.getByRole('button', { name: 'Leave' }).click();
-  await expect.poll(() => chimes(ann)).toBeGreaterThan(heard);
+  await expect.poll(() => chimes(ann)).toBe(3 * OSCILLATORS_PER_CHIME);
+  await expect.poll(() => chimes(bob)).toBe(2 * OSCILLATORS_PER_CHIME);
 
   // Switched off in Settings, a later arrival is silent.
   await ann.getByRole('button', { name: 'Settings' }).click();
