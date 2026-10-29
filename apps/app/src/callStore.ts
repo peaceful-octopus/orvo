@@ -15,6 +15,7 @@ import {
 import type { DataMessage } from '@orvo/protocol';
 import { create } from 'zustand';
 import { useActivity } from './activities/activityStore';
+import { playChime } from './chime';
 import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {
   deviceConstraint,
@@ -188,9 +189,18 @@ export const useCall = create<CallState>((set, get) => {
     });
   };
 
+  /** False until the join has finished, so the people already in the room do not each chime. */
+  let chimesOn = false;
+  const chime = (kind: 'join' | 'leave') => {
+    const { chimes, speakerVolume } = useSettings.getState();
+    if (chimes) playChime(kind, speakerVolume / 100, get().selected.audiooutput);
+  };
+
   const onEvent = (event: RoomEvent) => {
     switch (event.type) {
       case 'participant-joined':
+        // The people already in the room when you arrive are listed as joins too; only later arrivals chime.
+        if (chimesOn && !(event.participant.id in get().remotes)) chime('join');
         upsert(event.participant.id, { name: event.participant.name });
         break;
       case 'stream':
@@ -216,6 +226,7 @@ export const useCall = create<CallState>((set, get) => {
         } else useActivity.getState().receive(event.id, event.data);
         break;
       case 'participant-left':
+        if (chimesOn && event.id in get().remotes) chime('leave');
         set((s) => {
           const remotes = { ...s.remotes };
           delete remotes[event.id];
@@ -381,6 +392,7 @@ export const useCall = create<CallState>((set, get) => {
         getAuthToken: () => useAuth.getState().token(),
         iceTransportPolicy: new URLSearchParams(location.search).get('ice') === 'relay' ? 'relay' : undefined,
       });
+      chimesOn = false;
       unsubscribe = transport.on(onEvent);
       try {
         await transport.join(room, name, outgoing() ?? local);
@@ -396,6 +408,7 @@ export const useCall = create<CallState>((set, get) => {
         void effects.setFilter(useSettings.getState().moodFilter);
         void effects.setLook(lookFromSettings());
         set({ phase: 'in-call', roomAccess: transport.roomAccess });
+        chimesOn = true;
         broadcastState();
         const selfId = transport.peerId;
         if (selfId) useActivity.getState().bind(selfId, (message) => transport?.send(message));

@@ -122,8 +122,8 @@ function Advanced() {
 }
 
 function SettingsPane({ onClose }: { onClose(): void }) {
-  const { name, startView, mode, palette, noise, micVolume, speakerVolume } = useSettings();
-  const { setName, setStartView, setMode, setPalette, setNoise, setMicVolume, setSpeakerVolume } = useSettings();
+  const { name, startView, mode, palette, noise, micVolume, speakerVolume, chimes } = useSettings();
+  const { setName, setStartView, setMode, setPalette, setNoise, setMicVolume, setSpeakerVolume, setChimes } = useSettings();
   const noiseStatus = useCall((s) => s.noiseStatus);
   const canNoise = noiseSupported();
   const canFloat = floatKind() !== null;
@@ -206,6 +206,15 @@ function SettingsPane({ onClose }: { onClose(): void }) {
             onChange={setSpeakerVolume}
           />
           <span className="hint">Microphone volume above 100% makes you louder and can distort.</span>
+        </div>
+
+        <div className="setting" role="group" aria-label="Sounds">
+          <span className="setting-label">Sounds</span>
+          <label className="toggle">
+            <input type="checkbox" checked={chimes} onChange={(e) => setChimes(e.target.checked)} />
+            Play a soft chime when someone joins or leaves
+          </label>
+          <span className="hint">The chime follows the speaker volume.</span>
         </div>
 
         <div className="setting" role="group" aria-label="Noise suppression">

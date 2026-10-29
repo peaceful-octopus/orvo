@@ -28,6 +28,8 @@ export interface Settings {
   micVolume: number;
   /** Volume of other people, 0 to 100. */
   speakerVolume: number;
+  /** A soft chime when someone joins or leaves the call. */
+  chimes: boolean;
 }
 
 interface SettingsState extends Settings {
@@ -41,6 +43,7 @@ interface SettingsState extends Settings {
   setAutoFrame(on: boolean): void;
   setMicVolume(percent: number): void;
   setSpeakerVolume(percent: number): void;
+  setChimes(on: boolean): void;
 }
 
 export const DEFAULT_NOISE_STRENGTH = 60;
@@ -68,6 +71,7 @@ export const useSettings = create<SettingsState>()(
       autoFrame: false,
       micVolume: 100,
       speakerVolume: 100,
+      chimes: true,
       setName: (name) => set({ name }),
       setStartView: (startView) => set({ startView }),
       setNoise: (patch) => set((s) => ({ noise: { ...s.noise, ...patch } })),
@@ -78,6 +82,7 @@ export const useSettings = create<SettingsState>()(
       setAutoFrame: (autoFrame) => set({ autoFrame }),
       setMicVolume: (micVolume) => set({ micVolume }),
       setSpeakerVolume: (speakerVolume) => set({ speakerVolume }),
+      setChimes: (chimes) => set({ chimes }),
     }),
     {
       name: 'orvo:settings',
