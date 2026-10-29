@@ -1,4 +1,4 @@
-import { authSettingsFromEnv, createBeaconApp, loadActivities, loadOrCreateSigningKey, registerAdminRoutes, serveActivities, serveWebApp, SettingsStore, settingsFromEnv } from '@orvo/beacon';
+import { adminReachable, authSettingsFromEnv, createBeaconApp, loadActivities, loadOrCreateSigningKey, registerAdminRoutes, serveActivities, serveWebApp, SettingsStore, settingsFromEnv } from '@orvo/beacon';
 import { Metrics } from '@orvo/metrics';
 import { MemoryPlacementStore } from '@orvo/placement';
 import { SignalingServer } from '@orvo/signaling';
@@ -60,7 +60,7 @@ app.get('/readyz', async (_req, reply) =>
 );
 
 await serveActivities(app, activities);
-if (!(await serveWebApp(app, webDir))) console.warn(`No web app found at ${webDir}; serving the API and signaling only.`);
+if (!(await serveWebApp(app, webDir, { adminVisible: (req) => adminReachable(req, process.env.ADMIN_ALLOW_REMOTE === '1') }))) console.warn(`No web app found at ${webDir}; serving the API and signaling only.`);
 
 await app.listen({ port, host: '0.0.0.0' });
 console.log(`Orvo listening on :${port}`);

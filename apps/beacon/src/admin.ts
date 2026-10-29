@@ -108,6 +108,12 @@ export class FailedLoginLimiter {
   }
 }
 
+/** Whether a request may reach the admin page and API: from the local network without a proxy, or `allowRemote`. */
+export function adminReachable(req: Pick<FastifyRequest, 'headers' | 'socket'>, allowRemote?: boolean): boolean {
+  // The socket's address, not `req.ip`, which behind a proxy is whatever the proxy said the client's was.
+  return Boolean(allowRemote) || (!cameThroughProxy(req.headers) && isLocalAddress(req.socket.remoteAddress));
+}
+
 export interface AdminOptions {
   store: SettingsStore;
   /** The admin password. The routes exist only when the server has one. */
@@ -136,7 +142,7 @@ export function describeSettings(store: SettingsStore) {
 
 /**
  * The operator's admin API, under /v1/admin. Call it only when an admin password is configured: without one the
- * routes do not exist. Every route is refused unless the request is from the local network (or `allowRemote`), and all
+ * routes do not exist. Every route answers 404 unless the request is from the local network (or `allowRemote`), and all
  * but `status` and `login` need the token that `login` hands out.
  */
 export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptions): Promise<void> {
@@ -146,13 +152,8 @@ export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptio
   await app.register(
     async (admin) => {
       admin.addHook('onRequest', async (req: FastifyRequest, reply: FastifyReply) => {
-        // The socket's address, not `req.ip`, which behind a proxy is whatever the proxy said the client's was.
-        if (!opts.allowRemote && (cameThroughProxy(req.headers) || !isLocalAddress(req.socket.remoteAddress))) {
-          return reply.code(403).send({
-            error: 'The admin page is only available from your local network. Open it by the server\'s local address instead of the public one, or set ADMIN_ALLOW_REMOTE=1.',
-            code: 'admin-local-only',
-          });
-        }
+        // Refused requests get the same answer as any unknown path, so nothing shows that the admin API exists.
+        if (!adminReachable(req, opts.allowRemote)) return reply.callNotFound();
       });
 
       const authorized = (req: FastifyRequest): boolean => {

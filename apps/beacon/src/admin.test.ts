@@ -99,12 +99,14 @@ describe('admin routes', () => {
   it('answer only from the local network', async () => {
     await start();
     expect((await call('GET', '/v1/admin/status')).json()).toEqual({ enabled: true });
+    // Refused requests look like any unknown path.
     const remote = await call('GET', '/v1/admin/status', { from: '65.128.135.123' });
-    expect(remote.statusCode).toBe(403);
-    expect(remote.json().code).toBe('admin-local-only');
+    expect(remote.statusCode).toBe(404);
+    const unknown = await call('GET', '/v1/nothing-here', { from: '65.128.135.123' });
+    expect(remote.json()).toMatchObject({ error: unknown.json().error, statusCode: 404 });
     // Behind a reverse proxy the socket is the proxy's (local) address; the forwarding headers give it away.
-    expect((await call('GET', '/v1/admin/status', { headers: { 'x-forwarded-for': '203.0.113.9' } })).statusCode).toBe(403);
-    expect((await call('POST', '/v1/admin/login', { from: '8.8.8.8', payload: { password: PASSWORD } })).statusCode).toBe(403);
+    expect((await call('GET', '/v1/admin/status', { headers: { 'x-forwarded-for': '203.0.113.9' } })).statusCode).toBe(404);
+    expect((await call('POST', '/v1/admin/login', { from: '8.8.8.8', payload: { password: PASSWORD } })).statusCode).toBe(404);
   });
 
   it('can be opened to remote requests on purpose', async () => {

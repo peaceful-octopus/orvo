@@ -157,12 +157,13 @@ test('the admin page stays reachable when the minimum version locks the app out 
   await expect(box(admin, 'Minimum app version')).toHaveValue('99.0.0');
 });
 
-test('requests that came through a reverse proxy are refused @admin', async ({ browser }) => {
+test('requests that came through a reverse proxy get a 404 @admin', async ({ browser }) => {
   const context = await browser.newContext();
   opened.push(context);
   const plain = await context.request.get(`${SERVER}/v1/admin/status`);
   expect(plain.status()).toBe(200);
   const proxied = await context.request.get(`${SERVER}/v1/admin/status`, { headers: { 'x-forwarded-for': '203.0.113.9' } });
-  expect(proxied.status()).toBe(403);
-  expect(((await proxied.json()) as { code: string }).code).toBe('admin-local-only');
+  expect(proxied.status()).toBe(404);
+  // The page is hidden the same way.
+  expect((await context.request.get(`${SERVER}/admin`, { headers: { 'x-forwarded-for': '203.0.113.9' } })).status()).toBe(404);
 });

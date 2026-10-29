@@ -12,7 +12,6 @@ type Phase =
   | { name: 'checking' }
   | { name: 'unreachable' }
   | { name: 'disabled' }
-  | { name: 'local-only'; message?: string }
   | { name: 'login' }
   | { name: 'ready'; view: SettingsView };
 
@@ -21,7 +20,6 @@ async function open(): Promise<Phase> {
   try {
     const status = await adminRequest('GET', '/status');
     if (status.status === 404) return { name: 'disabled' };
-    if (status.status === 403) return { name: 'local-only', message: (status.body as { error?: string } | undefined)?.error };
     if (status.status !== 200) return { name: 'unreachable' };
     const token = adminToken.get();
     if (!token) return { name: 'login' };
@@ -290,7 +288,6 @@ export function AdminPage() {
           </Card>
         )}
         {phase.name === 'disabled' && <Card title={A.disabled.title} body={A.disabled.body} />}
-        {phase.name === 'local-only' && <Card title={A.localOnly.title} body={phase.message ?? A.localOnly.body} />}
         {phase.name === 'login' && <LoginForm onLoggedIn={setPhase} />}
         {phase.name === 'ready' && (
           <>

@@ -100,10 +100,6 @@ export const COPY = {
       title: 'The admin page is turned off',
       body: 'Set ADMIN_PASSWORD in the server\'s settings (the compose file) and restart it to turn this page on.',
     },
-    localOnly: {
-      title: 'Open this page from your local network',
-      body: 'For safety the admin page is only available from your local network, not through the public address. Open it by the server\'s local address, or set ADMIN_ALLOW_REMOTE=1 on the server.',
-    },
     login: {
       title: 'Admin login',
       password: 'Admin password',
