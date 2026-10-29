@@ -5,26 +5,39 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "build": "node build.mjs",
     "start": "tsx src/main.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.6",
+    "@noble/curves": "^2.4.0",
+    "fastify": "^5.12.7",
+    "ioredis": "^6.0.0",
+    "jose": "^6.2.13",
+    "prom-client": "^15.1.3",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
     "@orvo/beacon": "workspace:*",
     "@orvo/metrics": "workspace:*",
     "@orvo/placement": "workspace:*",
     "@orvo/protocol": "workspace:*",
     "@orvo/signaling": "workspace:*",
-    "fastify": "^5.12.7",
-    "ioredis": "^6.0.0",
-    "tsx": "^4.23.15"
-  },
-  "devDependencies": {
     "@orvo/testkit": "workspace:*",
     "@types/ioredis-mock": "^8.2.8",
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2",
     "ioredis-mock": "^8.13.1",
-    "ws": "^8.22.0",
+    "tsx": "^4.23.15",
     "yaml": "^2.9.1"
-  }
+  },
+  "files": [
+    "dist",
+    "activities"
+  ]
 }

@@ -8,7 +8,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm fetch
 COPY . .
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --offline
-RUN pnpm --filter @orvo/app build
+RUN pnpm --filter @orvo/app --filter @orvo/server build
 # A production-only copy of the server and the workspace packages it uses, without the dev tooling.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter @orvo/server --prod deploy /out
 
@@ -26,4 +26,4 @@ RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 EXPOSE 8080
 USER node
-CMD ["node_modules/.bin/tsx", "src/main.ts"]
+CMD ["node", "--enable-source-maps", "dist/main.js"]
