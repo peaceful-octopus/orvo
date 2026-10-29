@@ -692,6 +692,7 @@ details.devices .device-selects {
   display: block;
 }
 
+/* Speaking: a ring in the palette's "live" colour, which differs from the accent the campfire glow uses. */
 .bubble::after {
   content: '';
   position: absolute;
@@ -700,9 +701,9 @@ details.devices .device-selects {
   pointer-events: none;
   opacity: 0;
   box-shadow:
-    0 0 0 3px var(--accent),
-    0 0 14px 3px color-mix(in srgb, var(--accent) 70%, transparent),
-    0 0 32px 8px color-mix(in srgb, var(--accent) 35%, transparent);
+    0 0 0 3px var(--live),
+    0 0 14px 3px color-mix(in srgb, var(--live) 70%, transparent),
+    0 0 32px 8px color-mix(in srgb, var(--live) 35%, transparent);
   transition: opacity var(--dur) var(--ease);
 }
 
