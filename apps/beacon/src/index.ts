@@ -8,4 +8,5 @@ export { SettingsStore, settingsFromEnv, type Settings } from './settings';
 export { fileSettings, redisSettings, type SettingsBackend } from './settings-backend';
 export { loadOrCreateSigningKey, signingKeyFromEnv, type SigningKey } from './keys';
 export { turnCredentials, type TurnPool } from './turn';
+export { createBeaconServer, type BeaconServer, type BeaconServerOptions } from './serve';
 export { serveWebApp } from './web';
