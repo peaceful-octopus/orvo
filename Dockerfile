@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 # All-in-one Orvo server: web app, beacon API and signaling node in one container.
 FROM node:24-slim AS build
-RUN npm install -g pnpm@12
+# pnpm's own install script fetches its native binary; npm asks that scripts are allowed by name.
+RUN npm install -g --allow-scripts=pnpm pnpm@12
 WORKDIR /repo
 # Fetch dependencies from the lockfile alone, so the layer is reused until the lockfile changes.
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./

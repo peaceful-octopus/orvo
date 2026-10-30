@@ -69,10 +69,23 @@ const keepModelArchiveCompressed = (): Plugin => ({
 });
 
 // The app reports this to the server and to the update check. One source: the root package.json (tools/release).
-const appVersion = process.env.ORVO_VERSION ?? (JSON.parse(readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')) as { version: string }).version;
+const appVersion = process.env.ORVO_VERSION ?? (JSON.parse(readFileSync(path.resolve(import.meta.dirname, '../../package.json'), 'utf8')) as { version: string }).version;
 
 export default defineConfig(({ mode }) => ({
   define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion) },
   plugins: [react(), keepModelArchiveCompressed(), mediapipeWasm(), noBakedGiphyKey(loadEnv(mode, process.cwd(), 'VITE_').VITE_GIPHY_API_KEY)],
   server: { port: 5173, strictPort: true },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Libraries that change rarely get their own files, so an app update does not make everyone download them again.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: 'motion', test: /node_modules[\\/](motion|motion-dom|motion-utils)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
 }));
