@@ -23,7 +23,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      # pnpm links packages from its store, which must be on the same drive as the checkout (D: on Windows runners).
+      - name: Keep the pnpm store next to the checkout
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "npm_config_store_dir=${RUNNER_TEMP}\.pnpm-store" >> "$GITHUB_ENV"
+      - run: corepack enable
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -69,7 +74,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - run: corepack enable
       - uses: actions/setup-node@v7
         with:
           node-version: 24

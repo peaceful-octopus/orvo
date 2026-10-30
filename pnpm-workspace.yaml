@@ -4,3 +4,7 @@ packages:
   - tools/*
 allowBuilds:
   esbuild: true
+# ioredis-mock 8 declares ioredis 5, and its tests run against ioredis 6 without trouble.
+peerDependencyRules:
+  allowedVersions:
+    ioredis: "6"
