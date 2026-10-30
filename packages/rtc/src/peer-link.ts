@@ -32,6 +32,8 @@ export class PeerLink {
   private prepared = false;
   private makingOffer = false;
   private ignoreOffer = false;
+  /** True while a remote answer is being applied, when the signaling state still reads `have-local-offer`. */
+  private settingRemoteAnswer = false;
   private iceRestarts = 0;
   private state: PeerState = 'connecting';
   private connectTimer?: ReturnType<typeof setTimeout>;
@@ -81,10 +83,19 @@ export class PeerLink {
     const pc = this.pc;
     try {
       if (description) {
-        const collision = description.type === 'offer' && (this.makingOffer || pc.signalingState !== 'stable');
+        // Signals are handled as they arrive, so an offer can arrive while the answer just before it is still being applied.
+        // The state then still reads `have-local-offer`, but that is no collision: the browser queues the offer behind the answer.
+        // Counting it as one made the impolite peer drop the offer for good, which lost a screen share that began during the join.
+        const readyForOffer = !this.makingOffer && (pc.signalingState === 'stable' || this.settingRemoteAnswer);
+        const collision = description.type === 'offer' && !readyForOffer;
         this.ignoreOffer = !this.polite && collision;
         if (this.ignoreOffer) return;
-        await pc.setRemoteDescription(description);
+        this.settingRemoteAnswer = description.type === 'answer';
+        try {
+          await pc.setRemoteDescription(description);
+        } finally {
+          this.settingRemoteAnswer = false;
+        }
         if (description.type === 'offer') {
           this.prepare();
           await pc.setLocalDescription();
