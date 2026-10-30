@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { usePopover } from './DeviceMenu';
+import { Popover, usePopover } from './DeviceMenu';
 import { LayoutIcon } from './float/icons';
 import type { LayoutMode } from './float/layouts';
 
@@ -22,7 +22,7 @@ export function LayoutMenu({ modes, mode, icons, onChange }: LayoutProps) {
         <span>Layout</span>
       </button>
       {open && (
-        <div className="popover">
+        <Popover>
           <div className="device-menu" role="menu" aria-label="Layout">
             {modes.map((m) => (
               <button
@@ -40,7 +40,7 @@ export function LayoutMenu({ modes, mode, icons, onChange }: LayoutProps) {
               </button>
             ))}
           </div>
-        </div>
+        </Popover>
       )}
     </div>
   );

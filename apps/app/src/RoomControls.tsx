@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAuthOffered } from './auth/AccountUi';
 import { COPY } from './copy';
-import { usePopover } from './DeviceMenu';
+import { Popover, usePopover } from './DeviceMenu';
 import { RoomControlsIcon } from './float/icons';
 
 interface Access {
@@ -36,7 +36,7 @@ export function RoomMenu({ access, onChange }: MenuProps) {
         <RoomControlsIcon />
       </button>
       {open && (
-        <div className="popover">
+        <Popover>
           <div className="room-menu" role="menu" aria-label={COPY.room.menu}>
             {rows.map(({ key, label, hint }) => (
               <button key={key} role="menuitemcheckbox" aria-checked={access[key]} onClick={() => onChange({ [key]: !access[key] })}>
@@ -48,7 +48,7 @@ export function RoomMenu({ access, onChange }: MenuProps) {
               </button>
             ))}
           </div>
-        </div>
+        </Popover>
       )}
     </div>
   );

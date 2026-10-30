@@ -1,4 +1,4 @@
-import { usePopover } from '../DeviceMenu';
+import { Popover, usePopover } from '../DeviceMenu';
 import { COPY } from '../copy';
 import { ActivityIcon } from '../float/icons';
 import { ActivityPanel } from './ActivityPanel';
@@ -34,7 +34,7 @@ export function ActivityMenu() {
         {invited && <i className="dot" aria-hidden="true" />}
       </button>
       {open && (
-        <div className="popover">
+        <Popover>
           <ActivityPanel
             options={options}
             running={running}
@@ -42,7 +42,7 @@ export function ActivityMenu() {
             onOpen={act(openRunning)}
             onClose={act(close)}
           />
-        </div>
+        </Popover>
       )}
     </div>
   );

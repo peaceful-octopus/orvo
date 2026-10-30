@@ -783,13 +783,13 @@ button.chevron {
   position: absolute;
   bottom: calc(100% + 0.5rem);
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% + var(--shift, 0px)));
   z-index: 15;
 }
 
 .device-menu {
-  min-width: 17rem;
-  max-width: 22rem;
+  min-width: min(17rem, calc(100vw - 1rem));
+  max-width: min(22rem, calc(100vw - 1rem));
   max-height: 26rem;
   overflow-y: auto;
   padding: 0.35rem;

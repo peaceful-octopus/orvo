@@ -1,5 +1,5 @@
 import { MOOD_FILTERS, NO_FILTER } from '@orvo/effects';
-import { usePopover } from './DeviceMenu';
+import { Popover, usePopover } from './DeviceMenu';
 import { SparklesIcon } from './float/icons';
 
 export interface Look {
@@ -64,9 +64,9 @@ export function FilterButton(props: PanelProps & { labelled?: boolean }) {
         {props.labelled && <span>Effects</span>}
       </button>
       {open && (
-        <div className="popover">
+        <Popover>
           <FilterPanel look={props.look} onFilter={props.onFilter} onToggle={props.onToggle} />
-        </div>
+        </Popover>
       )}
     </div>
   );

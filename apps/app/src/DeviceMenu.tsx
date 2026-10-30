@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronIcon } from './float/icons';
 import { type DeviceKind, type DeviceLists, type DeviceSelection } from './devices';
 
@@ -81,6 +81,34 @@ export function usePopover() {
   return { open, setOpen, ref };
 }
 
+const EDGE = 8;
+
+/** A pop-up centered above its button, shifted sideways when that would run past the edge of the screen. */
+export function Popover({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const place = () => {
+      el.style.setProperty('--shift', '0px');
+      const { left, right } = el.getBoundingClientRect();
+      const width = document.documentElement.clientWidth;
+      const shift = left < EDGE ? EDGE - left : right > width - EDGE ? width - EDGE - right : 0;
+      el.style.setProperty('--shift', `${shift}px`);
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, []);
+
+  return (
+    <div className="popover" ref={ref}>
+      {children}
+    </div>
+  );
+}
+
 /** A button with a small arrow beside it that opens the list of devices. */
 export function DeviceButton({ menu, children, ...panel }: ButtonProps) {
   const { open, setOpen, ref } = usePopover();
@@ -98,9 +126,9 @@ export function DeviceButton({ menu, children, ...panel }: ButtonProps) {
         <ChevronIcon />
       </button>
       {open && (
-        <div className="popover">
+        <Popover>
           <DeviceMenuPanel menu={menu} {...panel} />
-        </div>
+        </Popover>
       )}
     </div>
   );
