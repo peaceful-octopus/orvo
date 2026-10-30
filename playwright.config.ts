@@ -96,7 +96,7 @@ export default defineConfig({
   use: {
     baseURL: fleet ? `http://localhost:${FLEET_PORT}` : (external ?? 'http://localhost:5173'),
     permissions: ['camera', 'microphone'],
-    // E2E_INSECURE_TLS=1 accepts the self-signed certificate Caddy issues for localhost, to test the HTTPS setup.
+    // E2E_INSECURE_TLS=1 accepts a self-signed certificate, for testing against a reverse proxy that serves HTTPS.
     ignoreHTTPSErrors: Boolean(process.env.E2E_INSECURE_TLS),
     launchOptions: {
       // --mute-audio silences remote audio so multi-peer tests with the fake device make no sound.

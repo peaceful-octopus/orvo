@@ -1,14 +1,22 @@
-# Small-team Orvo: a beacon, two signaling nodes and Redis, behind Caddy for HTTPS.
-# Same image as the personal setup. Scale by adding more `node-*` services.
+# Small-team Orvo: a beacon, two signaling nodes and Redis. Same image as the personal setup.
+# Scale by adding more `node-*` services.
 #
 #   pnpm --filter @orvo/sign-config start keygen --kid prod-1
 #   export SIGNING_KEY=<kid>:<secretKey>          # from keygen; shared by every beacon
-#   export DOMAIN=orvo.example.com               # DNS: orvo.example.com, n1.orvo.example.com, n2.orvo.example.com
+#   export DOMAIN=orvo.example.com               # the name the beacon and nodes are reached at (see below)
 #   docker compose up -d
+#
+# HTTPS is not part of this file. Put your own reverse proxy in front, passing WebSocket upgrades on /ws, and route
+#   orvo.example.com     to the beacon (host port 8080)
+#   n1.orvo.example.com  to node-1     (host port 9101)
+#   n2.orvo.example.com  to node-2     (host port 9102)
+# The ports are published on every interface by default; bind them to 127.0.0.1 if the proxy is on this host.
 #
 # Optional relay for paid rooms: set TURN_URLS and TURN_SECRET (coturn with use-auth-secret);
 # without them every room is STUN-only.
 x-orvo: &orvo
+  # The published image. To build from this checkout instead, run `docker compose up -d --build`.
+  image: ${ORVO_IMAGE:-ghcr.io/peaceful-octopus/orvo:latest}
   build: ../..
   restart: unless-stopped
   depends_on:
@@ -23,13 +31,13 @@ services:
   beacon:
     <<: *orvo
     stop_grace_period: 15s
-    working_dir: /repo/apps/beacon
-    command: ["node_modules/.bin/tsx", "src/main.ts"]
+    command: ["node", "--enable-source-maps", "dist/beacon.js"]
+    ports:
+      - "8080:8080"
     environment:
       PORT: 8080
       REDIS_URL: redis://redis:6379
       SIGNING_KEY: ${SIGNING_KEY:?generate one with the sign-config keygen command}
-      WEB_DIR: /repo/apps/app/dist
       BEHIND_PROXY: "1"
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
       TURN_URLS: ${TURN_URLS:-}
@@ -48,8 +56,9 @@ services:
     <<: *orvo
     # Longer than DRAIN_MS (30 s) so a stopping node can finish serving before Docker kills it.
     stop_grace_period: 45s
-    working_dir: /repo/apps/signaling
-    command: ["node_modules/.bin/tsx", "src/main.ts"]
+    command: ["node", "--enable-source-maps", "dist/signaling.js"]
+    ports:
+      - "9101:9000"
     environment: &node-env
       PORT: 9000
       REDIS_URL: redis://redis:6379
@@ -64,8 +73,9 @@ services:
   node-2:
     <<: *orvo
     stop_grace_period: 45s
-    working_dir: /repo/apps/signaling
-    command: ["node_modules/.bin/tsx", "src/main.ts"]
+    command: ["node", "--enable-source-maps", "dist/signaling.js"]
+    ports:
+      - "9102:9000"
     environment:
       <<: *node-env
       NODE_ID: node-2
@@ -82,22 +92,3 @@ services:
     restart: unless-stopped
     network_mode: host
     command: ["--stun-only", "--no-tls", "--no-dtls", "--no-cli", "--fingerprint", "--listening-port=3478"]
-
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-    depends_on:
-      - beacon
-      - node-1
-      - node-2
-
-volumes:
-  caddy-data:

@@ -72,7 +72,7 @@ How it relates to the environment: the compose settings (`MAX_ROOM_SIZE`, `ANNOU
 Not in the admin page, because they need a restart: sign-in (`OIDC_*`), `BEHIND_PROXY`, `CORS_ORIGIN`, `RATE_LIMIT_PER_MINUTE`, `PORT` and `DATA_DIR`. A relay secret changed in the admin page does not change the coturn container, which must be recreated with the same secret.
 
 ## 2. Small team: beacon, signaling nodes and Redis
-`deploy/team/compose.yaml` runs a beacon, two signaling nodes, Redis and Caddy from the same image. Nodes register themselves in Redis and keep their rooms' leases alive; the beacon places each room on one node and every participant of that room is sent to it.
+`deploy/team/compose.yaml` runs a beacon, two signaling nodes and Redis from the same image. It does not terminate HTTPS; you put your own reverse proxy in front (see below). Nodes register themselves in Redis and keep their rooms' leases alive; the beacon places each room on one node and every participant of that room is sent to it.
 
 ```
 cd tools/sign-config && pnpm exec tsx src/main.ts keygen --kid prod-1    # prints the signing key pair
@@ -82,7 +82,9 @@ export DOMAIN=orvo.example.com           # DNS for orvo.example.com, n1.orvo.exa
 docker compose up -d
 ```
 
-To add capacity, add another `node-N` service with its own `NODE_ID` and `PUBLIC_WS_URL` and a Caddy entry; nothing else changes. To retire a node, send it `SIGTERM`: it stops receiving new rooms, waits `DRAIN_MS` for calls to finish, then disconnects clients, who rejoin through the beacon.
+Your reverse proxy must pass WebSocket upgrades on `/ws` and route `orvo.example.com` to the beacon (host port 8080), `n1.orvo.example.com` to node-1 (9101) and `n2.orvo.example.com` to node-2 (9102). The compose file publishes those ports on every interface; bind them to `127.0.0.1` if the proxy runs on the same host. The nodes' public URLs (`wss://n1.<DOMAIN>/ws`) are built from `DOMAIN`.
+
+To add capacity, add another `node-N` service with its own `NODE_ID` and `PUBLIC_WS_URL` a published port and a proxy route; nothing else changes. To retire a node, send it `SIGTERM`: it stops receiving new rooms, waits `DRAIN_MS` for calls to finish, then disconnects clients, who rejoin through the beacon.
 
 Optional relay (TURN) for entitled rooms only: set `TURN_URLS` and `TURN_SECRET` on the beacon (coturn with `use-auth-secret`, `denied-peer-ip` for private ranges). Without them every room gets STUN only. Ordinary rooms never receive relay credentials; a future entitlement service grants them per room.
 
@@ -95,7 +97,7 @@ Beacon environment: `REDIS_URL`, `SIGNING_KEY`, `STUN_URLS`, `TURN_URLS`, `TURN_
 - **Checking a room:** open a room URL with `?ice=relay` to force relay-only connections. In a room without a relay, that person is shown as unreachable; in an entitled room it connects.
 
 ### Verified setups
-The personal image, the personal compose file, the small-team stack with a real Redis (with and without Caddy), the relay pools, the STUN profile and the monitoring stack were each run in Docker and exercised with the browser tests and a simulated-user crash drill. The relay pools and the `stun` profile use host networking, which needs a Linux host (Docker Desktop on Windows or macOS does not support it without extra settings); their configs were verified in ordinary containers instead.
+The personal image, the personal compose file, the small-team stack with a real Redis, the relay pools, the STUN profile and the monitoring stack were each run in Docker and exercised with the browser tests and a simulated-user crash drill. The relay pools and the `stun` profile use host networking, which needs a Linux host (Docker Desktop on Windows or macOS does not support it without extra settings); their configs were verified in ordinary containers instead.
 
 ## 3. Platform scale
 Many signaling nodes behind the beacon fleet with a shared Redis, signed config on a CDN, regional TURN. Everything in profile 2 scales horizontally: more nodes, several beacons sharing one Redis and one `SIGNING_KEY`. For a CDN-hosted config, sign it with `tools/sign-config` (`sign config.json --key <kid>:<secret> --out signed.json`), upload it, point `CONFIG_FILE` at it or serve it directly, and build the app with `VITE_TRUSTED_KEYS='{"<kid>":"<publicKey>"}'` so clients pin the key. Still planned: multi-region pools and Redis clustering; see `docs/architecture.md`.
