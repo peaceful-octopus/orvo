@@ -5,7 +5,7 @@ import RedisMock from 'ioredis-mock';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBeaconServer, type BeaconServer } from './serve';
 
 const nodes = () => new MemoryPlacementStore([{ id: 'n1', region: 'r', weight: 1, draining: false }]);
@@ -101,5 +101,35 @@ describe('createBeaconServer', () => {
     const urls = async (s: BeaconServer) => JSON.stringify((await join(s)).json());
     expect(await urls(await start(relay, { relayForEveryRoom: true }))).toContain('turn:t:3478');
     expect(await urls(await start(relay, { relayForEveryRoom: false }))).not.toContain('turn:t:3478');
+  });
+
+  it('tells the admin page when beacons sharing Redis start from different environment values', async () => {
+    const redis = new RedisMock({ host: 'serve-drift' }) as unknown as Redis;
+    const env = { ADMIN_PASSWORD: 'pw' };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await start({ ...env, MAX_ROOM_SIZE: '6' }, { redis });
+      const second = await start({ ...env, MAX_ROOM_SIZE: '4' }, { redis });
+      const login = await second.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'pw' }, remoteAddress: LAN });
+      const { token } = login.json() as { token: string };
+      const view = await second.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: { authorization: `Bearer ${token}` }, remoteAddress: LAN });
+      expect(view.json().drift.settings).toEqual(['maxRoomSize']);
+      expect(warn.mock.calls.flat().join(' ')).toContain('different environment values for: maxRoomSize');
+
+      // Saving the setting settles it: the saved value is what every beacon serves.
+      await second.settings.update({ set: { maxRoomSize: 5, warnRoomSize: 4 } });
+      const after = await second.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: { authorization: `Bearer ${token}` }, remoteAddress: LAN });
+      expect(after.json().drift).toBeUndefined();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('reports nothing without Redis, where there is only one beacon', async () => {
+    const server = await start({ ADMIN_PASSWORD: 'pw' });
+    const login = await server.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'pw' }, remoteAddress: LAN });
+    const { token } = login.json() as { token: string };
+    const view = await server.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: { authorization: `Bearer ${token}` }, remoteAddress: LAN });
+    expect(view.json().drift).toBeUndefined();
   });
 });

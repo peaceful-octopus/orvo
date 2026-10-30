@@ -136,6 +136,12 @@ export const COPY = {
     changedHere: 'Changed here',
     willReset: 'Goes back to the server\'s setting when you save.',
     reset: 'Reset to default',
+    drift: {
+      title: 'The beacons do not start from the same settings',
+      body: (names: string[], beacons: string[]) =>
+        `Different beacons start from different values for ${names.join(', ')}, so each one serves its own until a value is saved here. ${beacons.join(' ')} Saving a value here makes every beacon use it; otherwise make the beacons' environments match.`,
+      beacon: (id: string, names: string[]) => `${id} differs on ${names.join(', ')}.`,
+    },
     restartOnly: 'Sign-in, the reverse proxy setting and the port are set in the server\'s own settings and need a restart to change.',
     save: 'Save changes',
     saving: 'Saving...',

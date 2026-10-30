@@ -167,3 +167,21 @@ test('requests that came through a reverse proxy get a 404 @admin', async ({ bro
   // The page is hidden the same way.
   expect((await context.request.get(`${SERVER}/admin`, { headers: { 'x-forwarded-for': '203.0.113.9' } })).status()).toBe(404);
 });
+
+test('the page warns when beacons start from different settings, and shows nothing otherwise @admin', async ({ browser }) => {
+  const page = await newPage(browser);
+  await loginToAdmin(page);
+  await expect(page.getByRole('heading', { name: 'The beacons do not start from the same settings' })).toHaveCount(0);
+
+  // A single server never reports this, so the answer is made to carry it.
+  await page.route(`${SERVER}/v1/admin/settings`, async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as object;
+    await route.fulfill({ response, json: { ...body, drift: { settings: ['maxRoomSize', 'announcement'], differing: { 'beacon-2-ab12': ['maxRoomSize'] } } } });
+  });
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Calls and limits' })).toBeVisible();
+  const warning = page.getByRole('status').filter({ hasText: 'do not start from the same settings' });
+  await expect(warning).toContainText('Room size, Announcement');
+  await expect(warning).toContainText('beacon-2-ab12 differs on Room size.');
+});

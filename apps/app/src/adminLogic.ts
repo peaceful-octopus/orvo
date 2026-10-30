@@ -36,6 +36,8 @@ export interface SettingsView {
   settings: Record<SettingKey, SettingView>;
   /** Whether the server has a sign-in provider; without one, requiring sign-in cannot be chosen. */
   authConfigured: boolean;
+  /** Present when beacons that share settings start from different environment values for settings nobody has saved. */
+  drift?: { settings: SettingKey[]; differing: Record<string, SettingKey[]> };
 }
 
 /** What the form edits: text as typed, so a half-typed number can be shown and explained. */

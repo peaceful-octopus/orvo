@@ -229,6 +229,17 @@ function Settings({ view, onView, onLoggedOut }: { view: SettingsView; onView: (
         void save();
       }}
     >
+      {view.drift && (
+        <section className="admin-drift" role="status">
+          <h2>{A.drift.title}</h2>
+          <p>
+            {A.drift.body(
+              view.drift.settings.map((key) => A.fields[key].label),
+              Object.entries(view.drift.differing).map(([id, keys]) => A.drift.beacon(id, keys.map((key) => A.fields[key].label))),
+            )}
+          </p>
+        </section>
+      )}
       <section>
         <h2>{A.sections.calls}</h2>
         {field('maxRoomSize', 'room-size', A.fields.maxRoomSize.label, A.fields.maxRoomSize.hint, text('maxRoomSize', 'room-size', { numeric: true }))}

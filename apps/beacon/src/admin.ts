@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import type { SigningKey } from './keys';
+import type { Drift } from './drift';
 import { SECRET_KEYS, SETTING_KEYS, type SettingsStore } from './settings';
 
 const TOKEN_TTL_MS = 8 * 3600_000;
@@ -121,13 +122,15 @@ export interface AdminOptions {
   signingKey: SigningKey;
   /** Lets requests that arrive through a reverse proxy, or from outside the local network, use the admin routes. */
   allowRemote?: boolean;
+  /** Where beacons that share Redis start from different environment values, when they do. */
+  drift?: () => Drift | undefined;
   now?: () => number;
   /** Wrong passwords allowed per minute for one address before logins from it are refused; `false` for no limit. */
   failedLoginsPerMinute?: number | false;
 }
 
 /** What the admin page shows: each setting's value (secrets only as "set"), its default and where the value comes from. */
-export function describeSettings(store: SettingsStore) {
+export function describeSettings(store: SettingsStore, drift?: Drift) {
   const current = store.effective();
   const defaults = store.defaults();
   const settings: Record<string, unknown> = {};
@@ -137,7 +140,7 @@ export function describeSettings(store: SettingsStore) {
       ? { source, isSet: Boolean(current[key]), defaultIsSet: Boolean(defaults[key]) }
       : { source, value: current[key], default: defaults[key] };
   }
-  return { settings, authConfigured: store.authConfigured() };
+  return { settings, authConfigured: store.authConfigured(), ...(drift ? { drift } : {}) };
 }
 
 /**
@@ -177,7 +180,7 @@ export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptio
 
       admin.get('/settings', async (req, reply) => {
         if (!authorized(req)) return needLogin(reply);
-        return describeSettings(opts.store);
+        return describeSettings(opts.store, opts.drift?.());
       });
 
       admin.patch('/settings', async (req, reply) => {
@@ -190,7 +193,7 @@ export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptio
         }
         const result = await opts.store.update({ set: set as Record<string, unknown>, reset: reset as string[] });
         if (!result.ok) return reply.code(400).send({ error: 'Some settings were not accepted.', code: 'bad-settings', errors: result.errors });
-        return describeSettings(opts.store);
+        return describeSettings(opts.store, opts.drift?.());
       });
     },
     { prefix: '/v1/admin' },

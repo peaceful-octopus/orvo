@@ -2,12 +2,15 @@ import type { Metrics } from '@orvo/metrics';
 import type { PlacementStore } from '@orvo/placement';
 import type { FastifyInstance } from 'fastify';
 import type { Redis } from 'ioredis';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { adminReachable, registerAdminRoutes } from './admin';
 import { loadActivities, serveActivities, type ActivityRegistry } from './activities';
 import { createBeaconApp } from './app';
 import { authSettingsFromEnv } from './auth-env';
+import { DriftMonitor, redisRegistry } from './drift';
 import { loadOrCreateSigningKey, type SigningKey } from './keys';
 import { SettingsStore, settingsFromEnv } from './settings';
 import { fileSettings, redisSettings } from './settings-backend';
@@ -97,9 +100,20 @@ export async function createBeaconServer(opts: BeaconServerOptions): Promise<Bea
     corsOrigin: env.CORS_ORIGIN ?? true,
     trustProxy: Boolean(env.BEHIND_PROXY),
   });
+  // With shared settings, beacons also check that they start from the same environment (see drift.ts).
+  const drift = opts.redis
+    ? new DriftMonitor({
+        registry: redisRegistry(opts.redis),
+        id: `${os.hostname()}-${randomBytes(2).toString('hex')}`,
+        defaults: settings.defaults(),
+        secret: signingKey.secretKey,
+        isSaved: (key) => settings.isSaved(key),
+      })
+    : undefined;
+  await drift?.start();
   // The admin page exists only when the server has a password for it.
   if (env.ADMIN_PASSWORD) {
-    await registerAdminRoutes(app, { store: settings, password: env.ADMIN_PASSWORD, signingKey, allowRemote: env.ADMIN_ALLOW_REMOTE === '1' });
+    await registerAdminRoutes(app, { store: settings, password: env.ADMIN_PASSWORD, signingKey, allowRemote: env.ADMIN_ALLOW_REMOTE === '1', drift: () => drift?.current() });
   }
   await serveActivities(app, activities);
   if (opts.webDir && !(await serveWebApp(app, opts.webDir, { adminVisible: (req) => adminReachable(req, env.ADMIN_ALLOW_REMOTE === '1') }))) {
@@ -115,6 +129,7 @@ export async function createBeaconServer(opts: BeaconServerOptions): Promise<Bea
       await app.listen({ port, host: '0.0.0.0' });
     },
     async close() {
+      await drift?.stop();
       settings.close();
       await app.close();
     },
