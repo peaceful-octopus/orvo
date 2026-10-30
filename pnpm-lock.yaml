@@ -306,9 +306,15 @@ importers:
       '@orvo/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
+      '@types/ioredis-mock':
+        specifier: ^8.2.8
+        version: 8.2.8(ioredis@6.0.0)
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
+      ioredis-mock:
+        specifier: ^8.13.1
+        version: 8.13.1(@types/ioredis-mock@8.2.8(ioredis@6.0.0))(ioredis@6.0.0)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15

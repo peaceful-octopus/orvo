@@ -188,7 +188,7 @@ export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptio
         if (typeof set !== 'object' || set === null || Array.isArray(set) || !Array.isArray(reset) || reset.some((k) => typeof k !== 'string')) {
           return reply.code(400).send({ error: 'Invalid request.', code: 'bad-request' });
         }
-        const result = opts.store.update({ set: set as Record<string, unknown>, reset: reset as string[] });
+        const result = await opts.store.update({ set: set as Record<string, unknown>, reset: reset as string[] });
         if (!result.ok) return reply.code(400).send({ error: 'Some settings were not accepted.', code: 'bad-settings', errors: result.errors });
         return describeSettings(opts.store);
       });

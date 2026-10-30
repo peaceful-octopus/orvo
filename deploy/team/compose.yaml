@@ -26,7 +26,10 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    # Holds the operator's saved settings as well as room placement, so it keeps its data across restarts.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
 
   beacon:
     <<: *orvo
@@ -51,6 +54,10 @@ services:
       OIDC_DESKTOP_CLIENT_SECRET: ${OIDC_DESKTOP_CLIENT_SECRET:-}
       ROOM_CREATION: ${ROOM_CREATION:-anyone}
       DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
+      # Optional admin page. Settings changed there are kept in Redis and used by every beacon. Behind your proxy the
+      # page is reachable only with ADMIN_ALLOW_REMOTE=1, which is safe only because it needs the password.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_ALLOW_REMOTE: ${ADMIN_ALLOW_REMOTE:-}
 
   node-1:
     <<: *orvo
@@ -92,3 +99,6 @@ services:
     restart: unless-stopped
     network_mode: host
     command: ["--stun-only", "--no-tls", "--no-dtls", "--no-cli", "--fingerprint", "--listening-port=3478"]
+
+volumes:
+  redis-data:

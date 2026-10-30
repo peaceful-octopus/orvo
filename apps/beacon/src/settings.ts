@@ -1,10 +1,9 @@
 import { MAX_ROOM_SIZE, WARN_ROOM_SIZE } from '@orvo/protocol';
-import { createHash, randomBytes } from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
+import { createHash } from 'node:crypto';
 import type { LiveSettings } from './app';
 import { authSettingsFromEnv } from './auth-env';
 import { relayVideoSettingsFromEnv, relayVideoTier } from './limits-env';
+import { fileSettings, type SettingsBackend } from './settings-backend';
 
 /** What an operator can change while the server runs. Everything else stays an environment setting. */
 export interface Settings {
@@ -50,6 +49,8 @@ export type Errors = Record<string, string>;
 
 const DEFAULT_STUN = 'stun:stun.l.google.com:19302';
 const MAX_NAME_LENGTH = 200;
+/** How often the saved settings are read again, in case a change notice was missed. */
+const RELOAD_MS = 30_000;
 
 const isInt = (v: unknown, min: number, max: number): v is number => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
 const isNum = (v: unknown, min: number, max: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
@@ -131,7 +132,9 @@ export function settingsFromEnv(
 export interface SettingsStoreOptions {
   /** What each setting is when the operator has not changed it: the environment. */
   defaults: Settings;
-  /** Where changes are kept between restarts. Without it they last until the process ends. */
+  /** Where changes are kept between restarts, and shared with other servers. Without it they last until the process ends. */
+  backend?: SettingsBackend;
+  /** A file in the data directory; shorthand for `backend: fileSettings(file)`. */
   file?: string;
   /** Whether a sign-in provider is configured; the sign-in rules depend on it. */
   authConfigured: boolean;
@@ -149,10 +152,54 @@ export type UpdateResult = { ok: true } | { ok: false; errors: Errors };
 export class SettingsStore {
   private saved: Partial<Settings> = {};
   private readonly warn: (message: string) => void;
+  private readonly backend: SettingsBackend | undefined;
+  private stop: (() => void) | undefined;
+
+  /** Reads whatever is saved, then follows changes other servers save. A store made with `new` starts from the environment only. */
+  static async open(opts: SettingsStoreOptions): Promise<SettingsStore> {
+    const store = new SettingsStore(opts);
+    await store.reload();
+    store.follow();
+    return store;
+  }
 
   constructor(private readonly opts: SettingsStoreOptions) {
     this.warn = opts.warn ?? ((m) => console.warn(m));
-    this.saved = this.read();
+    this.backend = opts.backend ?? (opts.file ? fileSettings(opts.file) : undefined);
+  }
+
+  /** Stops following other servers' changes. */
+  close(): void {
+    this.stop?.();
+    this.stop = undefined;
+  }
+
+  /**
+   * Takes the saved settings from the backend. When it cannot be reached the settings stay as they are (the
+   * environment's, at start), and the next change notice or the periodic check tries again.
+   */
+  async reload(): Promise<void> {
+    if (!this.backend) return;
+    let text: string | undefined;
+    try {
+      text = await this.backend.load();
+    } catch (err) {
+      this.warn(`Could not read the saved settings from ${this.backend.where}: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    this.saved = text === undefined ? {} : this.parse(text, this.backend.where);
+  }
+
+  private follow(): void {
+    if (!this.backend?.watch) return;
+    const stopWatching = this.backend.watch(() => void this.reload());
+    // A notice can be missed while the connection is down, so the settings are also read again now and then.
+    const timer = setInterval(() => void this.reload(), RELOAD_MS);
+    timer.unref();
+    this.stop = () => {
+      stopWatching();
+      clearInterval(timer);
+    };
   }
 
   defaults(): Settings {
@@ -179,7 +226,7 @@ export class SettingsStore {
   }
 
   /** Applies `set` and `reset` together; nothing changes unless all of it is acceptable. */
-  update(change: { set?: Record<string, unknown>; reset?: string[] }): UpdateResult {
+  async update(change: { set?: Record<string, unknown>; reset?: string[] }): Promise<UpdateResult> {
     const errors: Errors = {};
     const next: Partial<Settings> = { ...this.saved };
     for (const [key, raw] of Object.entries(change.set ?? {})) {
@@ -199,7 +246,7 @@ export class SettingsStore {
     if (Object.keys(errors).length === 0) Object.assign(errors, validateTogether(this.merge(next), { authConfigured: this.opts.authConfigured }));
     if (Object.keys(errors).length > 0) return { ok: false, errors };
     try {
-      this.write(next);
+      await this.backend?.save(JSON.stringify(next, null, 2));
     } catch (err) {
       return { ok: false, errors: { _: `The change could not be saved (${err instanceof Error ? err.message : String(err)}).` } };
     }
@@ -235,18 +282,16 @@ export class SettingsStore {
     return `a-${createHash('sha1').update(text).digest('hex').slice(0, 8)}`;
   }
 
-  private read(): Partial<Settings> {
-    const { file } = this.opts;
-    if (!file || !fs.existsSync(file)) return {};
+  private parse(text: string, where: string): Partial<Settings> {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+      parsed = JSON.parse(text);
     } catch (err) {
-      this.warn(`Ignoring ${file}, which could not be read: ${err instanceof Error ? err.message : String(err)}`);
+      this.warn(`Ignoring ${where}, which could not be read: ${err instanceof Error ? err.message : String(err)}`);
       return {};
     }
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      this.warn(`Ignoring ${file}, which does not hold a settings object.`);
+      this.warn(`Ignoring ${where}, which does not hold a settings object.`);
       return {};
     }
     const kept: Partial<Settings> = {};
@@ -254,31 +299,16 @@ export class SettingsStore {
       if (!(key in parsed)) continue;
       const value = normalize(key, (parsed as Record<string, unknown>)[key]);
       const problem = CHECKS[key](value);
-      if (problem) this.warn(`Ignoring the saved ${key} in ${file}: ${problem}`);
+      if (problem) this.warn(`Ignoring the saved ${key} in ${where}: ${problem}`);
       else (kept as Record<string, unknown>)[key] = value;
     }
     // Saved values that no longer fit together (for example after sign-in was removed from the server's settings) would
     // stop the server working, so the environment's values are used instead.
     const together = validateTogether(this.merge(kept), { authConfigured: this.opts.authConfigured });
     if (Object.keys(together).length > 0) {
-      this.warn(`Ignoring all saved settings in ${file}: ${Object.values(together).join(' ')}`);
+      this.warn(`Ignoring all saved settings in ${where}: ${Object.values(together).join(' ')}`);
       return {};
     }
     return kept;
-  }
-
-  /** Writes to a temporary file and renames it over the real one, so a crash never leaves half a file. */
-  private write(next: Partial<Settings>): void {
-    const { file } = this.opts;
-    if (!file) return;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const temp = `${file}.${randomBytes(4).toString('hex')}.tmp`;
-    try {
-      fs.writeFileSync(temp, JSON.stringify(next, null, 2), { mode: 0o600 });
-      fs.renameSync(temp, file);
-    } catch (err) {
-      fs.rmSync(temp, { force: true });
-      throw err;
-    }
   }
 }

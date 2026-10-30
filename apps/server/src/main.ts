@@ -24,7 +24,7 @@ const signIn = authSettingsFromEnv(process.env);
 // What an operator can change while the server runs: the environment gives the starting values, and changes made in the
 // admin page are saved in the data directory and win over them. With a relay configured, every room gets credentials,
 // since there is no entitlement service on a personal server to grant them.
-const settings = new SettingsStore({
+const settings = await SettingsStore.open({
   defaults: settingsFromEnv(process.env, signIn),
   file: path.join(dataDir, 'settings.json'),
   authConfigured: Boolean(signIn.auth),

@@ -156,7 +156,7 @@ describe('admin routes', () => {
 
   it('describe each setting with its source, and never reveal secrets', async () => {
     await start();
-    store.update({ set: { turnUrls: ['turn:t:3478'], turnSecret: 'super-secret-value', giphyApiKey: 'giphy-key-value' } });
+    await store.update({ set: { turnUrls: ['turn:t:3478'], turnSecret: 'super-secret-value', giphyApiKey: 'giphy-key-value' } });
     const res = await call('GET', '/v1/admin/settings', { token: await login() });
     expect(res.body).not.toContain('super-secret-value');
     expect(res.body).not.toContain('giphy-key-value');

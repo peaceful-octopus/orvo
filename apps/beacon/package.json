@@ -8,19 +8,21 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
-    "@orvo/metrics": "workspace:*",
-    "@orvo/placement": "workspace:*",
-    "@orvo/protocol": "workspace:*",
     "@fastify/cors": "^11.3.1",
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/static": "^10.1.6",
+    "@orvo/metrics": "workspace:*",
+    "@orvo/placement": "workspace:*",
+    "@orvo/protocol": "workspace:*",
     "fastify": "^5.12.7",
     "ioredis": "^6.0.0",
     "jose": "^6.2.13"
   },
   "devDependencies": {
     "@orvo/testkit": "workspace:*",
+    "@types/ioredis-mock": "^8.2.8",
     "@types/node": "^26.6.5",
+    "ioredis-mock": "^8.13.1",
     "tsx": "^4.23.15"
   },
   "main": "src/index.ts",

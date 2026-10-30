@@ -65,27 +65,27 @@ describe('settingsFromEnv', () => {
 });
 
 describe('SettingsStore', () => {
-  it('lays saved values over the environment and brings the environment back on reset', () => {
+  it('lays saved values over the environment and brings the environment back on reset', async () => {
     const store = new SettingsStore({ defaults: defaults(), authConfigured: false });
-    expect(store.update({ set: { maxRoomSize: 4 } })).toEqual({ ok: true });
+    expect(await store.update({ set: { maxRoomSize: 4 } })).toEqual({ ok: true });
     expect(store.effective().maxRoomSize).toBe(4);
     expect(store.isSaved('maxRoomSize')).toBe(true);
     expect(store.isSaved('warnRoomSize')).toBe(false);
 
-    expect(store.update({ reset: ['maxRoomSize'] })).toEqual({ ok: true });
+    expect(await store.update({ reset: ['maxRoomSize'] })).toEqual({ ok: true });
     expect(store.effective().maxRoomSize).toBe(10);
     expect(store.isSaved('maxRoomSize')).toBe(false);
   });
 
-  it('trims text and drops empty addresses', () => {
+  it('trims text and drops empty addresses', async () => {
     const store = new SettingsStore({ defaults: defaults(), authConfigured: false });
-    store.update({ set: { announcement: '  Back at 5  ', stunUrls: [' stun:a:1 ', ''] } });
+    await store.update({ set: { announcement: '  Back at 5  ', stunUrls: [' stun:a:1 ', ''] } });
     expect(store.effective()).toMatchObject({ announcement: 'Back at 5', stunUrls: ['stun:a:1'] });
   });
 
-  it('refuses values that make no sense, explaining each, and changes nothing', () => {
+  it('refuses values that make no sense, explaining each, and changes nothing', async () => {
     const store = new SettingsStore({ defaults: defaults(), authConfigured: false });
-    const result = store.update({
+    const result = await store.update({
       set: { maxRoomSize: 1, minClientVersion: 'new', stunUrls: ['http://x'], relayVideoScale: 0.5, nope: 1 },
       reset: ['alsoNope'],
     });
@@ -95,37 +95,37 @@ describe('SettingsStore', () => {
     expect(store.effective()).toEqual(defaults());
   });
 
-  it('checks settings against each other', () => {
+  it('checks settings against each other', async () => {
     const store = new SettingsStore({ defaults: defaults(), authConfigured: false });
-    expect(store.update({ set: { warnRoomSize: 12 } })).toMatchObject({ ok: false, errors: { warnRoomSize: expect.any(String) } });
-    expect(store.update({ set: { turnUrls: ['turn:t:3478'] } })).toMatchObject({ ok: false, errors: { turnSecret: expect.any(String) } });
-    expect(store.update({ set: { turnSecret: 'abc' } })).toMatchObject({ ok: false, errors: { turnUrls: expect.any(String) } });
-    expect(store.update({ set: { turnUrls: ['turn:t:3478'], turnSecret: 'abc' } })).toEqual({ ok: true });
-    expect(store.update({ set: { warnRoomSize: 6, maxRoomSize: 4 } })).toMatchObject({ ok: false, errors: { warnRoomSize: expect.any(String) } }); // a warning size chosen on purpose stays
-    expect(store.update({ set: { maxRoomSize: 4, warnRoomSize: 3 } })).toEqual({ ok: true });
+    expect(await store.update({ set: { warnRoomSize: 12 } })).toMatchObject({ ok: false, errors: { warnRoomSize: expect.any(String) } });
+    expect(await store.update({ set: { turnUrls: ['turn:t:3478'] } })).toMatchObject({ ok: false, errors: { turnSecret: expect.any(String) } });
+    expect(await store.update({ set: { turnSecret: 'abc' } })).toMatchObject({ ok: false, errors: { turnUrls: expect.any(String) } });
+    expect(await store.update({ set: { turnUrls: ['turn:t:3478'], turnSecret: 'abc' } })).toEqual({ ok: true });
+    expect(await store.update({ set: { warnRoomSize: 6, maxRoomSize: 4 } })).toMatchObject({ ok: false, errors: { warnRoomSize: expect.any(String) } }); // a warning size chosen on purpose stays
+    expect(await store.update({ set: { maxRoomSize: 4, warnRoomSize: 3 } })).toEqual({ ok: true });
   });
 
-  it('lets the warning size follow the room size down until it is set on purpose', () => {
+  it('lets the warning size follow the room size down until it is set on purpose', async () => {
     const store = new SettingsStore({ defaults: defaults(), authConfigured: false });
-    expect(store.update({ set: { maxRoomSize: 4 } })).toEqual({ ok: true });
+    expect(await store.update({ set: { maxRoomSize: 4 } })).toEqual({ ok: true });
     expect(store.effective()).toMatchObject({ maxRoomSize: 4, warnRoomSize: 4 });
-    expect(store.update({ reset: ['maxRoomSize'] })).toEqual({ ok: true });
+    expect(await store.update({ reset: ['maxRoomSize'] })).toEqual({ ok: true });
     expect(store.effective().warnRoomSize).toBe(6);
   });
 
-  it('allows requiring sign-in only where a provider is configured', () => {
+  it('allows requiring sign-in only where a provider is configured', async () => {
     const without = new SettingsStore({ defaults: defaults(), authConfigured: false });
-    expect(without.update({ set: { roomCreation: 'signed-in' } })).toMatchObject({ ok: false, errors: { roomCreation: expect.stringContaining('provider') } });
+    expect(await without.update({ set: { roomCreation: 'signed-in' } })).toMatchObject({ ok: false, errors: { roomCreation: expect.stringContaining('provider') } });
     const withAuth = new SettingsStore({ defaults: defaults(), authConfigured: true });
-    expect(withAuth.update({ set: { roomCreation: 'signed-in', defaultRoomAccess: 'signed-in' } })).toEqual({ ok: true });
+    expect(await withAuth.update({ set: { roomCreation: 'signed-in', defaultRoomAccess: 'signed-in' } })).toEqual({ ok: true });
     expect(validateTogether(defaults(), { authConfigured: false })).toEqual({});
   });
 
   describe('live settings', () => {
-    it('hands the beacon the relay, its tier and the relay video limits', () => {
+    it('hands the beacon the relay, its tier and the relay video limits', async () => {
       const store = new SettingsStore({ defaults: defaults(), authConfigured: false });
       expect(store.live()).toMatchObject({ turn: { full: undefined }, defaultTier: undefined });
-      store.update({ set: { turnUrls: ['turn:t:3478'], turnSecret: 'abc', relayVideoKbps: 800 } });
+      await store.update({ set: { turnUrls: ['turn:t:3478'], turnSecret: 'abc', relayVideoKbps: 800 } });
       expect(store.live()).toMatchObject({
         turn: { full: { urls: ['turn:t:3478'], secret: 'abc' } },
         defaultTier: 'full',
@@ -133,69 +133,69 @@ describe('SettingsStore', () => {
       });
     });
 
-    it('gives a changed announcement a new id, and keeps the environment id for the environment text', () => {
+    it('gives a changed announcement a new id, and keeps the environment id for the environment text', async () => {
       const store = new SettingsStore({ defaults: defaults({ announcement: 'From env' }), authConfigured: false, defaultAnnouncementId: 'env-id' });
       expect(store.live().announcement).toEqual({ id: 'env-id', text: 'From env' });
-      store.update({ set: { announcement: 'Changed' } });
+      await store.update({ set: { announcement: 'Changed' } });
       const first = store.live().announcement;
       expect(first?.text).toBe('Changed');
       expect(first?.id).toMatch(/^a-[0-9a-f]{8}$/);
-      store.update({ set: { announcement: 'Changed again' } });
+      await store.update({ set: { announcement: 'Changed again' } });
       expect(store.live().announcement?.id).not.toBe(first?.id);
-      store.update({ set: { announcement: '' } });
+      await store.update({ set: { announcement: '' } });
       expect(store.live().announcement).toBeUndefined();
     });
   });
 
   describe('persistence', () => {
-    it('keeps changes across a restart', () => {
+    it('keeps changes across a restart', async () => {
       const file = path.join(tempDir(), 'settings.json');
-      new SettingsStore({ defaults: defaults(), file, authConfigured: false }).update({ set: { maxRoomSize: 5, warnRoomSize: 4 } });
-      const again = new SettingsStore({ defaults: defaults(), file, authConfigured: false });
+      await (await SettingsStore.open({ defaults: defaults(), file, authConfigured: false })).update({ set: { maxRoomSize: 5, warnRoomSize: 4 } });
+      const again = await SettingsStore.open({ defaults: defaults(), file, authConfigured: false });
       expect(again.effective()).toMatchObject({ maxRoomSize: 5, warnRoomSize: 4 });
       expect(again.isSaved('maxRoomSize')).toBe(true);
     });
 
-    it('writes through a temporary file and leaves only the settings file behind', () => {
+    it('writes through a temporary file and leaves only the settings file behind', async () => {
       const dir = tempDir();
-      const store = new SettingsStore({ defaults: defaults(), file: path.join(dir, 'nested', 'settings.json'), authConfigured: false });
-      store.update({ set: { announcement: 'Hi' } });
+      const store = await SettingsStore.open({ defaults: defaults(), file: path.join(dir, 'nested', 'settings.json'), authConfigured: false });
+      await store.update({ set: { announcement: 'Hi' } });
       expect(fs.readdirSync(path.join(dir, 'nested'))).toEqual(['settings.json']);
     });
 
-    it('does not change anything when the file cannot be written', () => {
+    it('does not change anything when the file cannot be written', async () => {
       const dir = tempDir();
       fs.writeFileSync(path.join(dir, 'blocker'), 'a file where a directory is needed');
-      const store = new SettingsStore({ defaults: defaults(), file: path.join(dir, 'blocker', 'settings.json'), authConfigured: false });
-      expect(store.update({ set: { maxRoomSize: 5 } })).toMatchObject({ ok: false, errors: { _: expect.stringContaining('could not be saved') } });
+      const store = await SettingsStore.open({ defaults: defaults(), file: path.join(dir, 'blocker', 'settings.json'), authConfigured: false });
+      expect(await store.update({ set: { maxRoomSize: 5 } })).toMatchObject({ ok: false, errors: { _: expect.stringContaining('could not be saved') } });
       expect(store.effective().maxRoomSize).toBe(10);
     });
 
-    it('ignores a damaged file, and the parts of a file that are not acceptable, with a warning', () => {
+    it('ignores a damaged file, and the parts of a file that are not acceptable, with a warning', async () => {
       const dir = tempDir();
       const file = path.join(dir, 'settings.json');
       const warnings: string[] = [];
-      const open = () => new SettingsStore({ defaults: defaults(), file, authConfigured: false, warn: (m) => warnings.push(m) });
+      const open = () => SettingsStore.open({ defaults: defaults(), file, authConfigured: false, warn: (m) => warnings.push(m) });
 
       fs.writeFileSync(file, '{ not json');
-      expect(open().effective()).toEqual(defaults());
+      expect((await open()).effective()).toEqual(defaults());
       fs.writeFileSync(file, '[1, 2]');
-      expect(open().effective()).toEqual(defaults());
+      expect((await open()).effective()).toEqual(defaults());
       expect(warnings).toHaveLength(2);
 
       fs.writeFileSync(file, JSON.stringify({ maxRoomSize: 6, minClientVersion: 'soon', mystery: true }));
-      const partial = open();
+      const partial = await open();
       expect(partial.effective()).toMatchObject({ maxRoomSize: 6, minClientVersion: '0.0.0' });
       expect(partial.isSaved('mystery' as never)).toBe(false);
       expect(warnings).toHaveLength(3);
     });
 
-    it('falls back to the environment when saved values no longer fit together', () => {
+    it('falls back to the environment when saved values no longer fit together', async () => {
       const file = path.join(tempDir(), 'settings.json');
-      new SettingsStore({ defaults: defaults(), file, authConfigured: true }).update({ set: { roomCreation: 'signed-in' } });
+      await (await SettingsStore.open({ defaults: defaults(), file, authConfigured: true })).update({ set: { roomCreation: 'signed-in' } });
       const warnings: string[] = [];
       // The server was restarted without a sign-in provider.
-      const store = new SettingsStore({ defaults: defaults(), file, authConfigured: false, warn: (m) => warnings.push(m) });
+      const store = await SettingsStore.open({ defaults: defaults(), file, authConfigured: false, warn: (m) => warnings.push(m) });
       expect(store.effective().roomCreation).toBe('anyone');
       expect(warnings.join(' ')).toContain('Ignoring all saved settings');
     });

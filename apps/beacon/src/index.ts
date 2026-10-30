@@ -5,6 +5,7 @@ export { adminReachable, registerAdminRoutes, type AdminOptions } from './admin'
 export { createBeaconApp, type BeaconOptions, type EntitlementVerifier, type LiveSettings, type PlanLookup } from './app';
 export { relayVideoTierFromEnv } from './limits-env';
 export { SettingsStore, settingsFromEnv, type Settings } from './settings';
+export { fileSettings, redisSettings, type SettingsBackend } from './settings-backend';
 export { loadOrCreateSigningKey, signingKeyFromEnv, type SigningKey } from './keys';
 export { turnCredentials, type TurnPool } from './turn';
 export { serveWebApp } from './web';
