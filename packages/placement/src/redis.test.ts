@@ -6,7 +6,7 @@ import { describeStoreContract } from './store.contract';
 // The mock expires keys on the real clock, so the contract's time travel uses fake timers.
 let counter = 0;
 // Each mock registers a listener on a shared emitter until it is disconnected, so they are closed after every test.
-const opened: RedisMock[] = [];
+const opened: InstanceType<typeof RedisMock>[] = [];
 const mock = () => {
   const redis = new RedisMock();
   opened.push(redis);
