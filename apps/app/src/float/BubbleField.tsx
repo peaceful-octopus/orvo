@@ -90,15 +90,16 @@ export function BubbleField({ members, mode, maxSize, screens = [], tiles = [], 
   return (
     <div ref={ref} className="field">
       {fire && (
-        <motion.div
-          className="fire"
-          aria-hidden="true"
-          initial={false}
-          animate={{ x: fire.x, y: fire.y, width: fire.d, height: fire.d }}
-          transition={spring}
-        >
-          <i className="glow" />
-        </motion.div>
+        <div className="fire-clip" aria-hidden="true">
+          <motion.div
+            className="fire"
+            initial={false}
+            animate={{ x: fire.x, y: fire.y, width: fire.d, height: fire.d }}
+            transition={spring}
+          >
+            <i className="glow" />
+          </motion.div>
+        </div>
       )}
       {members.map((m, i) => {
         const at = positions[i];

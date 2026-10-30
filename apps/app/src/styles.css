@@ -584,6 +584,13 @@ details.devices .device-selects {
 }
 
 /* Campfire layout: a glow from the palette's accent in the middle of the ring. */
+.fire-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .fire {
   position: absolute;
   top: 0;
@@ -609,7 +616,7 @@ details.devices .device-selects {
 }
 
 /* The floating window shows bubbles alone over whatever is behind it. */
-.float-view .fire {
+.float-view .fire-clip {
   display: none;
 }
 
