@@ -180,14 +180,18 @@ export class SettingsStore {
    */
   async reload(): Promise<void> {
     if (!this.backend) return;
-    let text: string | undefined;
     try {
-      text = await this.backend.load();
+      this.saved = await this.fetch();
     } catch (err) {
       this.warn(`Could not read the saved settings from ${this.backend.where}: ${err instanceof Error ? err.message : String(err)}`);
-      return;
     }
-    this.saved = text === undefined ? {} : this.parse(text, this.backend.where);
+  }
+
+  /** The saved settings as the backend holds them now. Throws when the backend cannot be read. */
+  private async fetch(): Promise<Partial<Settings>> {
+    if (!this.backend) return this.saved;
+    const raw = await this.backend.load();
+    return raw === undefined ? {} : this.parse(raw, this.backend.where);
   }
 
   private follow(): void {
@@ -228,7 +232,16 @@ export class SettingsStore {
   /** Applies `set` and `reset` together; nothing changes unless all of it is acceptable. */
   async update(change: { set?: Record<string, unknown>; reset?: string[] }): Promise<UpdateResult> {
     const errors: Errors = {};
-    const next: Partial<Settings> = { ...this.saved };
+    // Start from what is saved now, not from this beacon's last view, so a change another beacon saved is not undone.
+    let current: Partial<Settings>;
+    try {
+      current = await this.fetch();
+    } catch (err) {
+      return { ok: false, errors: { _: `The saved settings could not be read (${err instanceof Error ? err.message : String(err)}).` } };
+    }
+    const next: Partial<Settings> = { ...current };
+    const set: Record<string, unknown> = {};
+    const remove: string[] = [];
     for (const [key, raw] of Object.entries(change.set ?? {})) {
       if (!(SETTING_KEYS as readonly string[]).includes(key)) {
         errors[key] = 'Not a setting.';
@@ -237,16 +250,20 @@ export class SettingsStore {
       const value = normalize(key as SettingKey, raw);
       const problem = CHECKS[key as SettingKey](value);
       if (problem) errors[key] = problem;
-      else (next as Record<string, unknown>)[key] = value;
+      else (next as Record<string, unknown>)[key] = set[key] = value;
     }
     for (const key of change.reset ?? []) {
       if (!(SETTING_KEYS as readonly string[]).includes(key)) errors[key] = 'Not a setting.';
-      else delete next[key as SettingKey];
+      else {
+        delete next[key as SettingKey];
+        remove.push(key);
+      }
     }
     if (Object.keys(errors).length === 0) Object.assign(errors, validateTogether(this.merge(next), { authConfigured: this.opts.authConfigured }));
     if (Object.keys(errors).length > 0) return { ok: false, errors };
     try {
-      await this.backend?.save(JSON.stringify(next, null, 2));
+      // Only the settings this change names are written, so another operator's change to a different one stays.
+      await this.backend?.save({ set, remove });
     } catch (err) {
       return { ok: false, errors: { _: `The change could not be saved (${err instanceof Error ? err.message : String(err)}).` } };
     }
@@ -282,16 +299,9 @@ export class SettingsStore {
     return `a-${createHash('sha1').update(text).digest('hex').slice(0, 8)}`;
   }
 
-  private parse(text: string, where: string): Partial<Settings> {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      this.warn(`Ignoring ${where}, which could not be read: ${err instanceof Error ? err.message : String(err)}`);
-      return {};
-    }
+  private parse(parsed: unknown, where: string): Partial<Settings> {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      this.warn(`Ignoring ${where}, which does not hold a settings object.`);
+      this.warn(`Ignoring ${where}, which could not be read as settings.`);
       return {};
     }
     const kept: Partial<Settings> = {};
