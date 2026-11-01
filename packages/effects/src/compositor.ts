@@ -169,9 +169,12 @@ export class Compositor implements CompositorLike {
       playing.catch(() => {}); // reported through the await below, or by play() failing first
       await Promise.all([video.play(), playing]);
     } catch (err) {
+      // What the web view reports, for working out why a GIF will not play on a particular device.
+      const why = video.error ? `media error ${video.error.code} ${video.error.message}`.trim() : err instanceof Error ? `${err.name}: ${err.message}` : 'unknown';
+      const detail = `${why}; readyState ${video.readyState}, networkState ${video.networkState}`;
       video.removeAttribute('src');
       video.load();
-      throw err instanceof Error ? err : new Error('The GIF could not be loaded.');
+      throw new Error(detail, { cause: err });
     }
     this.releaseGif();
     this.gif = { video, mode, source, startedAt: this.now(), durationMs };

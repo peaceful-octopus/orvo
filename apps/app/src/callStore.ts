@@ -534,9 +534,10 @@ export const useCall = create<CallState>((set, get) => {
     async sendGif(source, mode) {
       try {
         await effects?.showGif(source, mode);
-      } catch {
-        toast.error(COPY.toasts.gif);
-        throw new Error('gif-failed');
+      } catch (err) {
+        // TEMPORARY: the reason is shown while GIFs failing on some Android phones is investigated.
+        toast.error(`${COPY.toasts.gif} (${err instanceof Error ? err.message : 'unknown'})`);
+        throw new Error('gif-failed', { cause: err });
       }
     },
 
