@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isDesktopApp } from './platform';
 
 /** What the desktop shell's updater plugin offers; narrowed to what is used so tests can stand in for it. */
 export interface PendingUpdate {
@@ -55,7 +56,6 @@ export function createUpdater(deps: UpdaterDeps) {
   }));
 }
 
-const inTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 export const useUpdater = createUpdater({
   async check() {
@@ -70,9 +70,9 @@ export const useUpdater = createUpdater({
 
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 
-/** Desktop app only: look for an update now and every few hours. The development build has nowhere to look. */
+/** Desktop app only (Android updates come from its store): look for an update now and every few hours. The development build has nowhere to look. */
 export function startUpdateChecks() {
-  if (!inTauri() || import.meta.env.DEV) return;
+  if (!isDesktopApp || import.meta.env.DEV) return;
   void useUpdater.getState().check();
   setInterval(() => void useUpdater.getState().check(), CHECK_EVERY_MS);
 }

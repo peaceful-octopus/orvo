@@ -52,6 +52,7 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OIDC_DESKTOP_CLIENT_ID: ${OIDC_DESKTOP_CLIENT_ID:-}
       OIDC_DESKTOP_CLIENT_SECRET: ${OIDC_DESKTOP_CLIENT_SECRET:-}
+      OIDC_ANDROID_CLIENT_ID: ${OIDC_ANDROID_CLIENT_ID:-}
       ROOM_CREATION: ${ROOM_CREATION:-anyone}
       DEFAULT_ROOM_ACCESS: ${DEFAULT_ROOM_ACCESS:-anyone}
       # Optional admin page. Settings changed there are kept in Redis and used by every beacon. Behind your proxy the

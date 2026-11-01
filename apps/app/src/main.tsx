@@ -4,11 +4,13 @@ import { MotionConfig } from 'motion/react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { resumeAndroidSignIn } from './auth/authStore';
 import { useConfig } from './configStore';
 import { ActivityWindow } from './float/ActivityWindow';
 import { closeActivityWindow } from './float/activityWindows';
 import { ControlsView } from './float/ControlsView';
 import { closeControlsWindow } from './float/controlsWindow';
+import { isDesktopApp } from './platform';
 import { telemetry } from './telemetry';
 import { startUpdateChecks } from './updater';
 import { startTheme } from './theme/theme';
@@ -30,7 +32,7 @@ if ('__TAURI_INTERNALS__' in window && !import.meta.env.DEV) {
 
 // The web view also steps through history with the mouse's Back and Forward buttons and Alt+Left and Alt+Right. The app
 // does its own navigation, and those would land on pages that no longer make sense, such as a finished call.
-if ('__TAURI_INTERNALS__' in window) {
+if (isDesktopApp) {
   const isHistoryButton = (e: MouseEvent) => e.button === 3 || e.button === 4;
   for (const type of ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'auxclick'] as const) {
     window.addEventListener(type, (e) => isHistoryButton(e) && e.preventDefault(), true);
@@ -54,9 +56,10 @@ if (!secondary) {
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && revalidate());
   setInterval(revalidate, 5 * 60_000);
   telemetry.start();
+  void resumeAndroidSignIn().catch(() => {});
   startUpdateChecks();
   // A reload can leave the previous page's controls and activity windows behind with nothing to control.
-  if ('__TAURI_INTERNALS__' in window) {
+  if (isDesktopApp) {
     void closeControlsWindow().catch(() => {});
     void closeActivityWindow().catch(() => {});
   }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { COPY } from '../copy';
 import { useConfig } from '../configStore';
+import { inTauri } from '../platform';
 import { toast } from '../toastStore';
 import { useAuth } from './authStore';
 
@@ -8,8 +9,8 @@ import { useAuth } from './authStore';
 export function useSignIn() {
   const signIn = useAuth((s) => s.signIn);
   return () => {
-    // On the desktop the browser opens separately, so say where to look.
-    if ('__TAURI_INTERNALS__' in window) toast.info(COPY.account.waiting);
+    // In the apps the browser opens separately, so say where to look.
+    if (inTauri) toast.info(COPY.account.waiting);
     void signIn().catch((err: unknown) => toast.error(err instanceof Error && err.message && !/fetch|network/i.test(err.message) ? err.message : COPY.toasts.signInFailed));
   };
 }

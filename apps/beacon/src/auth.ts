@@ -20,6 +20,8 @@ export interface AuthOptions {
   clientSecret?: string;
   /** The desktop app's own registration, when the provider needs a different client for it. */
   desktop?: { clientId: string; clientSecret?: string };
+  /** The Android app's own registration (Google issues Android clients, which have no secret). */
+  android?: { clientId: string };
   scope?: string;
 }
 

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isDesktopApp } from '../platform';
 import { adaptiveMode, bubbleForWindow, FLOAT_BUBBLE, floatWindowSize, MAX_FLOAT_BUBBLE, MIN_FLOAT_BUBBLE, type LayoutMode } from './layouts';
 
 export type FloatKind = 'tauri';
 
-/** Floating needs the desktop app's window control; a browser or an installed web app has none. */
+/** Floating needs the desktop app's window control; a browser, an installed web app or the Android app has none. */
 export function floatKind(): FloatKind | null {
-  return '__TAURI_INTERNALS__' in window ? 'tauri' : null;
+  return isDesktopApp ? 'tauri' : null;
 }
 
 /** Hides or restores the Windows 11 border that otherwise outlines the transparent floating window. */

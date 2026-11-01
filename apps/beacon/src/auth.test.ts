@@ -82,6 +82,12 @@ describe('authSettingsFromEnv', () => {
     expect(s.auth).toMatchObject({ clientId: 'web', clientSecret: 'ws', desktop: { clientId: 'desk', clientSecret: 'ds' } });
   });
 
+  it('publishes an Android client and accepts tokens for it', () => {
+    const s = authSettingsFromEnv({ OIDC_ISSUER: 'https://accounts.google.com', OIDC_CLIENT_ID: 'web', OIDC_ANDROID_CLIENT_ID: 'droid' });
+    expect(s.auth).toMatchObject({ clientId: 'web', android: { clientId: 'droid' } });
+    expect(() => authSettingsFromEnv({ OIDC_ANDROID_CLIENT_ID: 'droid' })).toThrow(/OIDC_ISSUER/);
+  });
+
   it('refuses secrets and a desktop client with no provider, and a desktop secret with no desktop client', () => {
     expect(() => authSettingsFromEnv({ OIDC_CLIENT_SECRET: 's' })).toThrow(/OIDC_ISSUER/);
     expect(() => authSettingsFromEnv({ OIDC_DESKTOP_CLIENT_ID: 'd' })).toThrow(/OIDC_ISSUER/);

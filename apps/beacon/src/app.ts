@@ -218,6 +218,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
             clientId: opts.auth.clientId,
             clientSecret: opts.auth.clientSecret,
             desktop: opts.auth.desktop,
+            android: opts.auth.android,
             scope: opts.auth.scope ?? 'openid profile email',
             createRequiresLogin: c.roomCreation === 'signed-in',
           }

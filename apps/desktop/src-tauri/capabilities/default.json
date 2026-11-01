@@ -42,5 +42,10 @@
         }
       ]
     }
+  ],
+  "platforms": [
+    "windows",
+    "macOS",
+    "linux"
   ]
 }

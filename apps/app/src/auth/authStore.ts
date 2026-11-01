@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { useConfig } from '../configStore';
+import { inTauri, isAndroid } from '../platform';
 import { authorizeUrl, claimsOf, createPkce, discover, exchangeCode, needsRefresh, randomString, refreshTokens, type Endpoints, type TokenSet } from './oidc';
 
 const SESSION_KEY = 'orvo:auth';
 const PENDING_KEY = 'orvo:auth-pending';
+const ANDROID_PENDING_KEY = 'orvo:auth-pending-android';
 
 export interface User {
   sub: string;
@@ -61,11 +63,11 @@ function save(tokens: TokenSet | undefined) {
   }
 }
 
-/** The sign-in settings for this app: the desktop app uses its own client when the server has one. */
+/** The sign-in settings for this app: the desktop and Android apps use their own client when the server has one. */
 const providerConfig = () => {
   const auth = useConfig.getState().config.auth;
   if (!auth) return undefined;
-  const client = inTauri && auth.desktop ? auth.desktop : auth;
+  const client: { clientId: string; clientSecret?: string } = isAndroid ? (auth.android ?? auth) : inTauri && auth.desktop ? auth.desktop : auth;
   return {
     issuer: auth.issuer,
     scope: auth.scope,
@@ -75,7 +77,12 @@ const providerConfig = () => {
   };
 };
 
-const inTauri = '__TAURI_INTERNALS__' in window;
+/**
+ * Where the provider sends the person back to on Android: an address only this app answers to, named after its package
+ * (the form Google accepts for Android clients, and one any other provider can register).
+ */
+const ANDROID_REDIRECT = 'dev.orvo.app:/oauth2redirect';
+const isAndroidRedirect = (url: string) => url.startsWith(ANDROID_REDIRECT);
 
 let endpoints: { issuer: string; value: Promise<Endpoints> } | undefined;
 const endpointsFor = (issuer: string) => {
@@ -107,6 +114,39 @@ async function signInInBrowser(authorization: string, config: NonNullable<Return
   return useAuth.getState().finish(pending, await back);
 }
 
+/**
+ * The Android app signs in through the system browser too, but cannot listen on a port. The provider sends the browser
+ * to `ANDROID_REDIRECT`, which Android hands to this app as a deep link. The sign-in in progress is kept in local
+ * storage because Android may stop the app while the person is in their browser.
+ */
+async function signInOnAndroid(authorization: string, config: NonNullable<ReturnType<typeof providerConfig>>): Promise<string> {
+  const [{ onOpenUrl }, { openUrl }] = await Promise.all([import('@tauri-apps/plugin-deep-link'), import('@tauri-apps/plugin-opener')]);
+  const { verifier, challenge } = await createPkce();
+  const pending: Pending = { state: randomString(), verifier, nonce: randomString(), redirectUri: ANDROID_REDIRECT, returnTo: '' };
+  localStorage.setItem(ANDROID_PENDING_KEY, JSON.stringify(pending));
+  let arrived!: (url: string) => void;
+  const back = new Promise<string>((resolve) => (arrived = resolve));
+  const stopListening = await onOpenUrl((urls) => {
+    const url = urls.find(isAndroidRedirect);
+    if (url) arrived(url);
+  });
+  await openUrl(authorizeUrl({ endpoint: authorization, clientId: config.clientId, redirectUri: pending.redirectUri, scope: config.scope, state: pending.state, challenge, nonce: pending.nonce, offline: config.offline }));
+  const url = await back;
+  stopListening();
+  localStorage.removeItem(ANDROID_PENDING_KEY);
+  return useAuth.getState().finish(pending, url);
+}
+
+/** Android may have restarted the app while the person signed in; finishes that sign-in from the link it was started with. */
+export async function resumeAndroidSignIn(): Promise<void> {
+  const raw = localStorage.getItem(ANDROID_PENDING_KEY);
+  if (!isAndroid || !raw) return;
+  const { getCurrent } = await import('@tauri-apps/plugin-deep-link');
+  const url = (await getCurrent())?.find(isAndroidRedirect);
+  localStorage.removeItem(ANDROID_PENDING_KEY);
+  if (url) await useAuth.getState().finish(JSON.parse(raw) as Pending, url);
+}
+
 export const useAuth = create<AuthState>((set, get) => ({
   session: load(),
   waiting: false,
@@ -118,7 +158,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (inTauri) {
       set({ waiting: true });
       try {
-        await signInInBrowser(authorization, config);
+        await (isAndroid ? signInOnAndroid : signInInBrowser)(authorization, config);
       } finally {
         set({ waiting: false });
       }

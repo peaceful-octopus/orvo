@@ -44,6 +44,8 @@ export const ClientConfig = z.object({
       clientSecret: z.string().min(1).optional(),
       /** The desktop app's own registration, for providers that need a different client type for loopback sign-in. */
       desktop: z.object({ clientId: z.string().min(1), clientSecret: z.string().min(1).optional() }).optional(),
+      /** The Android app's registration. Android clients have no secret; the provider identifies the app by its package and signing key. */
+      android: z.object({ clientId: z.string().min(1) }).optional(),
       scope: z.string().default('openid profile email'),
       /** When true, starting a room needs a signed-in account. */
       createRequiresLogin: z.boolean(),
