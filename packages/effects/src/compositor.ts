@@ -161,10 +161,13 @@ export class Compositor implements CompositorLike {
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
+    video.preload = 'auto';
     video.src = source.url;
     try {
-      await once(video, 'canplay', 6000, 'error');
-      await video.play();
+      // Phones' web views fetch media only once it is asked to play, so waiting for `canplay` first can wait for nothing.
+      const playing = once(video, 'playing', 10_000, 'error');
+      playing.catch(() => {}); // reported through the await below, or by play() failing first
+      await Promise.all([video.play(), playing]);
     } catch (err) {
       video.removeAttribute('src');
       video.load();

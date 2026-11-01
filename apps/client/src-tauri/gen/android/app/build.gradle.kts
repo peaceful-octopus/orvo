@@ -25,6 +25,17 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    // Debug builds are signed with a key kept in the repository, not the one Gradle makes per machine. Every build, local
+    // or from CI, then has the same signature, so a new APK installs over the old one. The key is public: do not use it
+    // for anything that is published.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"

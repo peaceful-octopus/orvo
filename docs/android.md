@@ -19,7 +19,12 @@ pnpm --filter @orvo/client tauri android build --debug --apk --target x86_64   #
 pnpm --filter @orvo/client tauri android build --apk                           # all phone ABIs
 ```
 
-The APK is in `apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/`. Release APKs need a signing
+The APK is in `apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/`.
+
+Debug APKs, whether built on a developer machine or on GitHub, are signed with `gen/android/app/debug.keystore`, which is in
+the repository and public (password `android`). Every build then has the same signature, so a new APK installs over the
+old one. Never use this key for anything that is published; the Play Store needs a release key that is kept secret. The
+key's SHA-1 is `27:9C:DC:CC:7C:22:7E:43:33:4D:02:11:2C:AA:F6:49:61:64:96:70`, for the Android OAuth client in Google Cloud Console. Release APKs need a signing
 keystore, which is not set up yet.
 
 ## Signing in with Google
