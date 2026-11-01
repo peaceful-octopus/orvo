@@ -42,6 +42,13 @@ const NOTES: Record<ChimeKind, ChimeNote[]> = {
 
 export const chimeNotes = (kind: ChimeKind): ChimeNote[] => NOTES[kind];
 
+/** Share of a note's fade after which it is too quiet to hear, so a page can close without cutting anything off. */
+const AUDIBLE_SHARE = 0.6;
+
+/** How long a chime stays audible, in milliseconds. */
+export const chimeLengthMs = (kind: ChimeKind): number =>
+  Math.ceil(Math.max(...NOTES[kind].map((n) => n.start + ATTACK + n.decay * AUDIBLE_SHARE)) * 1000);
+
 let context: AudioContext | undefined;
 function sharedContext(): AudioContext | undefined {
   if (context) return context;
@@ -55,11 +62,12 @@ function sharedContext(): AudioContext | undefined {
  * Plays the chime for someone joining or leaving. `volume` is the speaker volume setting, 0 to 1, so the chime follows
  * what the person chose for other people's voices. `outputId` is the chosen speaker, where the browser can route to it.
  * It makes no sound, and no error, where audio is unavailable or the browser has not allowed it yet.
+ * Returns how long the chime keeps sounding in milliseconds, or 0 when none was started.
  */
-export function playChime(kind: ChimeKind, volume: number, outputId?: string): void {
+export function playChime(kind: ChimeKind, volume: number, outputId?: string): number {
   try {
     const ctx = sharedContext();
-    if (!ctx || volume <= 0) return;
+    if (!ctx || volume <= 0) return 0;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
     if (outputId) void (ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(outputId).catch(() => {});
     const at = ctx.currentTime + 0.02;
@@ -86,7 +94,9 @@ export function playChime(kind: ChimeKind, volume: number, outputId?: string): v
         osc.stop(begin + ATTACK + note.decay + 0.05);
       }
     }
+    return chimeLengthMs(kind);
   } catch {
     // A missing chime is not worth interrupting a call for.
+    return 0;
   }
 }

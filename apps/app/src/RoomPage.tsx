@@ -99,6 +99,7 @@ export function RoomPage({ room }: { room: string }) {
   const activitySummary = useActivitySummary();
   const [gifOpen, setGifOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const name = useSettings((s) => s.name);
   const setName = useSettings((s) => s.setName);
   const startView = useSettings((s) => s.startView);
@@ -189,7 +190,15 @@ export function RoomPage({ room }: { room: string }) {
   const leaveCall = async () => {
     await float.exit(); // restore the full window before the page reloads
     await closeControlsWindow().catch(() => {}); // the reload would otherwise cut its closing short and leave the bar behind
-    leave();
+    await exitCall();
+  };
+  /** Leaves and goes to the start page, once the leaving chime has played: the page reload would cut it off. */
+  const exitCall = async () => {
+    const chimeMs = leave();
+    if (chimeMs > 0) {
+      setLeaving(true);
+      await new Promise((resolve) => setTimeout(resolve, chimeMs));
+    }
     location.assign('/');
   };
   const controlsWindow = useControlsWindow(
@@ -197,6 +206,9 @@ export function RoomPage({ room }: { room: string }) {
     { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs, ...look, sharing: Boolean(screen), canShare, activities: activitySummary.options, activity: activitySummary.running },
     onControlAction,
   );
+
+  // Blank while the leaving chime finishes, rather than showing the lobby for a moment.
+  if (leaving) return <main />;
 
   if (phase !== 'in-call') {
     return (
@@ -397,10 +409,7 @@ export function RoomPage({ room }: { room: string }) {
           className="icon leave"
           aria-label="Leave"
           title="Leave the call"
-          onClick={() => {
-            leave();
-            location.assign('/');
-          }}
+          onClick={() => void exitCall()}
         >
           <LeaveIcon />
         </button>
