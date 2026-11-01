@@ -1,7 +1,9 @@
 package dev.orvo.app
 
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Handler
 import android.os.Looper
@@ -60,21 +62,51 @@ object ChimeSynth {
     }
 }
 
+/** Waits while `busy()` is true, up to `timeoutMs`; true if it stopped being busy in time. */
+fun waitWhile(busy: () -> Boolean, timeoutMs: Long, stepMs: Long = 50, sleep: (Long) -> Unit = Thread::sleep): Boolean {
+    var waited = 0L
+    while (busy()) {
+        if (waited >= timeoutMs) return false
+        sleep(stepMs)
+        waited += stepMs
+    }
+    return true
+}
+
 /**
  * Plays the join, leave and activity chimes on the notification volume. In a call the web view's own audio follows the
  * call volume, which can be much quieter or louder than the media volume, so the same chime came out at different
  * levels. Here it is always on the volume the person set for notifications.
  */
-class ChimePlayer {
+class ChimePlayer(context: Context) {
+    private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val main = Handler(Looper.getMainLooper())
     private var playing = 0
 
+    /**
+     * `afterCall` is for the chime of your own leaving: the phone switches out of its call audio mode when the call's
+     * audio stops, and that cut off a chime that was already playing. So it starts once the phone has switched back.
+     */
     @JavascriptInterface
-    fun playChime(notes: String, volume: Double): Boolean {
+    fun playChime(notes: String, volume: Double, afterCall: Boolean): Boolean {
         val parsed = ChimeSynth.parse(notes) ?: return false
-        if (playing >= MAX_AT_ONCE) return false
         val pcm = ChimeSynth.render(parsed, volume.coerceIn(0.0, 1.0))
         if (pcm.isEmpty()) return false
+        synchronized(this) {
+            if (playing >= MAX_AT_ONCE) return false
+            playing++
+        }
+        Thread {
+            if (afterCall) {
+                waitWhile({ audio.mode == AudioManager.MODE_IN_COMMUNICATION }, SETTLE_TIMEOUT_MS)
+                Thread.sleep(SETTLE_EXTRA_MS)
+            }
+            play(pcm)
+        }.start()
+        return true
+    }
+
+    private fun play(pcm: ShortArray) {
         val track = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -94,15 +126,15 @@ class ChimePlayer {
             .build()
         track.write(pcm, 0, pcm.size)
         track.play()
-        synchronized(this) { playing++ }
         main.postDelayed({
             track.release()
             synchronized(this) { playing-- }
         }, pcm.size * 1000L / ChimeSynth.SAMPLE_RATE + 200)
-        return true
     }
 
     private companion object {
         const val MAX_AT_ONCE = 4
+        const val SETTLE_TIMEOUT_MS = 1500L
+        const val SETTLE_EXTRA_MS = 80L
     }
 }

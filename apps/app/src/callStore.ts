@@ -198,9 +198,10 @@ export const useCall = create<CallState>((set, get) => {
   let chimesSince = 0;
   /** Set when the person who started the activity leaves, so their leaving chime is not followed by an ending one. */
   let starterLeft = false;
-  const chime = (kind: ChimeKind) => {
+  /** `afterCall`: the call's audio has just been torn down, so a native player waits for the phone to settle first. */
+  const chime = (kind: ChimeKind, afterCall = false) => {
     const { chimes, speakerVolume } = useSettings.getState();
-    if (chimes) playChime(kind, speakerVolume / 100, get().selected.audiooutput);
+    if (chimes) playChime(kind, speakerVolume / 100, get().selected.audiooutput, afterCall);
   };
 
   // An activity that is already running when you join is announced to you just after you arrive; that is not news.
@@ -542,7 +543,7 @@ export const useCall = create<CallState>((set, get) => {
 
     leave() {
       // Your own exit chimes too, and silences the rest: tearing down the call would otherwise read as an activity ending.
-      if (chimesOn) chime('leave');
+      const chimeOnExit = chimesOn;
       chimesOn = false;
       useActivity.getState().unbind();
       get().stopScreen();
@@ -557,6 +558,8 @@ export const useCall = create<CallState>((set, get) => {
       micRaw?.stop();
       micRaw = undefined;
       set({ roomAccess: undefined, noiseStatus: 'off', phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
+      // After the teardown: the phone changes its audio mode when the call's audio stops, which cut a chime already playing.
+      if (chimeOnExit) chime('leave', true);
     },
   };
 });

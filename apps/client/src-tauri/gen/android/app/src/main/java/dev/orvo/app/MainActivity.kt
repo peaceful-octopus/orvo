@@ -10,7 +10,7 @@ import androidx.core.view.WindowInsetsCompat
 class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     // The chimes play natively, on the notification volume (see ChimePlayer); the page falls back to its own sound without this.
-    webView.addJavascriptInterface(ChimePlayer(), "OrvoNative")
+    webView.addJavascriptInterface(ChimePlayer(this), "OrvoNative")
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {

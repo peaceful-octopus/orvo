@@ -11,6 +11,20 @@ class ChimeSynthTest {
     private val leave = "1046.5:0:0.6:0.6|783.99:0.12:0.8:0.5"
 
     @Test
+    fun waitsWhileBusyAndGivesUpAtTheTimeout() {
+        var busyFor = 3
+        var slept = 0L
+        assertTrue(waitWhile({ busyFor-- > 0 }, 1000, 50) { slept += it })
+        assertEquals(150L, slept)
+
+        slept = 0
+        assertEquals(false, waitWhile({ true }, 200, 50) { slept += it })
+        assertEquals(200L, slept)
+
+        assertTrue(waitWhile({ false }, 1000, 50) { throw AssertionError("should not wait") })
+    }
+
+    @Test
     fun readsTheNotesThePageSends() {
         val notes = ChimeSynth.parse(leave)!!
         assertEquals(2, notes.size)
