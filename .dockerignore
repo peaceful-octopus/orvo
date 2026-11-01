@@ -2,7 +2,7 @@
 .github
 **/node_modules
 **/dist
-apps/desktop/src-tauri
+apps/client/src-tauri
 **/data
 **/data-e2e-*
 deploy

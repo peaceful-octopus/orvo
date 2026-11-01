@@ -1,6 +1,6 @@
 # Android app
 
-The Android app is the desktop app's Tauri v2 project built for Android (`apps/desktop/src-tauri`, generated project in
+The Android app is the desktop app's Tauri v2 project built for Android (`apps/client/src-tauri`, generated project in
 `gen/android`). It shows the same React UI in the system web view. Floating bubbles, the updater and the loopback
 sign-in listener are desktop-only; `apps/app/src/platform.ts` tells the platforms apart.
 
@@ -15,11 +15,11 @@ rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-andro
 Set `JAVA_HOME`, `ANDROID_HOME` and `NDK_HOME`. Then, from the repo root:
 
 ```
-pnpm --filter @orvo/desktop tauri android build --debug --apk --target x86_64   # emulator
-pnpm --filter @orvo/desktop tauri android build --apk                           # all phone ABIs
+pnpm --filter @orvo/client tauri android build --debug --apk --target x86_64   # emulator
+pnpm --filter @orvo/client tauri android build --apk                           # all phone ABIs
 ```
 
-The APK is in `apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/`. Release APKs need a signing
+The APK is in `apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/`. Release APKs need a signing
 keystore, which is not set up yet.
 
 ## Signing in with Google

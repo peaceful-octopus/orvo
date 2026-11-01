@@ -10,7 +10,7 @@ Android apps do not use `latest.json`; they do not update themselves.
 
 ## One-time setup
 
-1. **Push the repository to GitHub.** The workflow replaces `OWNER/REPO` in `apps/desktop/src-tauri/tauri.conf.json`
+1. **Push the repository to GitHub.** The workflow replaces `OWNER/REPO` in `apps/client/src-tauri/tauri.conf.json`
    with the repository it runs in, so no address is edited by hand.
 2. **Add the update signing key as repository secrets** (Settings → Secrets and variables → Actions):
    `TAURI_SIGNING_PRIVATE_KEY` (the contents of the key file) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
@@ -19,7 +19,7 @@ Android apps do not use `latest.json`; they do not update themselves.
    never be updated again** and everyone has to reinstall.
 
    To make a new key pair (this invalidates updates for apps built with the old public key):
-   `pnpm --filter @orvo/desktop exec tauri signer generate -w <path-to-key> -p <password>`, then put the printed public
+   `pnpm --filter @orvo/client exec tauri signer generate -w <path-to-key> -p <password>`, then put the printed public
    key in `tauri.conf.json`.
 
 ## Making a release
@@ -57,7 +57,7 @@ Tauri reads it from the `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPL
 
 ## Building an installer locally
 
-`pnpm --filter @orvo/desktop build` produces unsigned installers in `apps/desktop/src-tauri/target/release/bundle/`.
+`pnpm --filter @orvo/client build` produces unsigned installers in `apps/client/src-tauri/target/release/bundle/`.
 Those builds contain the placeholder update address, so they never find an update. To also produce the update
 artifacts locally, set `TAURI_SIGNING_PRIVATE_KEY` (or its path) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and add
 `--config src-tauri/tauri.release.conf.json` after the build command.

@@ -38,7 +38,7 @@ jobs:
           targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/desktop/src-tauri
+          workspaces: apps/client/src-tauri
       - run: pnpm install --frozen-lockfile
       - name: The tag must match the version in the files
         shell: bash
@@ -50,14 +50,14 @@ jobs:
         if: matrix.os == 'windows-latest'
       - name: Point the updater at this repository's releases
         shell: bash
-        run: sed -i.bak "s#OWNER/REPO#${GITHUB_REPOSITORY}#" apps/desktop/src-tauri/tauri.conf.json && rm apps/desktop/src-tauri/tauri.conf.json.bak
+        run: sed -i.bak "s#OWNER/REPO#${GITHUB_REPOSITORY}#" apps/client/src-tauri/tauri.conf.json && rm apps/client/src-tauri/tauri.conf.json.bak
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          projectPath: apps/desktop
+          projectPath: apps/client
           tauriScript: pnpm tauri
           args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
@@ -93,7 +93,7 @@ jobs:
           targets: ${{ matrix.rust }}
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: apps/desktop/src-tauri
+          workspaces: apps/client/src-tauri
           key: android-${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
       - name: The tag must match the version in the files
@@ -102,11 +102,11 @@ jobs:
           version=$(node -p "require('./package.json').version")
           test "v$version" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
       # The runner image ships the Android SDK and an NDK; Gradle fetches any platform it is missing.
-      - run: pnpm --filter @orvo/desktop tauri android build --debug --apk --target ${{ matrix.target }}
+      - run: pnpm --filter @orvo/client tauri android build --debug --apk --target ${{ matrix.target }}
         env:
           NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
       - name: Name the APK after the version and architecture
-        run: cp apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "Orvo_${GITHUB_REF_NAME}_android_${{ matrix.target }}.apk"
+        run: cp apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "Orvo_${GITHUB_REF_NAME}_android_${{ matrix.target }}.apk"
       - uses: actions/upload-artifact@v7
         with:
           name: orvo-android-${{ matrix.target }}

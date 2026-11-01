@@ -17,22 +17,22 @@ const targets = [
     write: (s, v) => s.replace(/("version":\s*")[^"]*(")/, `$1${v}$2`),
   },
   {
-    path: 'apps/desktop/package.json',
+    path: 'apps/client/package.json',
     read: (s) => JSON.parse(s).version,
     write: (s, v) => s.replace(/("version":\s*")[^"]*(")/, `$1${v}$2`),
   },
   {
-    path: 'apps/desktop/src-tauri/tauri.conf.json',
+    path: 'apps/client/src-tauri/tauri.conf.json',
     read: (s) => JSON.parse(s).version,
     write: (s, v) => s.replace(/("version":\s*")[^"]*(")/, `$1${v}$2`),
   },
   {
-    path: 'apps/desktop/src-tauri/Cargo.toml',
+    path: 'apps/client/src-tauri/Cargo.toml',
     read: (s) => /^version\s*=\s*"([^"]*)"/m.exec(s)?.[1],
     write: (s, v) => s.replace(/^(version\s*=\s*")[^"]*(")/m, `$1${v}$2`),
   },
   {
-    path: 'apps/desktop/src-tauri/Cargo.lock',
+    path: 'apps/client/src-tauri/Cargo.lock',
     read: (s) => /name = "orvo"\r?\nversion = "([^"]*)"/.exec(s)?.[1],
     write: (s, v) => s.replace(/(name = "orvo"\r?\nversion = ")[^"]*(")/, `$1${v}$2`),
   },
