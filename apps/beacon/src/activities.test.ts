@@ -1,5 +1,5 @@
 import { verifyConfig } from '@orvo/protocol';
-import { FakeClock, testKeys } from '@orvo/testkit';
+import { FakeClock, signingKey, testKeys } from '@orvo/testkit';
 import { MemoryPlacementStore } from '@orvo/placement';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -104,7 +104,7 @@ describe('config', () => {
 
   async function config(activities?: ReturnType<typeof loadActivities>['manifests']) {
     const app = await createBeaconApp({
-      signingKey: { kid: key.kid, publicKey: key.publicKey, secretKey: key.secretKey },
+      signingKey: signingKey(key),
       store: new MemoryPlacementStore([{ id: 'n', region: 'r', weight: 1, draining: false }], () => clock.now),
       stunUrls: [],
       now: () => clock.now,

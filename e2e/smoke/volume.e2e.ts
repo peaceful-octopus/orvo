@@ -1,17 +1,16 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair, openSettings } from '../helpers';
 
 test('the speaker slider sets the volume of other people, and the microphone slider processes what is sent @smoke', async ({ context }) => {
   const room = `e2e-volume-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   const remoteVolume = () => ann.locator('.bubble video').nth(1).evaluate((v) => (v as HTMLVideoElement).volume);
   const ownVolume = () => ann.locator('.bubble video').first().evaluate((v) => (v as HTMLVideoElement).volume);
   expect(await remoteVolume()).toBe(1);
 
-  await ann.getByRole('button', { name: 'Settings' }).click();
-  const dialog = ann.getByRole('dialog', { name: 'Settings' });
+  const dialog = await openSettings(ann);
   await dialog.getByLabel('Speaker volume').fill('35');
   await expect(dialog.getByLabel('Speaker volume')).toHaveValue('35');
   await expect.poll(remoteVolume).toBeCloseTo(0.35, 2);

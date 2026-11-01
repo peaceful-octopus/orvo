@@ -2,7 +2,7 @@ import { createBeaconApp } from '@orvo/beacon';
 import { NodeAgent, RedisPlacementStore } from '@orvo/placement';
 import { JoinResponse, parseServerMessage, type ServerMessage } from '@orvo/protocol';
 import { SignalingServer } from '@orvo/signaling';
-import { testKeys } from '@orvo/testkit';
+import { signingKey, testKeys } from '@orvo/testkit';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Redis } from 'ioredis';
@@ -56,7 +56,7 @@ async function setup(count: number) {
   const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : (new RedisMock() as never);
   store = new RedisPlacementStore(redis, `fleet-${Date.now()}-${Math.random()}:`);
   beacon = await createBeaconApp({
-    signingKey: { kid: key.kid, publicKey: key.publicKey, secretKey: key.secretKey },
+    signingKey: signingKey(key),
     store,
     stunUrls: [],
     rateLimitPerMinute: false,

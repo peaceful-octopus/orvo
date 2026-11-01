@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, expectInCall, joinRoom } from '../helpers';
 
 test('rooms on different signaling nodes both work, and each room stays on one node @fleet', async ({ context, request }) => {
   // Find two rooms that the beacon places on different nodes.
@@ -29,7 +29,7 @@ test('the app verifies the beacon config against its signature and caches it @fl
   expect(config).toMatchObject({ kid: 'fleet-test', sig: expect.any(String) });
 
   const page = await joinRoom(context, `fleet-cache-${Date.now()}`, 'ann');
-  await expect(page.getByRole('button', { name: 'Leave' })).toBeVisible(); // in the call, so config has loaded
+  await expectInCall(page); // in the call, so config has loaded
   // The cache is only written after the signature verified against the beacon's keys.
   const cached = await page.evaluate(() => localStorage.getItem('orvo:config'));
   expect(JSON.parse(cached!)).toMatchObject({ signed: { kid: 'fleet-test' }, keys: { 'fleet-test': expect.any(String) } });

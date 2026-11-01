@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair, joinRoom, leaveCall } from '../helpers';
 
 async function startSnake(page: Page) {
   await page.getByRole('button', { name: 'Activities' }).click();
@@ -13,7 +13,7 @@ async function openRunning(page: Page) {
 
 test('one person starts Snake, another opens it, and a turn from the guest reaches the host @smoke', async ({ context }) => {
   const room = `e2e-snake-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   await startSnake(ann);
@@ -51,7 +51,7 @@ test('one person starts Snake, another opens it, and a turn from the guest reach
   await expect(bobFrame.getByRole('button', { name: 'Play again' })).toBeHidden();
 
   // The host leaving ends it for everyone else.
-  await ann.getByRole('button', { name: 'Leave' }).click();
+  await leaveCall(ann);
   await expect(bob.locator('.activity-tile')).toHaveCount(0);
 });
 

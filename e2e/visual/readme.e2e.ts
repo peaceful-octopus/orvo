@@ -1,5 +1,5 @@
 import { test, type BrowserContext, type Page } from '@playwright/test';
-import { seedSettings } from '../helpers';
+import { clickJoin, openSettings, seedSettings } from '../helpers';
 
 // Not a pass/fail check: it photographs the pictures in README.md. Run with `pnpm test:e2e:readme`; they are written to
 // docs/screenshots. The camera is replaced by a drawn avatar per person, so no real faces are needed.
@@ -57,7 +57,7 @@ test('README pictures @readme', async ({ browser }) => {
 
   for (const page of pages) {
     await page.goto(`/r/${room}`);
-    await page.getByRole('button', { name: 'Join', exact: true }).click();
+    await clickJoin(page);
     await page.getByRole('button', { name: 'Leave' }).waitFor();
   }
   await joel.locator('.bubble').nth(2).waitFor();
@@ -69,7 +69,7 @@ test('README pictures @readme', async ({ browser }) => {
   await joel.screenshot({ path: `${OUT}/effects.png` });
   await joel.keyboard.press('Escape');
 
-  await joel.getByRole('button', { name: 'Settings' }).click();
+  await openSettings(joel);
   await joel.waitForTimeout(500);
   await joel.screenshot({ path: `${OUT}/settings.png` });
   await joel.keyboard.press('Escape');

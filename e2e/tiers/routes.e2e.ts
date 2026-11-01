@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, expectInCall, joinPair, joinRoom } from '../helpers';
 
 test('connections between browsers on one machine are detected as direct @tiers', async ({ context }) => {
   const room = `e2e-direct-${Date.now()}`;
-  const pages = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const pages = await joinPair(context, room);
   await expectAllConnected(pages);
 
   for (const page of pages) {
@@ -24,5 +24,5 @@ test('a free room has no relay, so forcing one makes the peer unreachable with a
   await expect(ann.locator('.bubble[data-route="relay"]')).toHaveCount(0);
 
   // Bob can still use the app normally; nothing else in the room is affected.
-  await expect(bob.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(bob);
 });

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { clickJoin, expectInCall } from '../helpers';
 
 // The app's default window is 1000 x 700, about 1000 x 670 inside its title bar. No screen may need scrolling there,
 // or in a small window, even with the long names real cameras and rooms have.
@@ -33,8 +34,8 @@ for (const size of SIZES) {
     expect(await overflow(page)).toEqual({ x: 0, y: 0 });
 
     await page.getByPlaceholder('Your name').fill('joel');
-    await page.getByRole('button', { name: 'Join', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Leave' })).toBeVisible();
+    await clickJoin(page);
+    await expectInCall(page);
     expect(await overflow(page)).toEqual({ x: 0, y: 0 });
     await context.close();
   });

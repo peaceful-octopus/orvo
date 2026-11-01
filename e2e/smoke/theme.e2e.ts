@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSettings } from '../helpers';
 
 const root = (page: import('@playwright/test').Page) =>
   page.evaluate(() => ({
@@ -21,8 +22,7 @@ test('the interface follows the system light or dark setting by default @smoke',
 test('Settings switches between light, dark and palettes, and remembers the choice @smoke', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Settings' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  const dialog = await openSettings(page);
 
   await dialog.getByRole('button', { name: 'Light' }).click();
   await expect.poll(async () => (await root(page)).mode).toBe('light'); // overrides the system's dark

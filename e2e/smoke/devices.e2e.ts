@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair } from '../helpers';
 
 // Chromium's fake devices appear as the system default plus at least one named device.
 
@@ -15,7 +15,7 @@ test('the lobby lists devices and defaults to the system default @smoke', async 
 
 test('switching camera and microphone mid-call keeps everyone connected and is remembered @smoke', async ({ context }) => {
   const room = `e2e-devices-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   const trackDevice = (kind: 'audio' | 'video') =>

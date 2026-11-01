@@ -1,7 +1,7 @@
 import { fromBase64Url, signConfig, type ClientConfig } from '@orvo/protocol';
 import { makeConfig } from '@orvo/testkit';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair, joinRoom } from '../helpers';
 import { FLEET_KID, FLEET_SECRET } from './keys';
 
 // The beacon in the fleet suite signs with a known test key, so these tests can publish their own config
@@ -51,7 +51,7 @@ test('room size and warning thresholds come from the published config @fleet', a
 
   // Two people is within the published warning threshold of 2; a third crosses it.
   const room = `fleet-limits-${Date.now()}`;
-  const pages = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const pages = await joinPair(context, room);
   await expectAllConnected(pages);
   await expect(pages[0]!.locator('.banner', { hasText: 'More than 2 people' })).toHaveCount(0);
 

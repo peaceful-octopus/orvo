@@ -1,5 +1,5 @@
 import { JoinResponse, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@orvo/protocol';
-import { FakeClock, testKeys } from '@orvo/testkit';
+import { FakeClock, signingKey, testKeys } from '@orvo/testkit';
 import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBeaconApp, type BeaconOptions } from './app';
@@ -14,7 +14,7 @@ let app: Awaited<ReturnType<typeof createBeaconApp>>;
 
 async function start(extra: Partial<BeaconOptions> = {}) {
   app = await createBeaconApp({
-    signingKey: { kid: key.kid, publicKey: key.publicKey, secretKey: key.secretKey },
+    signingKey: signingKey(key),
     store: new MemoryPlacementStore(nodes, () => clock.now),
     stunUrls: ['stun:stun.example.com:3478'],
     now: () => clock.now,

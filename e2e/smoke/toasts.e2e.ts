@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectAllConnected, joinRoom, seedSettings } from '../helpers';
+import { expectAllConnected, expectInCall, joinPair, joinRoom, seedSettings } from '../helpers';
 
 /** Makes the browser refuse something, the way a missing device or a blocked permission would. */
 const failNext = (page: Page, api: 'getDisplayMedia' | 'getUserMedia', error: { name: string; message: string }) =>
@@ -12,7 +12,7 @@ const failNext = (page: Page, api: 'getDisplayMedia' | 'getUserMedia', error: { 
 
 test('a screen share that fails says so, while closing the picker stays quiet @smoke', async ({ context }) => {
   const ann = await joinRoom(context, `e2e-toast-share-${Date.now()}`, 'ann');
-  await expect(ann.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(ann);
 
   await failNext(ann, 'getDisplayMedia', { name: 'NotAllowedError', message: 'Permission denied' }); // the person cancelled
   await ann.getByRole('button', { name: 'Share screen' }).click();
@@ -33,7 +33,7 @@ test('turning a camera or microphone back on that no longer works says so and le
   // With the noise filter off, the microphone in the call is the device's own track.
   await seedSettings(context);
   const ann = await joinRoom(context, `e2e-toast-device-${Date.now()}`, 'ann');
-  await expect(ann.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(ann);
   const stopTracks = (kind: 'video' | 'audio') =>
     ann.evaluate((k) => {
       const video = document.querySelector('.bubble video') as HTMLVideoElement;
@@ -58,7 +58,7 @@ test('turning a camera or microphone back on that no longer works says so and le
 
 test('a camera that stops by itself during a call is turned off with a message, and others see it off @smoke', async ({ context }) => {
   const room = `e2e-toast-lost-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   await ann.evaluate(() => {
@@ -73,7 +73,7 @@ test('a camera that stops by itself during a call is turned off with a message, 
 
 test('messages can be dismissed, and go away on their own @smoke', async ({ context }) => {
   const ann = await joinRoom(context, `e2e-toast-dismiss-${Date.now()}`, 'ann');
-  await expect(ann.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(ann);
   await failNext(ann, 'getDisplayMedia', { name: 'AbortError', message: 'x' });
   await ann.getByRole('button', { name: 'Share screen' }).click();
   await expect(ann.getByRole('alert')).toBeVisible();

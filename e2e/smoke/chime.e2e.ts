@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair, joinRoom, leaveCall, openSettings } from '../helpers';
 
 /** Counts the oscillators the app starts; only the chime makes them. An entry or exit chime starts four. */
 const OSCILLATORS_PER_CHIME = 4;
@@ -29,13 +29,12 @@ test('a chime plays when someone joins or leaves, not for people already there, 
   expect(await chimes(bob)).toBe(OSCILLATORS_PER_CHIME);
 
   // Leaving chimes for bob and for ann, once each.
-  await bob.getByRole('button', { name: 'Leave' }).click();
+  await leaveCall(bob);
   await expect.poll(() => chimes(ann)).toBe(3 * OSCILLATORS_PER_CHIME);
   await expect.poll(() => chimes(bob)).toBe(2 * OSCILLATORS_PER_CHIME);
 
   // Switched off in Settings, a later arrival is silent.
-  await ann.getByRole('button', { name: 'Settings' }).click();
-  const dialog = ann.getByRole('dialog', { name: 'Settings' });
+  const dialog = await openSettings(ann);
   await expect(dialog.getByLabel('Play entry and exit chime')).toBeChecked();
   await dialog.getByLabel('Play entry and exit chime').uncheck();
   await ann.keyboard.press('Escape');
@@ -50,7 +49,7 @@ test('a chime plays when someone joins or leaves, not for people already there, 
 test('a chime plays when someone else starts or ends an activity, and not for your own @smoke', async ({ context }) => {
   await context.addInitScript(COUNT_CHIMES);
   const room = `e2e-chime-activity-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   // An activity starting just after you arrive is taken to be one that was already running.
   await ann.waitForTimeout(7000);

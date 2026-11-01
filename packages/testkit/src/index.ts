@@ -18,6 +18,9 @@ export function testKeys(kid = 'test-1'): TestKeys {
   return { ...pair, kid, keys: { [kid]: pair.publicKey } };
 }
 
+/** The part of a key pair a beacon or server takes as its `signingKey` option. */
+export const signingKey = (keys: TestKeys) => ({ kid: keys.kid, publicKey: keys.publicKey, secretKey: keys.secretKey });
+
 /** A controllable clock for code that takes `now` as an input. */
 export class FakeClock {
   constructor(public now = 1_700_000_000_000) {}

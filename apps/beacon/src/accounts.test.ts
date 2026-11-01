@@ -1,4 +1,4 @@
-import { FakeClock, testKeys } from '@orvo/testkit';
+import { FakeClock, signingKey, testKeys } from '@orvo/testkit';
 import { MemoryPlacementStore } from '@orvo/placement';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { verifyJoinToken } from '@orvo/protocol';
@@ -12,7 +12,7 @@ let app: Awaited<ReturnType<typeof createBeaconApp>>;
 
 async function start(extra: Partial<BeaconOptions> = {}) {
   app = await createBeaconApp({
-    signingKey: { kid: key.kid, publicKey: key.publicKey, secretKey: key.secretKey },
+    signingKey: signingKey(key),
     store: new MemoryPlacementStore(nodes, () => clock.now),
     stunUrls: ['stun:stun.example.com:3478'],
     now: () => clock.now,

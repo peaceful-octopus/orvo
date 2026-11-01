@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom, seedSettings } from '../helpers';
+import { expectAllConnected, joinPair, joinRoom, seedSettings } from '../helpers';
 import { saturation, sharpness } from './helpers';
 
 // The fake camera is solid green, so a filter that removes colour is easy to see in what the other person receives.
@@ -19,7 +19,7 @@ const choose = async (page: import('@playwright/test').Page, label: string) => {
 
 test('a mood filter changes the video for everyone, and None brings the camera back @effects', async ({ context }) => {
   const room = `e2e-filter-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   expect(await saturation(bob, 1)).toBeGreaterThan(0.5); // plain green
 
@@ -34,7 +34,7 @@ test('a mood filter changes the video for everyone, and None brings the camera b
 
 test('the filter stays on through reactions, changing the microphone and changing the camera @effects', async ({ context }) => {
   const room = `e2e-filter-stay-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   await choose(ann, 'Noir');
   await expect.poll(() => saturation(bob, 1)).toBeLessThan(0.1);
@@ -68,7 +68,7 @@ test('the chosen filter is remembered and applied when the next call starts @eff
   await first.close();
 
   const room = `e2e-filter-next-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   await expect(ann.getByRole('button', { name: 'Effects' })).toHaveClass(/on/);
   await expect.poll(() => saturation(bob, 1)).toBeLessThan(0.1);
@@ -76,7 +76,7 @@ test('the chosen filter is remembered and applied when the next call starts @eff
 
 test('blurring the background softens the picture everyone receives, and turning it off restores it @effects', async ({ context }) => {
   const room = `e2e-blur-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   const sharp = async () => {
     // Average a few frames: the fake camera animates.
@@ -106,7 +106,7 @@ test('blurring the background softens the picture everyone receives, and turning
 
 test('keeping me in frame can be switched on and off without disturbing the call @effects', async ({ context }) => {
   const room = `e2e-frame-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   await ann.getByRole('button', { name: 'Effects' }).click();

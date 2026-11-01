@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { expectAllConnected, seedSettings } from '../helpers';
+import { clickJoin, expectAllConnected, expectInCall, openSettings, seedSettings } from '../helpers';
 
 // These run against a server that needs an account to start a room (see playwright.config.ts) and a fake sign-in
 // provider that approves at once; `/__user?name=bob` chooses who it signs in next.
@@ -59,13 +59,13 @@ test('a guest cannot start a room by joining a name nobody has used, and can onc
   const page = await context.newPage();
   await page.goto(`/r/new-room-${Date.now()}`);
   await page.getByPlaceholder('Your name').fill('Guest');
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await clickJoin(page);
   await expect(page.getByRole('alert').filter({ hasText: 'Sign in to start this room' })).toBeVisible();
 
   await signInAs(page, 'ann');
   await expect(page.getByPlaceholder('Your name')).toBeVisible();
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await clickJoin(page);
+  await expectInCall(page);
 });
 
 test('a signed-in-only room keeps guests out until they sign in, and the owner can open and close it @accounts', async ({ browser }) => {
@@ -77,8 +77,8 @@ test('a signed-in-only room keeps guests out until they sign in, and the owner c
   await annPage.getByRole('button', { name: 'Start a room' }).click();
   await expect(annPage).toHaveURL(/\/r\//);
   const roomPath = new URL(annPage.url()).pathname;
-  await annPage.getByRole('button', { name: 'Join', exact: true }).click();
-  await expect(annPage.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await clickJoin(annPage);
+  await expectInCall(annPage);
   // Ann made the room, so she has its controls and can see that it is for signed-in people only.
   await annPage.getByRole('button', { name: 'Room controls' }).click();
   const signedInOnly = annPage.getByRole('menuitemcheckbox', { name: /Only signed-in people can join/ });
@@ -90,13 +90,13 @@ test('a signed-in-only room keeps guests out until they sign in, and the owner c
   const guestPage = await guest.newPage();
   await guestPage.goto(roomPath);
   await guestPage.getByPlaceholder('Your name').fill('Guest');
-  await guestPage.getByRole('button', { name: 'Join', exact: true }).click();
+  await clickJoin(guestPage);
   await expect(guestPage.getByRole('alert').filter({ hasText: 'This room is for signed-in people' })).toBeVisible();
 
   // Bob signs in and gets in; he is not the owner, so he has no lock button.
   await signInAs(guestPage, 'bob');
-  await guestPage.getByRole('button', { name: 'Join', exact: true }).click();
-  await expect(guestPage.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await clickJoin(guestPage);
+  await expectInCall(guestPage);
   await expect(guestPage.getByRole('button', { name: 'Room controls' })).toHaveCount(0);
   await expectAllConnected([annPage, guestPage]);
 
@@ -109,8 +109,8 @@ test('a signed-in-only room keeps guests out until they sign in, and the owner c
   const latePage = await late.newPage();
   await latePage.goto(roomPath);
   await latePage.getByPlaceholder('Your name').fill('Late guest');
-  await latePage.getByRole('button', { name: 'Join', exact: true }).click();
-  await expect(latePage.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await clickJoin(latePage);
+  await expectInCall(latePage);
 });
 
 test('a sign-in that is about to run out is renewed without asking again @accounts', async ({ browser }) => {
@@ -151,7 +151,7 @@ test('a sign-in the server does not accept is cleared and the person is asked to
   });
   await page.reload();
   await page.getByPlaceholder('Your name').fill('Ann');
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await clickJoin(page);
   await expect(page.getByRole('alert').filter({ hasText: 'Your sign-in ran out' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('orvo:auth'))).toBeNull();
 });
@@ -161,8 +161,7 @@ test('signing out returns to being a guest, and Settings shows who is signed in 
   const page = await context.newPage();
   await page.goto('/');
   await signInAs(page, 'bob', 'Sign in to start a room');
-  await page.getByRole('button', { name: 'Settings' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  const dialog = await openSettings(page);
   await expect(dialog.getByText('Bob', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Sign out' }).click();
   await expect(dialog.getByText('You are using Orvo as a guest.')).toBeVisible();

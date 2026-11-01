@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair } from '../helpers';
 
 const BEACON = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
 
@@ -18,7 +18,7 @@ const direct = { result: 'connected', route: 'direct' };
 test('connection statistics reach the beacon when people leave a call @tiers', async ({ context, request }) => {
   const before = await counter(request, 'orvo_client_peer_connections_total', direct);
   const room = `e2e-telemetry-${Date.now()}`;
-  const pages = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const pages = await joinPair(context, room);
   await expectAllConnected(pages);
 
   // Leaving the page flushes the queue (pagehide / visibilitychange), so no 30 s wait is needed.
@@ -39,7 +39,7 @@ test('nothing is reported once the user opts out @tiers', async ({ context, requ
   };
 
   const room = `e2e-optout-${Date.now()}`;
-  const pages = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const pages = await joinPair(context, room);
   await expectAllConnected(pages);
   for (const page of pages) await page.goto('about:blank');
   await new Promise((r) => setTimeout(r, 3000));

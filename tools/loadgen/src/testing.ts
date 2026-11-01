@@ -1,7 +1,7 @@
 import { createBeaconApp } from '@orvo/beacon';
 import { NodeAgent, RedisPlacementStore, ResilientPlacementStore, type PlacementStore } from '@orvo/placement';
 import { SignalingServer } from '@orvo/signaling';
-import { testKeys } from '@orvo/testkit';
+import { signingKey, testKeys } from '@orvo/testkit';
 import { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import http from 'node:http';
@@ -80,7 +80,7 @@ export async function startHarness(opts: { nodes: number; nodeTtlMs?: number; he
   let port = 0;
   const startBeacon = async () => {
     beacon = await createBeaconApp({
-      signingKey: { kid: key.kid, publicKey: key.publicKey, secretKey: key.secretKey },
+      signingKey: signingKey(key),
       store: beaconStore,
       stunUrls: [],
       rateLimitPerMinute: false,

@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair } from '../helpers';
 
 // Chromium's fake microphone beeps at intervals, which is enough to make a bubble light up.
 test('a bubble glows while its person is speaking, for you and for others, and not while muted @smoke', async ({ context }) => {
   const room = `e2e-speaking-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   // Bob sees ann's bubble light up; ann sees her own.

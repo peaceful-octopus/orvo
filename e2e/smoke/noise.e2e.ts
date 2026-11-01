@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair, openSettings } from '../helpers';
 
 // Uses the real DeepFilterNet3 files from apps/app/public/noise. The browser runs with its sound output muted.
 
 test('the noise filter starts with the call, can be turned off and on, and the call stays connected @smoke', async ({ context }) => {
   const room = `e2e-noise-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   // What is sent is the filter's output (a Web Audio destination track) rather than the raw microphone.
@@ -13,8 +13,7 @@ test('the noise filter starts with the call, can be turned off and on, and the c
   const sentLabel = () =>
     ann.locator('.bubble video').first().evaluate((v) => ((v as HTMLVideoElement).srcObject as MediaStream).getAudioTracks()[0]?.label);
 
-  await ann.getByRole('button', { name: 'Settings' }).click();
-  const dialog = ann.getByRole('dialog', { name: 'Settings' });
+  const dialog = await openSettings(ann);
   await expect(dialog.locator('.hint[role="status"]')).toHaveText('Noise filter running.');
   expect(await sentLabel()).toBe(FILTERED);
   await expect(ann.getByText('Noise suppression could not start')).toHaveCount(0);
@@ -34,7 +33,7 @@ test('the noise filter starts with the call, can be turned off and on, and the c
 
 test('bob keeps receiving a live audio track from ann while the filter runs @smoke', async ({ context }) => {
   const room = `e2e-noise-audio-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   await expect(ann.getByText('Noise suppression could not start')).toHaveCount(0);
 

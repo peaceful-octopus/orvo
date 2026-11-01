@@ -12,6 +12,25 @@ export async function seedSettings(context: BrowserContext, settings: Record<str
   }, settings);
 }
 
+/** The usual two-person call: ann and bob join the same room, in that order. */
+export async function joinPair(context: BrowserContext, room: string): Promise<[Page, Page]> {
+  return [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+}
+
+/** Opens the settings dialog and returns it. */
+export async function openSettings(page: Page) {
+  await page.getByRole('button', { name: 'Settings' }).click();
+  return page.getByRole('dialog', { name: 'Settings' });
+}
+
+/** Clicks Join on the lobby screen (the one that is not the "Join a room" button on the home page). */
+export const clickJoin = (page: Page) => page.getByRole('button', { name: 'Join', exact: true }).click();
+
+export const leaveCall = (page: Page) => page.getByRole('button', { name: 'Leave' }).click();
+
+/** Waits until the person is in the call, which is when the Leave button appears. */
+export const expectInCall = (page: Page) => expect(page.getByRole('button', { name: 'Leave' })).toBeVisible();
+
 export async function joinRoom(context: BrowserContext, room: string, name: string, query = ''): Promise<Page> {
   const page = await context.newPage();
   await page.goto(`/r/${room}${query}`);

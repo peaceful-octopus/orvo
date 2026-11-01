@@ -2,7 +2,7 @@ import { createBeaconApp } from '@orvo/beacon';
 import { Metrics } from '@orvo/metrics';
 import { MemoryPlacementStore } from '@orvo/placement';
 import { SignalingServer } from '@orvo/signaling';
-import { testKeys } from '@orvo/testkit';
+import { signingKey, testKeys } from '@orvo/testkit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,7 +35,7 @@ beforeAll(async () => {
   const metrics = new Metrics({ defaultMetrics: true });
   const key = testKeys('obs-1');
   const app = await createBeaconApp({
-    signingKey: { kid: key.kid, publicKey: key.publicKey, secretKey: key.secretKey },
+    signingKey: signingKey(key),
     store: new MemoryPlacementStore(),
     stunUrls: [],
     metrics,

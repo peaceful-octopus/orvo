@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type WebSocketRoute } from '@playwright/test';
-import { expectAllConnected, seedSettings } from '../helpers';
+import { clickJoin, expectAllConnected, expectInCall, leaveCall, seedSettings } from '../helpers';
 
 // The room owner's controls: removing people and locking the room. Same servers as accounts.e2e.ts.
 
@@ -48,7 +48,7 @@ async function signIn(page: Page, who: string) {
 async function enter(page: Page, roomPath: string, name: string) {
   await page.goto(roomPath);
   await page.getByPlaceholder('Your name').fill(name);
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await clickJoin(page);
 }
 
 /** Ann starts a room and joins it; returns her page and the room's path. */
@@ -57,8 +57,8 @@ async function annsRoom(browser: Browser) {
   await ann.page.getByRole('button', { name: 'Start a room' }).click();
   await expect(ann.page).toHaveURL(/\/r\//);
   const roomPath = new URL(ann.page.url()).pathname;
-  await ann.page.getByRole('button', { name: 'Join', exact: true }).click();
-  await expect(ann.page.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await clickJoin(ann.page);
+  await expectInCall(ann.page);
   return { ann: ann.page, roomPath };
 }
 
@@ -69,7 +69,7 @@ test('the owner can remove someone, who is told and cannot get back in with the 
   const { ann, roomPath } = await annsRoom(browser);
   const bob = (await person(browser, 'bob')).page;
   await enter(bob, roomPath, 'Bob');
-  await expect(bob.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(bob);
   await expectAllConnected([ann, bob]);
 
   // Only the owner has remove buttons.
@@ -92,7 +92,7 @@ test('removing and locking in one step keeps out a guest who tries to come back 
   const { ann, roomPath } = await annsRoom(browser);
   const guest = (await person(browser)).page;
   await enter(guest, roomPath, 'Troll');
-  await expect(guest.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(guest);
   await expectAllConnected([ann, guest]);
 
   await ann.locator('.slot', { hasText: 'Troll' }).hover();
@@ -110,7 +110,7 @@ test('a locked room admits nobody new, keeps its members connected through a dro
   const { ann, roomPath } = await annsRoom(browser);
   const bob = await person(browser, 'bob');
   await enter(bob.page, roomPath, 'Bob');
-  await expect(bob.page.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(bob.page);
   await expectAllConnected([ann, bob.page]);
 
   await ann.getByRole('button', { name: 'Room controls' }).click();
@@ -141,7 +141,7 @@ test('a locked room admits nobody new, keeps its members connected through a dro
   await ann.keyboard.press('Escape');
   const cy = (await person(browser)).page;
   await enter(cy, roomPath, 'Cy');
-  await expect(cy.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(cy);
 });
 
 test('the owner is always let back into a locked room @accounts', async ({ browser }) => {
@@ -149,9 +149,9 @@ test('the owner is always let back into a locked room @accounts', async ({ brows
   await ann.getByRole('button', { name: 'Room controls' }).click();
   await ann.getByRole('menuitemcheckbox', { name: /Lock the room/ }).click();
   await ann.keyboard.press('Escape');
-  await ann.getByRole('button', { name: 'Leave' }).click();
+  await leaveCall(ann);
 
   // Ann leaves and comes back with no resume token: the owner is never locked out.
   await enter(ann, roomPath, 'Ann');
-  await expect(ann.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(ann);
 });

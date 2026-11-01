@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom, seedSettings } from '../helpers';
+import { expectAllConnected, expectInCall, joinPair, joinRoom, seedSettings } from '../helpers';
 import { effectPixels, fakeGiphy, solidClip } from './helpers';
 
 // Reactions and GIFs are drawn into the sender's outgoing video, so the proof is what the *other* person sees.
@@ -9,7 +9,7 @@ test.beforeEach(({ context }) => seedSettings(context));
 
 test('an emoji reaction shows on the sender and, in the video itself, to the other person @effects', async ({ context }) => {
   const room = `e2e-react-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   expect(await effectPixels(bob, 1)).toBeLessThan(50); // nothing on ann's video yet
@@ -35,7 +35,7 @@ test('an emoji reaction shows on the sender and, in the video itself, to the oth
 
 test('reactions are unavailable while the camera is off @effects', async ({ context }) => {
   const ann = await joinRoom(context, `e2e-camoff-${Date.now()}`, 'ann');
-  await expect(ann.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expectInCall(ann);
   await expect(ann.getByRole('button', { name: 'React with 🎉' })).toBeEnabled();
 
   await ann.getByRole('button', { name: 'Camera off' }).click();
@@ -49,7 +49,7 @@ test('a GIF chosen from the Giphy picker appears on the video for everyone, then
   const giphy = await fakeGiphy(context, magenta);
 
   const room = `e2e-gif-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   expect(await effectPixels(bob, 1)).toBeLessThan(50);
 
@@ -74,7 +74,7 @@ test('a GIF that cannot be loaded shows a message and leaves the call as it was 
   await fakeGiphy(context, undefined); // the MP4 answers 404
 
   const room = `e2e-gif-fail-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
 
   await ann.getByRole('button', { name: 'GIF' }).click();

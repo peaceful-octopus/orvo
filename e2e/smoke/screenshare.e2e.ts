@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinPair, joinRoom, leaveCall } from '../helpers';
 
 // Chromium runs with --use-fake-ui-for-media-stream, which also answers the screen picker.
 
@@ -46,10 +46,10 @@ test('someone who joins while a screen is being shared sees it, and the camera s
 
 test('leaving while sharing ends the share for everyone @smoke', async ({ context }) => {
   const room = `e2e-share-leave-${Date.now()}`;
-  const [ann, bob] = [await joinRoom(context, room, 'ann'), await joinRoom(context, room, 'bob')];
+  const [ann, bob] = await joinPair(context, room);
   await expectAllConnected([ann, bob]);
   await ann.getByRole('button', { name: 'Share screen' }).click();
   await expect(bob.locator('.screen-tile')).toHaveCount(1);
-  await ann.getByRole('button', { name: 'Leave' }).click();
+  await leaveCall(ann);
   await expect(bob.locator('.screen-tile')).toHaveCount(0);
 });
