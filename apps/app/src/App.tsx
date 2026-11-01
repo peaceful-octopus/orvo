@@ -13,6 +13,7 @@ import { RoomPage } from './RoomPage';
 import { SettingsButton } from './SettingsPane';
 import { Toasts } from './Toasts';
 import { parseRoomInput } from './roomInput';
+import { usePath } from './navigation';
 
 function Home() {
   const maxRoomSize = useConfig((s) => s.config.limits.maxRoomSize);
@@ -128,13 +129,14 @@ function Ring() {
 
 export function App() {
   const config = useConfig((s) => s.config);
+  const path = usePath();
   // Before the update check: a minimum version set by mistake must not lock the operator out of the page that fixes it.
-  if (location.pathname === '/admin') return <><Toasts /><AdminPage /></>;
+  if (path === '/admin') return <><Toasts /><AdminPage /></>;
   if (updateRequired(config, CLIENT_VERSION)) return <UpdateRequired />;
 
-  if (location.pathname === '/auth/callback') return <AuthCallback />;
+  if (path === '/auth/callback') return <AuthCallback />;
 
-  const room = location.pathname.match(/^\/r\/([^/]+)$/)?.[1];
+  const room = path.match(/^\/r\/([^/]+)$/)?.[1];
   return (
     <>
       <AnnouncementBanner />

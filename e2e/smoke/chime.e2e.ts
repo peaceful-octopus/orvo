@@ -68,14 +68,15 @@ test('a chime plays when someone else starts or ends an activity, and not for yo
   expect(await chimes(ann)).toBe(annBefore);
 });
 
-test('leaving waits for the leaving chime to finish before the page reloads @smoke', async ({ context }) => {
+test('leaving goes to the start page without reloading, so the leaving chime is not cut off @smoke', async ({ context }) => {
   await context.addInitScript(COUNT_CHIMES);
-  const ann = await joinRoom(context, `e2e-chime-wait-${Date.now()}`, 'ann');
+  const ann = await joinRoom(context, `e2e-chime-noreload-${Date.now()}`, 'ann');
   await expect.poll(() => chimes(ann)).toBe(OSCILLATORS_PER_CHIME);
+  await ann.evaluate(() => ((window as unknown as { sameDocument: boolean }).sameDocument = true)); // a reload would lose this
 
   await leaveCall(ann);
-  // The reload would cut the sound off, so the page stays where it is for a moment.
-  expect(new URL(ann.url()).pathname).toContain('/r/');
-  await expect.poll(() => chimes(ann)).toBe(2 * OSCILLATORS_PER_CHIME);
-  await expect(ann).toHaveURL((url) => url.pathname === '/');
+  await expect(ann.getByRole('button', { name: 'Start a room' })).toBeVisible();
+  expect(new URL(ann.url()).pathname).toBe('/');
+  expect(await ann.evaluate(() => (window as unknown as { sameDocument?: boolean }).sameDocument)).toBe(true);
+  expect(await chimes(ann)).toBe(2 * OSCILLATORS_PER_CHIME);
 });

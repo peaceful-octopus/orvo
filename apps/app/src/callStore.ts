@@ -98,8 +98,7 @@ interface CallState {
   /** Sends a message to everyone in the call. */
   sendData(message: DataMessage): void;
   sendGif(source: GifSource, mode: GifMode): Promise<void>;
-  /** Leaves the call. Returns how long the leaving chime sounds in milliseconds, which a page about to close should wait for. */
-  leave(): number;
+  leave(): void;
 }
 
 let transport: MeshTransport | undefined;
@@ -199,10 +198,9 @@ export const useCall = create<CallState>((set, get) => {
   let chimesSince = 0;
   /** Set when the person who started the activity leaves, so their leaving chime is not followed by an ending one. */
   let starterLeft = false;
-  /** Plays a chime if they are on; returns how long it sounds, in milliseconds (0 for none). */
-  const chime = (kind: ChimeKind): number => {
+  const chime = (kind: ChimeKind) => {
     const { chimes, speakerVolume } = useSettings.getState();
-    return chimes ? playChime(kind, speakerVolume / 100, get().selected.audiooutput) : 0;
+    if (chimes) playChime(kind, speakerVolume / 100, get().selected.audiooutput);
   };
 
   // An activity that is already running when you join is announced to you just after you arrive; that is not news.
@@ -544,7 +542,7 @@ export const useCall = create<CallState>((set, get) => {
 
     leave() {
       // Your own exit chimes too, and silences the rest: tearing down the call would otherwise read as an activity ending.
-      const chimeMs = chimesOn ? chime('leave') : 0;
+      if (chimesOn) chime('leave');
       chimesOn = false;
       useActivity.getState().unbind();
       get().stopScreen();
@@ -559,7 +557,6 @@ export const useCall = create<CallState>((set, get) => {
       micRaw?.stop();
       micRaw = undefined;
       set({ roomAccess: undefined, noiseStatus: 'off', phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
-      return chimeMs;
     },
   };
 });

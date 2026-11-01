@@ -2,6 +2,7 @@ import { roomStatus } from '@orvo/protocol';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Bubble } from './Bubble';
 import { useCall } from './callStore';
+import { navigate } from './navigation';
 import { getServerUrl, giphyApiKey } from './config';
 import { useConfig } from './configStore';
 import { copyText, roomLink } from './roomInput';
@@ -99,7 +100,6 @@ export function RoomPage({ room }: { room: string }) {
   const activitySummary = useActivitySummary();
   const [gifOpen, setGifOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [leaving, setLeaving] = useState(false);
   const name = useSettings((s) => s.name);
   const setName = useSettings((s) => s.setName);
   const startView = useSettings((s) => s.startView);
@@ -188,27 +188,16 @@ export function RoomPage({ room }: { room: string }) {
     else void float.exit();
   };
   const leaveCall = async () => {
-    await float.exit(); // restore the full window before the page reloads
-    await closeControlsWindow().catch(() => {}); // the reload would otherwise cut its closing short and leave the bar behind
-    await exitCall();
-  };
-  /** Leaves and goes to the start page, once the leaving chime has played: the page reload would cut it off. */
-  const exitCall = async () => {
-    const chimeMs = leave();
-    if (chimeMs > 0) {
-      setLeaving(true);
-      await new Promise((resolve) => setTimeout(resolve, chimeMs));
-    }
-    location.assign('/');
+    await float.exit(); // restore the full window before the page changes
+    await closeControlsWindow().catch(() => {});
+    leave();
+    navigate('/');
   };
   const controlsWindow = useControlsWindow(
     float.active && float.kind === 'tauri',
     { audio, video, giphyKey: apiKey, devices, selected, canSelectOutput: outputs, ...look, sharing: Boolean(screen), canShare, activities: activitySummary.options, activity: activitySummary.running },
     onControlAction,
   );
-
-  // Blank while the leaving chime finishes, rather than showing the lobby for a moment.
-  if (leaving) return <main />;
 
   if (phase !== 'in-call') {
     return (
@@ -409,7 +398,10 @@ export function RoomPage({ room }: { room: string }) {
           className="icon leave"
           aria-label="Leave"
           title="Leave the call"
-          onClick={() => void exitCall()}
+          onClick={() => {
+            leave();
+            navigate('/');
+          }}
         >
           <LeaveIcon />
         </button>
