@@ -382,7 +382,7 @@ export function RoomPage({ room }: { room: string }) {
             <span>{float.active ? 'Dock' : 'Float'}</span>
           </button>
         )}
-        <div className="sep" aria-hidden="true" />
+        <div className="sep row-break" aria-hidden="true" />
         <DeviceButton menu="mic" {...deviceProps}>
           <button className={`icon${audio ? '' : ' off'}`} onClick={toggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>
             {audio ? <MicIcon /> : <MicOffIcon />}
@@ -404,7 +404,7 @@ export function RoomPage({ room }: { room: string }) {
         >
           <LeaveIcon />
         </button>
-        <div className="sep" aria-hidden="true" />
+        <div className="sep wide-only" aria-hidden="true" />
         {canShare && (
           <button
             className={`icon${screen ? ' on' : ''}`}
