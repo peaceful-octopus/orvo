@@ -83,6 +83,29 @@ test('a GIF that takes a while to download still appears, and the camera is not 
   await expect.poll(() => effectPixels(bob, 1), { message: 'bob sees the GIF', timeout: 10_000 }).toBeGreaterThan(1500);
 });
 
+test('a GIF stays on screen when its video now and then has no frame to give @effects', async ({ context }) => {
+  // Phones' videos drop out of the ready state at times (the loop point, catching up). Make that happen every other frame.
+  await context.addInitScript(() => {
+    const real = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'readyState')!.get!;
+    Object.defineProperty(HTMLMediaElement.prototype, 'readyState', {
+      get() {
+        const value = real.call(this);
+        return String(this.currentSrc).includes('clip.mp4') && Math.floor(performance.now() / 40) % 2 === 0 ? Math.min(value, 1) : value;
+      },
+    });
+  });
+  const magenta = await solidClip(await context.newPage(), '#ff00ff');
+  await fakeGiphy(context, magenta);
+
+  const [ann, bob] = await joinPair(context, `e2e-gif-gaps-${Date.now()}`);
+  await expectAllConnected([ann, bob]);
+  await ann.getByRole('button', { name: 'GIF' }).click();
+  await ann.getByRole('dialog', { name: 'Choose a GIF' }).locator('.giphy-gif').first().click();
+  await expect.poll(() => effectPixels(bob, 1), { message: 'bob sees the GIF', timeout: 10_000 }).toBeGreaterThan(1500);
+
+  for (let i = 0; i < 40; i++) expect(await effectPixels(bob, 1), `sample ${i}`).toBeGreaterThan(1500);
+});
+
 test('a GIF that cannot be loaded shows a message and leaves the call as it was @effects', async ({ context }) => {
   await fakeGiphy(context, undefined); // the MP4 answers 404
 

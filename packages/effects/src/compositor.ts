@@ -32,6 +32,12 @@ export interface CompositorLike {
 
 interface ActiveGif {
   video: HTMLVideoElement;
+  /**
+   * The last picture the video gave. A phone's video now and then has no frame to give (at the loop point, or while it
+   * catches up), and drawing nothing then would show the camera for that frame.
+   */
+  frame: HTMLCanvasElement;
+  hasFrame: boolean;
   mode: GifMode;
   source: GifSource;
   startedAt: number;
@@ -187,7 +193,7 @@ export class Compositor implements CompositorLike {
       throw new Error('Effects are not available.');
     }
     this.releaseGif();
-    this.gif = { video, mode, source, startedAt: this.now(), durationMs };
+    this.gif = { video, frame: document.createElement('canvas'), hasFrame: false, mode, source, startedAt: this.now(), durationMs };
   }
 
   onIdle(callback: () => void) {
@@ -272,6 +278,20 @@ export class Compositor implements CompositorLike {
     this.gif = undefined;
   }
 
+  /** Keeps the GIF's last picture up to date; false while there has never been one to draw. */
+  private updateGifFrame(gif: ActiveGif): boolean {
+    const { video, frame } = gif;
+    if (video.readyState >= 2 && video.videoWidth) {
+      if (frame.width !== video.videoWidth || frame.height !== video.videoHeight) {
+        frame.width = video.videoWidth;
+        frame.height = video.videoHeight;
+      }
+      frame.getContext('2d')!.drawImage(video, 0, 0);
+      gif.hasFrame = true;
+    }
+    return gif.hasFrame;
+  }
+
   private draw() {
     if (this.disposed) return;
     const { ctx, canvas } = this;
@@ -293,11 +313,11 @@ export class Compositor implements CompositorLike {
       const age = now - gif.startedAt;
       if (age >= gif.durationMs) {
         this.releaseGif();
-      } else if (gif.video.readyState >= 2) {
+      } else if (this.updateGifFrame(gif)) {
         if (gif.mode === 'fill') {
           const r = coverRect(gif.source.width, gif.source.height, W, H);
           ctx.globalAlpha = fillAlpha(age, gif.durationMs);
-          ctx.drawImage(gif.video, r.x, r.y, r.w, r.h);
+          ctx.drawImage(gif.frame, r.x, r.y, r.w, r.h);
           ctx.globalAlpha = 1;
         } else {
           const p = stickerPlacement(gif.source.width, gif.source.height, W, H, age, gif.durationMs);
@@ -309,7 +329,7 @@ export class Compositor implements CompositorLike {
             ctx.beginPath();
             ctx.roundRect(p.x, p.y, p.w, p.h, Math.min(p.w, p.h) * 0.08);
             ctx.clip();
-            ctx.drawImage(gif.video, p.x, p.y, p.w, p.h);
+            ctx.drawImage(gif.frame, p.x, p.y, p.w, p.h);
             ctx.restore();
           }
         }
