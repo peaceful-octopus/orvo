@@ -18,9 +18,15 @@ interface Props {
   route?: string;
 }
 
+/** Frames of the new stream to wait for before the held picture goes away, the longest to wait, and the wait without frame callbacks. */
+const HOLD_FRAMES = 3;
+const HOLD_MAX_MS = 1000;
+const HOLD_FALLBACK_MS = 250;
+
 /** A circular video that fills its parent; the parent sets the diameter. */
 export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, unreachable, route }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
+  const holdRef = useRef<HTMLCanvasElement>(null);
   const speaker = useCall((s) => s.selected.audiooutput);
   const speakerVolume = useSettings((s) => s.speakerVolume);
   const speaking = useSpeaking(stream, audioOn);
@@ -37,7 +43,33 @@ export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, un
 
   useEffect(() => {
     const video = ref.current;
-    if (video && video.srcObject !== (stream ?? null)) video.srcObject = stream ?? null;
+    const next = stream ?? null;
+    if (!video || video.srcObject === next) return;
+    // A video given a new stream shows nothing, then a black frame, before its first real picture. Keep the last picture
+    // on screen over it until a few real frames have arrived.
+    const hold = holdRef.current;
+    let release: (() => void) | undefined;
+    if (hold && video.srcObject && video.videoWidth && next) {
+      hold.width = video.videoWidth;
+      hold.height = video.videoHeight;
+      hold.getContext('2d')?.drawImage(video, 0, 0);
+      hold.style.visibility = 'visible';
+      const done = () => (hold.style.visibility = 'hidden');
+      const timer = setTimeout(done, HOLD_MAX_MS);
+      let frames = 0;
+      const onFrame = () => {
+        if (++frames < HOLD_FRAMES) video.requestVideoFrameCallback(onFrame);
+        else done();
+      };
+      if ('requestVideoFrameCallback' in video) video.requestVideoFrameCallback(onFrame);
+      else setTimeout(done, HOLD_FALLBACK_MS);
+      release = () => {
+        clearTimeout(timer);
+        done();
+      };
+    }
+    video.srcObject = next;
+    return release;
   }, [stream]);
 
   return (
@@ -50,6 +82,7 @@ export function Bubble({ name, stream, videoOn, audioOn, mirrored, muteAudio, un
         className={mirrored ? 'mirrored' : undefined}
         style={{ visibility: videoOn ? 'visible' : 'hidden' }}
       />
+      <canvas ref={holdRef} className={`hold${mirrored ? ' mirrored' : ''}`} aria-hidden="true" />
       {!videoOn && <Avatar seed={name || 'Guest'} />}
       <figcaption>
         {name || 'Guest'}

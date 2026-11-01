@@ -660,6 +660,23 @@ details.devices .device-selects {
   transform: scaleX(-1);
 }
 
+/* The last picture, held over the video while it switches to a new stream (see Bubble.tsx). */
+.bubble canvas.hold {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  clip-path: circle(50%);
+  object-fit: cover;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.bubble canvas.hold.mirrored {
+  transform: scaleX(-1);
+}
+
 .bubble .avatar {
   position: absolute;
   inset: 0;
