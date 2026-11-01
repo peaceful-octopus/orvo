@@ -106,9 +106,10 @@ jobs:
           version=$(node -p "require('./package.json').version")
           test "v$version" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
       # The runner image ships the Android SDK and an NDK; Gradle fetches any platform it is missing.
-      - run: pnpm --filter @orvo/client tauri android build --debug --apk --target ${{ matrix.target }}
-        env:
-          NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+      - run: |
+          export NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_ROOT}"
+          echo "NDK: $NDK_HOME"
+          pnpm --filter @orvo/client tauri android build --debug --apk --target ${{ matrix.target }}
       - name: Name the APK after the version and architecture
         run: cp apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "Orvo_v$(node -p "require('./package.json').version")_android_${{ matrix.target }}.apk"
       - uses: actions/upload-artifact@v7
