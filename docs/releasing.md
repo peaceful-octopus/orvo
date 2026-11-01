@@ -4,6 +4,10 @@ Windows and macOS installers are built by `.github/workflows/release.yml` when a
 NSIS installer, an MSI, a universal macOS `.dmg`, and `latest.json` (the update manifest) to a **draft** GitHub Release. Publishing the draft
 rolls it out: installed apps poll `https://github.com/<owner>/<repo>/releases/latest/download/latest.json`.
 
+The same workflow builds the Android app for x86_64 (emulators) and arm64 (phones) and attaches `Orvo_<tag>_android_<arch>.apk` to the
+draft. These are debug-signed, so they can be sideloaded but not published to the Play Store, which needs a release keystore.
+Android apps do not use `latest.json`; they do not update themselves.
+
 ## One-time setup
 
 1. **Push the repository to GitHub.** The workflow replaces `OWNER/REPO` in `apps/desktop/src-tauri/tauri.conf.json`
