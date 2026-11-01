@@ -6,12 +6,15 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # A manual run (Actions > Release > Run workflow) builds only the Android APKs, as artifacts, to try that build without releasing.
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   desktop:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -97,6 +100,7 @@ jobs:
           key: android-${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
       - name: The tag must match the version in the files
+        if: github.event_name == 'push'
         run: |
           pnpm version:check
           version=$(node -p "require('./package.json').version")
@@ -106,7 +110,7 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
       - name: Name the APK after the version and architecture
-        run: cp apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "Orvo_${GITHUB_REF_NAME}_android_${{ matrix.target }}.apk"
+        run: cp apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk "Orvo_v$(node -p "require('./package.json').version")_android_${{ matrix.target }}.apk"
       - uses: actions/upload-artifact@v7
         with:
           name: orvo-android-${{ matrix.target }}
@@ -116,6 +120,7 @@ jobs:
 
   # The desktop job creates the draft release, so the APKs are added once it exists.
   attach-android:
+    if: github.event_name == 'push'
     needs: [desktop, android]
     runs-on: ubuntu-latest
     steps:
@@ -132,6 +137,7 @@ jobs:
   # The server image is released with the clients, so a server and the apps that talk to it share a version. It is
   # published right away (unlike the draft desktop release): `latest`, the version and the commit.
   server:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
