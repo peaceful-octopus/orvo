@@ -71,7 +71,8 @@ export interface FakeGiphy {
  * Answers the Giphy API and media hosts for a context: every search or trending request returns one GIF whose
  * "MP4" is `clip` (or a 404 when `clip` is undefined, to test a GIF that cannot load).
  */
-export async function fakeGiphy(context: BrowserContext, clip: Buffer | undefined): Promise<FakeGiphy> {
+/** `clipDelayMs` makes the clip arrive slowly, like a first download on a phone. */
+export async function fakeGiphy(context: BrowserContext, clip: Buffer | undefined, clipDelayMs = 0): Promise<FakeGiphy> {
   const state: FakeGiphy = { apiRequests: [] };
   const rendition = (width: number, height: number) => ({
     url: 'https://media.giphy.test/thumb.gif',
@@ -111,10 +112,11 @@ export async function fakeGiphy(context: BrowserContext, clip: Buffer | undefine
       headers: { 'access-control-allow-origin': '*' },
     });
   });
-  await context.route('**/media.giphy.test/**', (route) => {
+  await context.route('**/media.giphy.test/**', async (route) => {
     const url = route.request().url();
     const cors = { 'access-control-allow-origin': '*' };
     if (url.endsWith('clip.mp4')) {
+      if (clipDelayMs) await new Promise((resolve) => setTimeout(resolve, clipDelayMs));
       return clip
         ? route.fulfill({ status: 200, body: clip, contentType: 'video/webm', headers: cors })
         : route.fulfill({ status: 404, body: 'gone', headers: cors });

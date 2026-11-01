@@ -84,6 +84,8 @@ export class Compositor implements CompositorLike {
   private canvasTrack: MediaStreamTrack;
   private particles: Particle[] = [];
   private gif?: ActiveGif;
+  /** GIFs being fetched. The compositor is not idle while one loads, or it would be taken down before the GIF can show. */
+  private loading = 0;
   private idleAt?: number;
   private idleCallbacks: (() => void)[] = [];
   private disposed = false;
@@ -131,7 +133,7 @@ export class Compositor implements CompositorLike {
   }
 
   get busy() {
-    return this.particles.length > 0 || this.gif !== undefined;
+    return this.particles.length > 0 || this.gif !== undefined || this.loading > 0;
   }
 
   setFilter(filter: MoodFilter | undefined) {
@@ -156,6 +158,7 @@ export class Compositor implements CompositorLike {
 
   async showGif(source: GifSource, mode: GifMode, durationMs = DEFAULT_GIF_MS) {
     this.idleAt = undefined;
+    this.loading++;
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous'; // otherwise drawing it would taint the canvas and block the stream
     video.muted = true;
@@ -175,6 +178,13 @@ export class Compositor implements CompositorLike {
       video.removeAttribute('src');
       video.load();
       throw new Error(detail, { cause: err });
+    } finally {
+      this.loading--;
+    }
+    if (this.disposed) {
+      video.removeAttribute('src');
+      video.load();
+      throw new Error('Effects are not available.');
     }
     this.releaseGif();
     this.gif = { video, mode, source, startedAt: this.now(), durationMs };
@@ -318,7 +328,7 @@ export class Compositor implements CompositorLike {
     ctx.globalAlpha = 1;
     if (this.particles.length && !anyAlive(this.particles, now)) this.particles = [];
 
-    if (!this.particles.length && !this.gif) {
+    if (!this.particles.length && !this.gif && !this.loading) {
       this.idleAt ??= now + IDLE_TAIL_MS;
       if (now >= this.idleAt) {
         const callbacks = this.idleCallbacks;

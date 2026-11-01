@@ -70,6 +70,19 @@ test('a GIF chosen from the Giphy picker appears on the video for everyone, then
   await expect.poll(() => effectPixels(ann, 0), { timeout: 5_000 }).toBeLessThan(50);
 });
 
+test('a GIF that takes a while to download still appears, and the camera is not swapped out meanwhile @effects', async ({ context }) => {
+  const magenta = await solidClip(await context.newPage(), '#ff00ff');
+  await fakeGiphy(context, magenta, 1500); // longer than the compositor waits before deciding nothing is showing
+
+  const [ann, bob] = await joinPair(context, `e2e-gif-slow-${Date.now()}`);
+  await expectAllConnected([ann, bob]);
+
+  await ann.getByRole('button', { name: 'GIF' }).click();
+  await ann.getByRole('dialog', { name: 'Choose a GIF' }).locator('.giphy-gif').first().click();
+
+  await expect.poll(() => effectPixels(bob, 1), { message: 'bob sees the GIF', timeout: 10_000 }).toBeGreaterThan(1500);
+});
+
 test('a GIF that cannot be loaded shows a message and leaves the call as it was @effects', async ({ context }) => {
   await fakeGiphy(context, undefined); // the MP4 answers 404
 
