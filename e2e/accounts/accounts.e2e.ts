@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { expectAllConnected } from '../helpers';
+import { expectAllConnected, seedSettings } from '../helpers';
 
 // These run against a server that needs an account to start a room (see playwright.config.ts) and a fake sign-in
 // provider that approves at once; `/__user?name=bob` chooses who it signs in next.
@@ -22,10 +22,8 @@ async function newPerson(browser: Browser): Promise<BrowserContext> {
   opened.push(context);
   await context.addInitScript((server) => {
     localStorage.setItem('orvo:server', server);
-    if (!localStorage.getItem('orvo:settings')) {
-      localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
-    }
   }, SERVER);
+  await seedSettings(context);
   return context;
 }
 

@@ -1,16 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinRoom, seedSettings } from '../helpers';
 import { saturation, sharpness } from './helpers';
 
 // The fake camera is solid green, so a filter that removes colour is easy to see in what the other person receives.
 
 test.beforeEach(async ({ context }) => {
+  await seedSettings(context);
   await context.addInitScript(() => {
     (window as unknown as { __visionDelegate: string }).__visionDelegate = 'CPU'; // headless test machines have no real GPU
-    // Only the first page of the test gets this, so choices made during the test carry over to later pages.
-    if (!localStorage.getItem('orvo:settings')) {
-      localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
-    }
   });
 });
 

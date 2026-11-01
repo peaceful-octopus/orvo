@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page, type WebSocketRoute } from '@playwright/test';
-import { expectAllConnected } from '../helpers';
+import { expectAllConnected, seedSettings } from '../helpers';
 
 // The room owner's controls: removing people and locking the room. Same servers as accounts.e2e.ts.
 
@@ -24,10 +24,8 @@ async function person(browser: Browser, who?: string): Promise<Person> {
   opened.push(context);
   await context.addInitScript((server) => {
     localStorage.setItem('orvo:server', server);
-    if (!localStorage.getItem('orvo:settings')) {
-      localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
-    }
   }, SERVER);
+  await seedSettings(context);
   const page = await context.newPage();
   const sockets: Person['sockets'] = [];
   await page.routeWebSocket(/\/ws$/, (client) => sockets.push({ client, server: client.connectToServer() }));

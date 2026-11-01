@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { seedSettings } from '../helpers';
 
 // Not a pass/fail check: it photographs the main screens in every palette and mode, for reviewing a design change.
 // Run with `pnpm test:e2e:visual`; the pictures are written to test-results/screens.
@@ -18,15 +19,7 @@ for (const [palette, mode] of VARIANTS) {
       viewport: { width: 1100, height: 760 },
       permissions: ['camera', 'microphone'],
     });
-    await context.addInitScript(
-      ([p, m]) => {
-        localStorage.setItem(
-          'orvo:settings',
-          JSON.stringify({ state: { palette: p, mode: m, name: 'Joel', noise: { enabled: false, strength: 60 } }, version: 0 }),
-        );
-      },
-      [palette, mode],
-    );
+    await seedSettings(context, { palette, mode, name: 'Joel' });
     const page = await context.newPage();
     const shot = (name: string) => page.screenshot({ path: `test-results/screens/${palette}-${mode}-${name}.png` });
     const room = `visual-${palette}-${mode}-${Date.now()}`;

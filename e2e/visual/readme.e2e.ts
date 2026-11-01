@@ -1,4 +1,5 @@
 import { test, type BrowserContext, type Page } from '@playwright/test';
+import { seedSettings } from '../helpers';
 
 // Not a pass/fail check: it photographs the pictures in README.md. Run with `pnpm test:e2e:readme`; they are written to
 // docs/screenshots. The camera is replaced by a drawn avatar per person, so no real faces are needed.
@@ -40,11 +41,8 @@ async function useDrawnCamera(context: BrowserContext, who: { name: string; colo
       }
       return stream;
     };
-    localStorage.setItem(
-      'orvo:settings',
-      JSON.stringify({ state: { palette: 'evening', mode: 'dark', name: p.name, noise: { enabled: false, strength: 60 } }, version: 0 }),
-    );
   }, who);
+  await seedSettings(context, { palette: 'evening', mode: 'dark', name: who.name });
 }
 
 test('README pictures @readme', async ({ browser }) => {

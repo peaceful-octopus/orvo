@@ -1,15 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinRoom, seedSettings } from '../helpers';
 import { effectPixels, fakeGiphy, solidClip } from './helpers';
 
 // Reactions and GIFs are drawn into the sender's outgoing video, so the proof is what the *other* person sees.
 
-// These tests time short-lived effects, so keep the noise filter's CPU use out of them (it has its own tests).
-test.beforeEach(async ({ context }) => {
-  await context.addInitScript(() => {
-    localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
-  });
-});
+// These tests time short-lived effects, so seedSettings keeps the noise filter's CPU use out of them.
+test.beforeEach(({ context }) => seedSettings(context));
 
 test('an emoji reaction shows on the sender and, in the video itself, to the other person @effects', async ({ context }) => {
   const room = `e2e-react-${Date.now()}`;

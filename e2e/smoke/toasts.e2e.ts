@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectAllConnected, joinRoom } from '../helpers';
+import { expectAllConnected, joinRoom, seedSettings } from '../helpers';
 
 /** Makes the browser refuse something, the way a missing device or a blocked permission would. */
 const failNext = (page: Page, api: 'getDisplayMedia' | 'getUserMedia', error: { name: string; message: string }) =>
@@ -31,9 +31,7 @@ test('a screen share that fails says so, while closing the picker stays quiet @s
 
 test('turning a camera or microphone back on that no longer works says so and leaves it off @smoke', async ({ context }) => {
   // With the noise filter off, the microphone in the call is the device's own track.
-  await context.addInitScript(() => {
-    localStorage.setItem('orvo:settings', JSON.stringify({ state: { noise: { enabled: false, strength: 60 } }, version: 0 }));
-  });
+  await seedSettings(context);
   const ann = await joinRoom(context, `e2e-toast-device-${Date.now()}`, 'ann');
   await expect(ann.getByRole('button', { name: 'Leave' })).toBeVisible();
   const stopTracks = (kind: 'video' | 'audio') =>
