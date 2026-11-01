@@ -46,7 +46,7 @@ interface SettingsState extends Settings {
   setChimes(on: boolean): void;
 }
 
-export const DEFAULT_NOISE_STRENGTH = 60;
+export const DEFAULT_NOISE_STRENGTH = 30;
 export const MAX_MIC_VOLUME = 200;
 
 /** The name used before settings existed was stored on its own. */
