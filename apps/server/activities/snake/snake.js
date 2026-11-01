@@ -88,6 +88,23 @@ window.addEventListener('keydown', (event) => {
   turn(dir);
 });
 
+// A swipe turns the snake: once a finger has moved far enough, the longer axis of the movement is the direction, and
+// the swipe starts over from there so one drag can turn more than once.
+const SWIPE_PX = 24;
+let swipeFrom = null;
+window.addEventListener('pointerdown', (event) => {
+  if (event.pointerType !== 'mouse') swipeFrom = { x: event.clientX, y: event.clientY };
+});
+window.addEventListener('pointermove', (event) => {
+  if (!swipeFrom) return;
+  const dx = event.clientX - swipeFrom.x;
+  const dy = event.clientY - swipeFrom.y;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_PX) return;
+  turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up');
+  swipeFrom = { x: event.clientX, y: event.clientY };
+});
+for (const type of ['pointerup', 'pointercancel']) window.addEventListener(type, () => (swipeFrom = null));
+
 // Keys only reach the activity once its frame has focus.
 const showHint = () => hint.classList.toggle('visible', !document.hasFocus());
 window.addEventListener('focus', showHint);
