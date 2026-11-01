@@ -42,6 +42,15 @@ const NOTES: Record<ChimeKind, ChimeNote[]> = {
 
 export const chimeNotes = (kind: ChimeKind): ChimeNote[] => NOTES[kind];
 
+/** The notes as the Android app's player reads them: "freq:start:decay:gain", separated by "|". */
+export const encodeChime = (kind: ChimeKind): string => NOTES[kind].map((n) => [n.freq, n.start, n.decay, n.gain].join(':')).join('|');
+
+/** Present only in the Android app, which plays chimes itself on the notification volume (see ChimePlayer.kt). */
+interface NativeChime {
+  playChime(notes: string, volume: number): boolean;
+}
+const nativePlayer = () => (window as unknown as { OrvoNative?: NativeChime }).OrvoNative;
+
 let context: AudioContext | undefined;
 function sharedContext(): AudioContext | undefined {
   if (context) return context;
@@ -58,8 +67,11 @@ function sharedContext(): AudioContext | undefined {
  */
 export function playChime(kind: ChimeKind, volume: number, outputId?: string): void {
   try {
+    if (volume <= 0) return;
+    // In a call, a web view's sound follows the call volume, so the same chime came out at very different levels.
+    if (nativePlayer()?.playChime(encodeChime(kind), Math.min(1, volume))) return;
     const ctx = sharedContext();
-    if (!ctx || volume <= 0) return;
+    if (!ctx) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
     if (outputId) void (ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(outputId).catch(() => {});
     const at = ctx.currentTime + 0.02;

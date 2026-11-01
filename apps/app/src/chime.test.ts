@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chimeNotes, type ChimeKind } from './chime';
+import { chimeNotes, encodeChime, type ChimeKind } from './chime';
 
 describe('chimeNotes', () => {
   it('rises when someone joins or an activity starts, and falls when they leave or it ends', () => {
@@ -16,6 +16,13 @@ describe('chimeNotes', () => {
     expect(chimeNotes('activity-end')).toHaveLength(3);
     expect(chimeNotes('join')).toHaveLength(2);
     expect(chimeNotes('leave')).toHaveLength(2);
+  });
+
+  it('describes the notes for the Android app as freq:start:decay:gain, one note after another', () => {
+    expect(encodeChime('leave')).toBe('1046.5:0:0.6:0.6|783.99:0.12:0.8:0.5');
+    for (const kind of ['join', 'leave', 'activity-start', 'activity-end'] as const) {
+      expect(encodeChime(kind).split('|')).toHaveLength(chimeNotes(kind).length);
+    }
   });
 
   it('keeps the leave chime shorter and quieter than the join chime', () => {
