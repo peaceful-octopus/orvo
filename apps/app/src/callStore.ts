@@ -31,6 +31,7 @@ import {
 } from './devices';
 import { createMicProcessor, noiseSupported, type MicProcessor } from './noise';
 import { createVision, visionSupported } from './vision';
+import { portMapperFor } from './portMapper';
 import { useSettings } from './settingsStore';
 import { useAuth } from './auth/authStore';
 import { COPY, MEDIA_DENIED_MESSAGE } from './copy';
@@ -421,6 +422,7 @@ export const useCall = create<CallState>((set, get) => {
         telemetry: (event) => telemetry.record(event),
         getAuthToken: () => useAuth.getState().token(),
         iceTransportPolicy: new URLSearchParams(location.search).get('ice') === 'relay' ? 'relay' : undefined,
+        portMapper: portMapperFor(useSettings.getState().portMapping),
       });
       chimesOn = false;
       unsubscribe = transport.on(onEvent);

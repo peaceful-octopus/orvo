@@ -30,6 +30,8 @@ export interface Settings {
   speakerVolume: number;
   /** A soft chime when someone joins or leaves the call. */
   chimes: boolean;
+  /** Ask the router to forward a port for each call, so people on mobile data can connect directly (the app only). */
+  portMapping: boolean;
 }
 
 interface SettingsState extends Settings {
@@ -44,6 +46,7 @@ interface SettingsState extends Settings {
   setMicVolume(percent: number): void;
   setSpeakerVolume(percent: number): void;
   setChimes(on: boolean): void;
+  setPortMapping(on: boolean): void;
 }
 
 export const DEFAULT_NOISE_STRENGTH = 30;
@@ -72,6 +75,7 @@ export const useSettings = create<SettingsState>()(
       micVolume: 100,
       speakerVolume: 100,
       chimes: true,
+      portMapping: true,
       setName: (name) => set({ name }),
       setStartView: (startView) => set({ startView }),
       setNoise: (patch) => set((s) => ({ noise: { ...s.noise, ...patch } })),
@@ -83,6 +87,7 @@ export const useSettings = create<SettingsState>()(
       setMicVolume: (micVolume) => set({ micVolume }),
       setSpeakerVolume: (speakerVolume) => set({ speakerVolume }),
       setChimes: (chimes) => set({ chimes }),
+      setPortMapping: (portMapping) => set({ portMapping }),
     }),
     {
       name: 'orvo:settings',

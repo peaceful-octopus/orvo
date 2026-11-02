@@ -7,6 +7,7 @@ import { useConfig } from './configStore';
 import { floatKind } from './float/float';
 import { GearIcon } from './float/icons';
 import { noiseSupported } from './noise';
+import { inTauri } from './platform';
 import { MAX_MIC_VOLUME, useSettings, type StartView } from './settingsStore';
 import { setTelemetryEnabled } from './telemetry';
 import { PALETTES } from './theme/palettes';
@@ -74,6 +75,7 @@ function Advanced() {
   const [error, setError] = useState<string>();
   const [shareStats, setShareStats] = useState(telemetryAllowed());
   const gifsOn = useConfig((s) => Boolean(giphyApiKey(s.config)));
+  const { portMapping, setPortMapping } = useSettings();
 
   return (
     <details className="setting advanced">
@@ -116,6 +118,15 @@ function Advanced() {
         Share anonymous connection statistics with this server
       </label>
       <p className="hint">Whether calls connect directly, and how fast. No names, rooms or addresses.</p>
+      {inTauri && (
+        <>
+          <label className="toggle">
+            <input type="checkbox" checked={portMapping} onChange={(e) => setPortMapping(e.target.checked)} />
+            Ask my router to open a port for calls (UPnP)
+          </label>
+          <p className="hint">Lets people on mobile data reach you directly instead of through a relay. The port closes when the call ends.</p>
+        </>
+      )}
       {gifsOn && <p className="hint">GIF search is provided by GIPHY: the terms you search for, and your address, are sent to them directly.</p>}
     </details>
   );
