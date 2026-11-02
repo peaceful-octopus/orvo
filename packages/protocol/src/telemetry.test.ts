@@ -10,6 +10,7 @@ describe('TelemetryBatch', () => {
       events: [
         { type: 'join', result: 'ok', ms: 800 },
         peer,
+        { ...peer, mapped: true },
         { type: 'reconnect', ok: true, attempts: 2 },
       ],
     };
@@ -22,6 +23,7 @@ describe('TelemetryBatch', () => {
     expect(bad([{ ...peer, ms: -1 }])).toBe(false);
     expect(bad([{ ...peer, ms: 10 * 60_000 + 1 }])).toBe(false);
     expect(bad([{ ...peer, route: 'carrier-pigeon' }])).toBe(false);
+    expect(bad([{ ...peer, mapped: 'yes' }])).toBe(false);
     expect(bad([peer], 2)).toBe(false);
   });
 

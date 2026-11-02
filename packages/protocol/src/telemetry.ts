@@ -15,6 +15,8 @@ export const TelemetryEvent = z.discriminatedUnion('type', [
     result: z.enum(['connected', 'unreachable']),
     route: z.enum(['direct', 'relay', 'unknown']),
     ms,
+    /** The direct path runs through a port the client's router forwards for it (UPnP, PCP or NAT-PMP). */
+    mapped: z.boolean().optional(),
   }),
   /** Signaling connection lost and then recovered (`ok`) or given up on. */
   z.object({ type: z.literal('reconnect'), ok: z.boolean(), attempts: z.number().int().min(1).max(1000) }),

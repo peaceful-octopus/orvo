@@ -13,6 +13,7 @@ import {
 } from '@orvo/protocol';
 import { requestJoin } from './beacon-session';
 import { backoffDelay } from './backoff';
+import type { PortMapper } from './port-mapping';
 import { PeerLink, type SignalPayload } from './peer-link';
 import { sendPolicy, type Route } from './route';
 import {
@@ -42,6 +43,8 @@ export interface MeshOptions {
   getAuthToken?: () => Promise<string | undefined>;
   /** Receives anonymous connection statistics (see `TelemetryClient`); omitted when the user opted out. */
   telemetry?: (event: TelemetryEvent) => void;
+  /** Lets peers reach us through a port our router forwards; only the desktop and Android apps have one. */
+  portMapper?: PortMapper;
 }
 
 type Welcome = Extract<ServerMessage, { type: 'welcome' }>;
@@ -355,6 +358,7 @@ export class MeshTransport implements RoomTransport {
         },
       },
       initiator,
+      { portMapper: this.opts.portMapper },
     );
     link.setScreen(this.screen);
     this.links.set(id, link);
@@ -376,7 +380,8 @@ export class MeshTransport implements RoomTransport {
     if (this.reportedPeers.has(id)) return;
     this.reportedPeers.add(id);
     const started = this.connectStarted.get(id) ?? Date.now();
-    this.opts.telemetry?.({ type: 'peer', result, route, ms: Date.now() - started });
+    const mapped = this.links.get(id)?.viaPortMapping ?? false;
+    this.opts.telemetry?.({ type: 'peer', result, route, ms: Date.now() - started, ...(mapped && { mapped }) });
   }
 
   private dropPeer(id: string) {

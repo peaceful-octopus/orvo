@@ -154,6 +154,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     joins: metrics.counter('orvo_client_joins_total', 'Client-reported room joins, by result.', ['result'] as const),
     joinSeconds: metrics.histogram('orvo_client_join_seconds', 'Client-measured time to join a room.', LATENCY_BUCKETS),
     peers: metrics.counter('orvo_client_peer_connections_total', 'Client-reported peer connections, by result and route.', ['result', 'route'] as const),
+    mappedPeers: metrics.counter('orvo_client_peer_mapped_connections_total', 'Client-reported direct connections that run through a port the router forwards (UPnP, PCP or NAT-PMP).'),
     peerSeconds: metrics.histogram('orvo_client_peer_connect_seconds', 'Client-measured time to connect to a peer.', LATENCY_BUCKETS, ['route'] as const),
     reconnects: metrics.counter('orvo_client_signaling_reconnects_total', 'Signaling reconnections, by outcome.', ['ok'] as const),
   };
@@ -237,6 +238,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       } else if (event.type === 'peer') {
         client.peers.inc({ result: event.result, route: event.route });
         if (event.result === 'connected') client.peerSeconds.observe({ route: event.route }, event.ms / 1000);
+        if (event.mapped) client.mappedPeers.inc();
       } else {
         client.reconnects.inc({ ok: String(event.ok) });
       }

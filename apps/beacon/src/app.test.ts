@@ -343,7 +343,7 @@ describe('telemetry', () => {
       batch([
         { type: 'join', result: 'ok', ms: 1500 },
         { type: 'peer', result: 'connected', route: 'direct', ms: 400 },
-        { type: 'peer', result: 'connected', route: 'direct', ms: 600 },
+        { type: 'peer', result: 'connected', route: 'direct', ms: 600, mapped: true },
         { type: 'peer', result: 'connected', route: 'relay', ms: 2000 },
         { type: 'peer', result: 'unreachable', route: 'unknown', ms: 25_000 },
         { type: 'reconnect', ok: true, attempts: 2 },
@@ -354,6 +354,7 @@ describe('telemetry', () => {
     expect(await metrics.value('orvo_client_joins_total', { result: 'ok' })).toBe(1);
     expect(await metrics.value('orvo_client_peer_connections_total', { result: 'connected', route: 'direct' })).toBe(2);
     expect(await metrics.value('orvo_client_peer_connections_total', { result: 'connected', route: 'relay' })).toBe(1);
+    expect(await metrics.value('orvo_client_peer_mapped_connections_total')).toBe(1);
     expect(await metrics.value('orvo_client_peer_connections_total', { result: 'unreachable' })).toBe(1);
     expect(await metrics.value('orvo_client_peer_connect_seconds_count', { route: 'direct' })).toBe(2);
     expect(await metrics.value('orvo_client_peer_connect_seconds_sum', { route: 'direct' })).toBeCloseTo(1.0);

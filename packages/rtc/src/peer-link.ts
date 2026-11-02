@@ -1,5 +1,6 @@
 import { encodeDataMessage, parseDataMessage, type DataMessage } from '@orvo/protocol';
-import { routeFromStats, type Route, type SendPolicy, type StatsLike } from './route';
+import { canMap, isPrivateIpv4, mappedCandidate, parseCandidate, type ParsedCandidate, type PortMapper } from './port-mapping';
+import { candidateAddress, routeFromStats, selectedPair, type Route, type SendPolicy, type StatsLike } from './route';
 import type { PeerState } from './transport';
 
 export interface SignalPayload {
@@ -20,6 +21,13 @@ const CONNECT_TIMEOUT_MS = 25_000;
 const DISCONNECT_GRACE_MS = 4_000;
 const MAX_ICE_RESTARTS = 2;
 const ROUTE_POLL_MS = 10_000;
+/** A router that has not answered by now is not waited for; the connection goes ahead without the mapping. */
+const PORT_MAP_TIMEOUT_MS = 8_000;
+
+export interface PeerLinkOptions {
+  /** Asks the router to forward our ports, where the platform can (see `PortMapper`). */
+  portMapper?: PortMapper;
+}
 
 /**
  * One RTCPeerConnection to one remote peer, carrying media plus a negotiated data channel.
@@ -45,6 +53,14 @@ export class PeerLink {
   /** A shared screen travels as extra tracks, apart from the camera's, so they are tracked separately. */
   private screen?: MediaStream;
   private screenSenders: RTCRtpSender[] = [];
+  /** Local `address:port`s we asked the router to forward, whether or not it has answered yet; released on close. */
+  private mappings = new Set<string>();
+  /** Those the router forwards and the other peer has been told about. */
+  private forwarded = new Set<string>();
+  /** Our public IPv4 addresses as STUN reports them; a router reporting another is behind a further NAT. */
+  private reflexive = new Set<string>();
+  private usesMapping = false;
+  private closed = false;
 
   constructor(
     readonly id: string,
@@ -54,11 +70,15 @@ export class PeerLink {
     private hooks: PeerLinkHooks,
     /** The initiator adds its media immediately; a responder adds it after the remote offer is applied. */
     initiator: boolean,
+    private options: PeerLinkOptions = {},
   ) {
     this.polite = selfId < id;
     this.pc = new RTCPeerConnection(config);
     this.pc.onicecandidate = ({ candidate }) => {
-      if (candidate) hooks.signal({ candidate: candidate.toJSON() });
+      if (!candidate) return;
+      const json = candidate.toJSON();
+      hooks.signal({ candidate: json });
+      this.onLocalCandidate(json);
     };
     this.pc.ontrack = ({ streams, track }) => hooks.stream(streams[0] ?? new MediaStream([track]));
     this.pc.onnegotiationneeded = () => void this.makeOffer();
@@ -73,6 +93,11 @@ export class PeerLink {
 
   get route() {
     return this.currentRoute;
+  }
+
+  /** Whether the connection runs through a port our router forwards for us (see `PortMapper`). */
+  get viaPortMapping() {
+    return this.usesMapping;
   }
 
   send(message: DataMessage) {
@@ -165,7 +190,9 @@ export class PeerLink {
   /** Looks at the selected candidate pair to see whether this connection runs through a relay. */
   async detectRoute() {
     try {
-      const route = routeFromStats((await this.pc.getStats()) as unknown as StatsLike);
+      const report = (await this.pc.getStats()) as unknown as StatsLike;
+      const route = routeFromStats(report);
+      this.usesMapping = this.pairUsesMapping(report);
       if (route !== this.currentRoute) {
         this.currentRoute = route;
         this.hooks.route(route);
@@ -176,6 +203,12 @@ export class PeerLink {
   }
 
   close() {
+    this.closed = true;
+    for (const key of this.mappings) {
+      const [ip, port] = key.split(':') as [string, string];
+      void this.options.portMapper?.unmap(ip, Number(port)).catch(() => {});
+    }
+    this.mappings.clear();
     clearTimeout(this.connectTimer);
     clearTimeout(this.disconnectTimer);
     clearInterval(this.routeTimer);
@@ -196,6 +229,57 @@ export class PeerLink {
       const message = parseDataMessage(event.data);
       if (message) this.hooks.message(message);
     };
+  }
+
+  private onLocalCandidate(json: RTCIceCandidateInit) {
+    const parsed = json.candidate ? parseCandidate(json.candidate) : undefined;
+    if (!parsed) return;
+    if (parsed.type === 'srflx' && parsed.address.includes('.')) this.reflexive.add(parsed.address);
+    if (this.options.portMapper && canMap(parsed)) void this.mapPort(json, parsed);
+  }
+
+  /**
+   * Asks the router to forward this local port and, if it does, tells the other peer the router's public address
+   * for it. Their checks then arrive at our port through the router, so a strict NAT on their side no longer matters.
+   * The port is tried once per connection; after an ICE restart the browser gathers new ports, which are tried anew.
+   */
+  private async mapPort(json: RTCIceCandidateInit, host: ParsedCandidate) {
+    const mapper = this.options.portMapper!;
+    const key = `${host.address}:${host.port}`;
+    if (this.mappings.has(key)) return;
+    this.mappings.add(key);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('the router did not answer in time')), PORT_MAP_TIMEOUT_MS);
+      });
+      const mapping = await Promise.race([mapper.map(host.address, host.port), timeout]);
+      if (this.closed) return; // close() has already released it
+      if (this.reflexive.size && !this.reflexive.has(mapping.externalIp)) {
+        // The internet sees us at another address, so the router is behind a further NAT and its port is unreachable.
+        this.mappings.delete(key);
+        await mapper.unmap(host.address, host.port);
+        return;
+      }
+      this.forwarded.add(key);
+      this.hooks.signal({ candidate: mappedCandidate(json, host, mapping) });
+    } catch (err) {
+      console.debug(`no router port mapping for ${this.id}:`, err);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Whether the pair in use is one of our forwarded ports talking to someone outside our network. Someone on the same
+   * network reaches our port directly, mapping or not.
+   */
+  private pairUsesMapping(report: StatsLike): boolean {
+    const pair = selectedPair(report);
+    const local = candidateAddress(pair?.local);
+    const remote = candidateAddress(pair?.remote);
+    if (!local || !remote || pair?.local?.candidateType !== 'host') return false;
+    return this.forwarded.has(`${local.address}:${local.port}`) && !isPrivateIpv4(remote.address);
   }
 
   private async makeOffer() {

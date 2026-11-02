@@ -10,11 +10,17 @@ export interface StatsLike {
   forEach(callback: (stat: Stat) => void): void;
 }
 
+/** The two ends of the candidate pair a connection is using, as their stats entries. */
+export interface SelectedPair {
+  local?: Stat;
+  remote?: Stat;
+}
+
 /**
- * Whether the selected candidate pair goes through a relay. The pair is the transport's selected pair when the
- * browser reports one, else the nominated succeeded pair (older Firefox and Safari).
+ * The candidate pair in use: the transport's selected pair when the browser reports one, else the nominated succeeded
+ * pair (older Firefox and Safari).
  */
-export function routeFromStats(report: StatsLike): Route {
+export function selectedPair(report: StatsLike): SelectedPair | undefined {
   let pair: Stat | undefined;
   report.forEach((stat) => {
     if (stat.type === 'transport' && typeof stat.selectedCandidatePairId === 'string') {
@@ -26,13 +32,24 @@ export function routeFromStats(report: StatsLike): Route {
       if (stat.type === 'candidate-pair' && stat.state === 'succeeded' && stat.nominated) pair ??= stat;
     });
   }
-  if (!pair) return 'unknown';
+  if (!pair) return undefined;
+  const end = (id: unknown) => (typeof id === 'string' ? report.get(id) : undefined);
+  return { local: end(pair.localCandidateId), remote: end(pair.remoteCandidateId) };
+}
 
-  const types = [pair.localCandidateId, pair.remoteCandidateId].map((id) =>
-    typeof id === 'string' ? (report.get(id)?.candidateType as string | undefined) : undefined,
-  );
+/** Whether the selected candidate pair goes through a relay. */
+export function routeFromStats(report: StatsLike): Route {
+  const pair = selectedPair(report);
+  if (!pair) return 'unknown';
+  const types = [pair.local, pair.remote].map((end) => end?.candidateType as string | undefined);
   if (types.every((t) => t === undefined)) return 'unknown';
   return types.includes('relay') ? 'relay' : 'direct';
+}
+
+/** A candidate's address and port from its stats entry; older browsers call the address `ip`. */
+export function candidateAddress(stat: Stat | undefined): { address: string; port: number } | undefined {
+  const address = stat?.address ?? stat?.ip;
+  return typeof address === 'string' && typeof stat?.port === 'number' ? { address, port: stat.port } : undefined;
 }
 
 /** What to send to one peer, given how the connection to them is routed. */
