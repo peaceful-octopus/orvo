@@ -64,6 +64,30 @@ function sharedContext(): AudioContext | undefined {
   return context;
 }
 
+let routedTo: string | undefined;
+function route(ctx: AudioContext, outputId?: string): void {
+  // Changing the output restarts the audio device, which drops samples, so it is done only when the choice changes.
+  if (!outputId || outputId === routedTo) return;
+  routedTo = outputId;
+  void (ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(outputId).catch(() => {});
+}
+
+/**
+ * Starts the audio output ahead of the first chime. Your own join chime is the first sound of the call, and starting the
+ * output at that moment, while the call's video and audio processing is also starting, made it stutter.
+ */
+export function prepareChime(outputId?: string): void {
+  try {
+    if (nativePlayer()) return;
+    const ctx = sharedContext();
+    if (!ctx) return;
+    route(ctx, outputId);
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+  } catch {
+    // Nothing to prepare where audio is unavailable.
+  }
+}
+
 /**
  * Plays the chime for someone joining or leaving. `volume` is the speaker volume setting, 0 to 1, so the chime follows
  * what the person chose for other people's voices. `outputId` is the chosen speaker, where the browser can route to it.
@@ -77,7 +101,7 @@ export function playChime(kind: ChimeKind, volume: number, outputId?: string): v
     const ctx = sharedContext();
     if (!ctx) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
-    if (outputId) void (ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> }).setSinkId?.(outputId).catch(() => {});
+    route(ctx, outputId);
     const at = ctx.currentTime + 0.02;
     for (const note of chimeNotes(kind)) {
       const peak = Math.min(1, volume) * MASTER * note.gain;

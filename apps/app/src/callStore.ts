@@ -16,7 +16,7 @@ import type { DataMessage } from '@orvo/protocol';
 import { create } from 'zustand';
 import { activityChime } from './activities/activityChime';
 import { useActivity } from './activities/activityStore';
-import { chimeDurationMs, playChime, type ChimeKind } from './chime';
+import { chimeDurationMs, playChime, prepareChime, type ChimeKind } from './chime';
 import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {
   deviceConstraint,
@@ -410,6 +410,7 @@ export const useCall = create<CallState>((set, get) => {
       const { local } = get();
       if (!local) return;
       set({ phase: 'joining', error: undefined, loginRequired: undefined, blocked: undefined, roomId: room });
+      if (useSettings.getState().chimes) prepareChime(get().selected.audiooutput);
       await get().applyNoise(); // the call starts with the cleaned-up microphone
       // Fresh enough that a change the operator just made (relay video quality, say) applies to this call.
       const { config } = await loadClientConfig({ maxAgeMs: 30_000 });
