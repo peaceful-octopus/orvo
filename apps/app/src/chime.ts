@@ -47,7 +47,7 @@ export const encodeChime = (kind: ChimeKind): string => NOTES[kind].map((n) => [
 
 /** Present only in the Android app, which plays chimes itself on the notification volume (see ChimePlayer.kt). */
 interface NativeChime {
-  playChime(notes: string, volume: number, afterCall: boolean): boolean;
+  playChime(notes: string, volume: number): boolean;
 }
 const nativePlayer = () => (window as unknown as { OrvoNative?: NativeChime }).OrvoNative;
 
@@ -64,13 +64,12 @@ function sharedContext(): AudioContext | undefined {
  * Plays the chime for someone joining or leaving. `volume` is the speaker volume setting, 0 to 1, so the chime follows
  * what the person chose for other people's voices. `outputId` is the chosen speaker, where the browser can route to it.
  * It makes no sound, and no error, where audio is unavailable or the browser has not allowed it yet.
- * `afterCall` is for the chime after your own call has ended: the Android player then waits until the phone has left its call audio mode.
  */
-export function playChime(kind: ChimeKind, volume: number, outputId?: string, afterCall = false): void {
+export function playChime(kind: ChimeKind, volume: number, outputId?: string): void {
   try {
     if (volume <= 0) return;
     // In a call, a web view's sound follows the call volume, so the same chime came out at very different levels.
-    if (nativePlayer()?.playChime(encodeChime(kind), Math.min(1, volume), afterCall)) return;
+    if (nativePlayer()?.playChime(encodeChime(kind), Math.min(1, volume))) return;
     const ctx = sharedContext();
     if (!ctx) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
