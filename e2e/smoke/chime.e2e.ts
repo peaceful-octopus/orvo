@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectAllConnected, joinPair, joinRoom, leaveCall, openSettings } from '../helpers';
+import { expectAllConnected, expectInCall, joinPair, joinRoom, leaveCall, openSettings } from '../helpers';
 
 /** Counts the oscillators the app starts; only the chime makes them. An entry or exit chime starts four. */
 const OSCILLATORS_PER_CHIME = 4;
@@ -79,4 +79,27 @@ test('leaving goes to the start page without reloading, so the leaving chime is 
   expect(new URL(ann.url()).pathname).toBe('/');
   expect(await ann.evaluate(() => (window as unknown as { sameDocument?: boolean }).sameDocument)).toBe(true);
   expect(await chimes(ann)).toBe(2 * OSCILLATORS_PER_CHIME);
+});
+
+test('leaving lets go of the camera and microphone once the leaving chime is over @smoke', async ({ context }) => {
+  // A phone changes its audio mode when the microphone is released, which cuts off a sound that is playing.
+  await context.addInitScript(() => {
+    const tracks: MediaStreamTrack[] = [];
+    (window as unknown as { tracks: MediaStreamTrack[] }).tracks = tracks;
+    const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = async (constraints) => {
+      const stream = await real(constraints);
+      tracks.push(...stream.getTracks());
+      return stream;
+    };
+  });
+  const ann = await joinRoom(context, `e2e-chime-release-${Date.now()}`, 'ann');
+  await expectInCall(ann);
+  const live = () => ann.evaluate(() => (window as unknown as { tracks: MediaStreamTrack[] }).tracks.filter((t) => t.readyState === 'live').length);
+  expect(await live()).toBeGreaterThan(0);
+
+  await leaveCall(ann);
+  await expect(ann.getByRole('button', { name: 'Start a room' })).toBeVisible();
+  expect(await live(), 'still held while the chime plays').toBeGreaterThan(0);
+  await expect.poll(live, { timeout: 3000 }).toBe(0);
 });

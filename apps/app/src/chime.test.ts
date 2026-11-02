@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chimeNotes, encodeChime, type ChimeKind } from './chime';
+import { chimeDurationMs, chimeNotes, encodeChime, type ChimeKind } from './chime';
 
 describe('chimeNotes', () => {
   it('rises when someone joins or an activity starts, and falls when they leave or it ends', () => {
@@ -23,6 +23,11 @@ describe('chimeNotes', () => {
     for (const kind of ['join', 'leave', 'activity-start', 'activity-end'] as const) {
       expect(encodeChime(kind).split('|')).toHaveLength(chimeNotes(kind).length);
     }
+  });
+
+  it('reports how long a chime lasts, from the end of its last note', () => {
+    expect(chimeDurationMs('leave')).toBe(940); // 0.12 s start, 0.02 s attack, 0.8 s fade
+    expect(chimeDurationMs('leave')).toBeLessThan(chimeDurationMs('join'));
   });
 
   it('keeps the leave chime shorter and quieter than the join chime', () => {

@@ -16,7 +16,7 @@ import type { DataMessage } from '@orvo/protocol';
 import { create } from 'zustand';
 import { activityChime } from './activities/activityChime';
 import { useActivity } from './activities/activityStore';
-import { playChime, type ChimeKind } from './chime';
+import { chimeDurationMs, playChime, type ChimeKind } from './chime';
 import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {
   deviceConstraint,
@@ -109,6 +109,10 @@ let micRaw: MediaStreamTrack | undefined;
 let micProcessor: MicProcessor | undefined;
 let noiseQueue: Promise<void> = Promise.resolve();
 
+/** Every camera and microphone track handed out and not yet stopped, so leaving can release them all, whatever became of them. */
+const acquired = new Set<MediaStreamTrack>();
+let previewStarting: Promise<void> | undefined;
+
 /** One new track from the chosen device; if that device is gone, from the system default instead. */
 async function acquireTrack(kind: 'audioinput' | 'videoinput', id: string): Promise<{ track: MediaStreamTrack; id: string }> {
   const key = kind === 'audioinput' ? 'audio' : 'video';
@@ -122,7 +126,10 @@ async function acquireTrack(kind: 'audioinput' | 'videoinput', id: string): Prom
     stream = await get('');
     used = '';
   }
-  return { track: stream.getTracks()[0]!, id: used };
+  const track = stream.getTracks()[0]!;
+  acquired.add(track);
+  track.addEventListener('ended', () => acquired.delete(track));
+  return { track, id: used };
 }
 
 /** How long after you arrive an activity starting is taken to be one that was already running. */
@@ -323,19 +330,23 @@ export const useCall = create<CallState>((set, get) => {
 
     async startPreview() {
       if (get().local) return;
-      try {
-        const { selected } = get();
-        const [audio, video] = await Promise.all([acquireTrack('audioinput', selected.audioinput), acquireTrack('videoinput', selected.videoinput)]);
-        const next = { ...selected, audioinput: audio.id, videoinput: video.id };
-        saveSelection(next);
-        micRaw = audio.track;
-        watchDevice(audio.track, 'audioinput');
-        watchDevice(video.track, 'videoinput');
-        set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
-      } catch {
-        set({ error: MEDIA_DENIED_MESSAGE });
-      }
-      await get().refreshDevices(); // device names are only available once access is granted
+      // Two starts at once (the page can ask twice) would each take the camera, and the second would lose track of the first.
+      previewStarting ??= (async () => {
+        try {
+          const { selected } = get();
+          const [audio, video] = await Promise.all([acquireTrack('audioinput', selected.audioinput), acquireTrack('videoinput', selected.videoinput)]);
+          const next = { ...selected, audioinput: audio.id, videoinput: video.id };
+          saveSelection(next);
+          micRaw = audio.track;
+          watchDevice(audio.track, 'audioinput');
+          watchDevice(video.track, 'videoinput');
+          set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
+        } catch {
+          set({ error: MEDIA_DENIED_MESSAGE });
+        }
+        await get().refreshDevices(); // device names are only available once access is granted
+      })().finally(() => (previewStarting = undefined));
+      await previewStarting;
     },
 
     applyNoise() {
@@ -542,6 +553,7 @@ export const useCall = create<CallState>((set, get) => {
 
     leave() {
       // Your own exit chimes too, and silences the rest: tearing down the call would otherwise read as an activity ending.
+      const chimeMs = chimesOn && useSettings.getState().chimes ? chimeDurationMs('leave') : 0;
       if (chimesOn) chime('leave');
       chimesOn = false;
       // Everyone else's audio stops now, so the chime is heard alone while the rest of the call is taken down.
@@ -553,11 +565,22 @@ export const useCall = create<CallState>((set, get) => {
       transport?.leave();
       unsubscribe?.();
       transport = undefined;
-      get().local?.getTracks().forEach((t) => t.stop());
-      micProcessor?.dispose();
+      // Releasing the microphone makes a phone switch out of its call audio mode, which cuts off a sound that is playing. So
+      // the call is left at once but the devices are let go once the chime is over. What is released is held here, so
+      // that a call started meanwhile is not affected.
+      const tracks = [...new Set([...(get().local?.getTracks() ?? []), ...acquired])];
+      acquired.clear();
+      const processor = micProcessor;
+      const mic = micRaw;
       micProcessor = undefined;
-      micRaw?.stop();
       micRaw = undefined;
+      const release = () => {
+        tracks.forEach((t) => t.stop());
+        processor?.dispose();
+        mic?.stop();
+      };
+      if (chimeMs > 0) setTimeout(release, chimeMs);
+      else release();
       set({ roomAccess: undefined, noiseStatus: 'off', phase: 'lobby', local: undefined, localDisplay: undefined, remotes: {}, audio: true, video: true, reconnecting: false });
     },
   };

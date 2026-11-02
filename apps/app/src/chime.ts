@@ -42,6 +42,10 @@ const NOTES: Record<ChimeKind, ChimeNote[]> = {
 
 export const chimeNotes = (kind: ChimeKind): ChimeNote[] => NOTES[kind];
 
+/** How long a chime sounds from start to end, in milliseconds. */
+export const chimeDurationMs = (kind: ChimeKind): number =>
+  Math.round(Math.max(...NOTES[kind].map((n) => n.start + ATTACK + n.decay)) * 1000);
+
 /** The notes as the Android app's player reads them: "freq:start:decay:gain", separated by "|". */
 export const encodeChime = (kind: ChimeKind): string => NOTES[kind].map((n) => [n.freq, n.start, n.decay, n.gain].join(':')).join('|');
 
