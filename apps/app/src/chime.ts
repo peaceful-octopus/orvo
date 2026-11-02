@@ -60,7 +60,8 @@ function sharedContext(): AudioContext | undefined {
   if (context) return context;
   const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return undefined;
-  context = new Ctor();
+  // A larger output buffer: the chime is not interactive, and the start of a call is when the processor is busiest.
+  context = new Ctor({ latencyHint: 'playback' });
   return context;
 }
 
@@ -102,7 +103,7 @@ export function playChime(kind: ChimeKind, volume: number, outputId?: string): v
     if (!ctx) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
     route(ctx, outputId);
-    const at = ctx.currentTime + 0.02;
+    const at = ctx.currentTime + 0.1;
     for (const note of chimeNotes(kind)) {
       const peak = Math.min(1, volume) * MASTER * note.gain;
       const begin = at + note.start;
