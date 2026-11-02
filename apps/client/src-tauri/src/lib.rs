@@ -1,3 +1,5 @@
+mod portmap;
+
 /// Windows 11 draws a one-pixel border around undecorated windows, even without a shadow, which shows as an
 /// outline around the floating bubbles. DWM lets a window set that border's color to "none", or back to the default.
 #[cfg(windows)]
@@ -130,6 +132,21 @@ Host: x
     }
 }
 
+/// Asks the router to forward a UDP port to the one WebRTC uses for a call, for a direct path through strict NATs.
+#[tauri::command]
+async fn map_udp_port(
+    mapper: tauri::State<'_, portmap::PortMapper>,
+    local_ip: String,
+    local_port: u16,
+) -> Result<portmap::MappedPort, String> {
+    mapper.map(&local_ip, local_port).await
+}
+
+#[tauri::command]
+async fn unmap_udp_port(mapper: tauri::State<'_, portmap::PortMapper>, local_ip: String, local_port: u16) -> Result<(), String> {
+    mapper.unmap(&local_ip, local_port).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
@@ -140,7 +157,18 @@ pub fn run() {
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_deep_link::init());
     builder
-        .invoke_handler(tauri::generate_handler![set_window_border, oauth_listen])
-        .run(tauri::generate_context!())
-        .expect("error while running Orvo");
+        .manage(portmap::PortMapper::default())
+        .invoke_handler(tauri::generate_handler![set_window_border, oauth_listen, map_udp_port, unmap_udp_port])
+        .build(tauri::generate_context!())
+        .expect("error while running Orvo")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Leave no forwarded ports behind on the router. A router that does not answer must not hold up quitting.
+                use tauri::Manager;
+                let mapper = app.state::<portmap::PortMapper>();
+                tauri::async_runtime::block_on(async {
+                    let _ = tokio::time::timeout(std::time::Duration::from_secs(2), mapper.unmap_all()).await;
+                });
+            }
+        });
 }
