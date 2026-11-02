@@ -342,6 +342,8 @@ export const useCall = create<CallState>((set, get) => {
           watchDevice(audio.track, 'audioinput');
           watchDevice(video.track, 'videoinput');
           set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
+          // Start the noise filter now, so it has settled by the time you join: starting it during the join made your own join chime stutter.
+          void get().applyNoise();
         } catch {
           set({ error: MEDIA_DENIED_MESSAGE });
         }
