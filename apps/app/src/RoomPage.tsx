@@ -212,7 +212,7 @@ export function RoomPage({ room }: { room: string }) {
         <div className="lobby">
           <div className="lobby-preview">
             <div className="preview">
-              <Bubble name={name} stream={local} videoOn={video} audioOn={audio} mirrored muteAudio />
+              <Bubble name={name} stream={localDisplay ?? local} videoOn={video} audioOn={audio} mirrored muteAudio />
             </div>
             <div className="lobby-toggles">
               <button className={`icon${audio ? '' : ' off'}`} onClick={toggleAudio} aria-label={audio ? 'Mute' : 'Unmute'} title={audio ? 'Mute' : 'Unmute'}>

@@ -160,6 +160,21 @@ export const useCall = create<CallState>((set, get) => {
     if (stream) await transport?.replaceLocalStream(stream);
   };
 
+  /** Effects are drawn into the video while one is showing; between them the camera is shown as it is. Started in the lobby, so the preview matches what the call will show. */
+  const startEffects = () => {
+    if (effects) return;
+    effects = new EffectsController({
+      camera: () => get().local,
+      vision: visionSupported() ? createVision() : undefined,
+      setStream: (stream) => {
+        set({ localDisplay: stream === get().local ? undefined : stream });
+        void publish();
+      },
+    });
+    void effects.setFilter(useSettings.getState().moodFilter);
+    void effects.setLook(lookFromSettings());
+  };
+
   const blank = (id: string): Remote => ({ id, name: '', audio: true, video: true, state: 'connecting', route: 'unknown' });
 
   /**
@@ -344,6 +359,7 @@ export const useCall = create<CallState>((set, get) => {
           set({ local: new MediaStream([audio.track, video.track]), selected: next, error: undefined });
           // Start the noise filter now, so it has settled by the time you join: starting it during the join made your own join chime stutter.
           void get().applyNoise();
+          startEffects();
         } catch {
           set({ error: MEDIA_DENIED_MESSAGE });
         }
@@ -431,17 +447,7 @@ export const useCall = create<CallState>((set, get) => {
       unsubscribe = transport.on(onEvent);
       try {
         await transport.join(room, name, outgoing() ?? local);
-        // Effects are drawn into the outgoing video only while one is showing; between them the camera is sent as is.
-        effects = new EffectsController({
-          camera: () => get().local,
-          vision: visionSupported() ? createVision() : undefined,
-          setStream: (stream) => {
-            set({ localDisplay: stream === get().local ? undefined : stream });
-            void publish();
-          },
-        });
-        void effects.setFilter(useSettings.getState().moodFilter);
-        void effects.setLook(lookFromSettings());
+        startEffects(); // normally running since the lobby
         set({ phase: 'in-call', roomAccess: transport.roomAccess });
         chimesOn = true;
         chimesSince = Date.now();

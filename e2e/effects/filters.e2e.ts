@@ -62,6 +62,26 @@ test('the filter stays on through reactions, changing the microphone and changin
   await expectAllConnected([ann, bob]);
 });
 
+test('a filter chosen in the lobby shows in the preview and stays on when you join @effects', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto(`/r/e2e-filter-lobby-${Date.now()}`);
+  await page.getByPlaceholder('Your name').fill('ann');
+  await expect(page.getByRole('button', { name: 'Join' })).toBeEnabled();
+  await expect.poll(() => saturation(page, 0)).toBeGreaterThan(0.5);
+
+  await choose(page, 'Noir');
+  await expect.poll(() => saturation(page, 0), { message: 'the preview is in black and white' }).toBeLessThan(0.1);
+
+  await choose(page, 'None');
+  await expect.poll(() => saturation(page, 0)).toBeGreaterThan(0.5);
+
+  await choose(page, 'Noir');
+  await expect.poll(() => saturation(page, 0)).toBeLessThan(0.1);
+  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Leave' })).toBeVisible();
+  await expect.poll(() => saturation(page, 0)).toBeLessThan(0.1);
+});
+
 test('the chosen filter is remembered and applied when the next call starts @effects', async ({ context }) => {
   const first = await joinRoom(context, `e2e-filter-first-${Date.now()}`, 'ann');
   await choose(first, 'Noir');
