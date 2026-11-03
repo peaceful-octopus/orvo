@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectAllConnected, joinPair, joinRoom, seedSettings } from '../helpers';
+import { expectAllConnected, joinPair, joinRoom, leaveCall, seedSettings } from '../helpers';
 import { saturation, sharpness } from './helpers';
 
 // The fake camera is solid green, so a filter that removes colour is easy to see in what the other person receives.
@@ -62,7 +62,7 @@ test('the filter stays on through reactions, changing the microphone and changin
   await expectAllConnected([ann, bob]);
 });
 
-test('a filter chosen in the lobby shows in the preview and stays on when you join @effects', async ({ context }) => {
+test('a filter chosen in the lobby shows in the preview, stays on when you join, and is still there in the lobby of the next call @effects', async ({ context }) => {
   const page = await context.newPage();
   await page.goto(`/r/e2e-filter-lobby-${Date.now()}`);
   await page.getByPlaceholder('Your name').fill('ann');
@@ -80,6 +80,14 @@ test('a filter chosen in the lobby shows in the preview and stays on when you jo
   await page.getByRole('button', { name: 'Join', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Leave' })).toBeVisible();
   await expect.poll(() => saturation(page, 0)).toBeLessThan(0.1);
+
+  // Leaving goes to the start page without a reload; the next call's lobby still has the filter.
+  await leaveCall(page);
+  await page.getByRole('button', { name: 'Start a room' }).click();
+  await expect(page.getByPlaceholder('Your name')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Join' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Effects' })).toHaveClass(/on/);
+  await expect.poll(() => saturation(page, 0), { message: 'the next lobby preview is still in black and white' }).toBeLessThan(0.1);
 });
 
 test('the chosen filter is remembered and applied when the next call starts @effects', async ({ context }) => {
