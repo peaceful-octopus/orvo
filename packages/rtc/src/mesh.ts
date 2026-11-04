@@ -3,7 +3,7 @@ import {
   PROTOCOL_VERSION,
   parseServerMessage,
   DEFAULT_RELAY_VIDEO_TIER,
-  videoTierFor,
+  adaptiveVideoTier,
   isReplayedKind,
   type TelemetryEvent,
   type VideoTier,
@@ -35,6 +35,8 @@ export interface MeshOptions {
   clientVersion?: string;
   /** Video quality by room size; defaults to the built-in tiers until a config supplies its own. */
   videoTiers?: VideoTierRule[];
+  /** How fast this device can send, in kilobits per second, if it has been measured; video is sized to fit it. */
+  uplinkKbps?: () => number | undefined;
   /** Video limits for connections that go through a relay. */
   relayVideoTier?: VideoTier;
   /** `relay` makes every connection use a relay or fail; for testing that a room has (or lacks) one. */
@@ -146,6 +148,7 @@ export class MeshTransport implements RoomTransport {
   setScreenStream(screen: MediaStream | undefined): void {
     this.screen = screen;
     for (const link of this.links.values()) link.setScreen(screen);
+    void this.applyVideoTiers(); // a shared screen is a second video to every peer, so the camera has less of the uplink
   }
 
   async replaceLocalStream(local: MediaStream): Promise<void> {
@@ -395,13 +398,15 @@ export class MeshTransport implements RoomTransport {
    * lower again on relayed paths. Where video cannot be sent at all, that peer is told our camera is off.
    */
   private async applyVideoTiers() {
-    const normal = videoTierFor(this.names.size + 1, this.opts.videoTiers);
+    const adaptive = adaptiveVideoTier(this.names.size + 1, this.opts.uplinkKbps?.(), this.opts.videoTiers, this.screen ? 2 : 1);
+    const normal = adaptive.tier;
     const relayed = this.opts.relayVideoTier ?? DEFAULT_RELAY_VIDEO_TIER;
     const roomTier = this.session?.tier ?? 'free';
 
     for (const [id, link] of this.links) {
       if (!link.connected) continue;
-      const policy = sendPolicy(this.routes.get(id) ?? 'unknown', roomTier, normal, relayed);
+      const base = sendPolicy(this.routes.get(id) ?? 'unknown', roomTier, normal, relayed);
+      const policy = adaptive.video ? base : { ...base, video: false };
       await link.applySendPolicy(policy);
       this.announceVideoTo(id, link, policy.video);
     }

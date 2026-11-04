@@ -11,6 +11,7 @@ import {
   type PeerRoute,
   type PeerState,
   type RoomEvent,
+  measureUplinkKbps,
 } from '@orvo/rtc';
 import type { DataMessage } from '@orvo/protocol';
 import { create } from 'zustand';
@@ -76,6 +77,8 @@ interface CallState {
   loginRequired?: 'create' | 'join' | 'expired';
   /** Your own shared screen, while you are sharing. */
   screen?: MediaStream;
+  /** How fast this device sends data in kilobits per second, measured in the lobby; undefined until known or when it cannot be told. */
+  uplinkKbps?: number;
   /** Whether background noise suppression is running on your microphone. */
   noiseStatus: 'off' | 'loading' | 'on' | 'error';
   /** Whether the connection to the signaling server is up; calls continue while it reconnects. */
@@ -173,6 +176,26 @@ export const useCall = create<CallState>((set, get) => {
     });
     void effects.setFilter(useSettings.getState().moodFilter);
     void effects.setLook(lookFromSettings());
+  };
+
+  /** Times an upload to the beacon so the call can size video to this connection. A reading is kept for ten minutes. */
+  let measuredAt = 0;
+  let measuring: Promise<void> | undefined;
+  const measureUplink = () => {
+    if (measuring || (get().uplinkKbps !== undefined && Date.now() - measuredAt < 10 * 60_000)) return measuring;
+    measuring = (async () => {
+      try {
+        const { config } = await loadClientConfig({ maxAgeMs: 30_000 });
+        const uplinkKbps = await measureUplinkKbps({ beaconUrls: config.beaconUrls });
+        if (uplinkKbps !== undefined) {
+          measuredAt = Date.now();
+          set({ uplinkKbps });
+        }
+      } catch {
+        // Without a reading the room's usual video quality applies.
+      }
+    })().finally(() => (measuring = undefined));
+    return measuring;
   };
 
   const blank = (id: string): Remote => ({ id, name: '', audio: true, video: true, state: 'connecting', route: 'unknown' });
@@ -360,6 +383,7 @@ export const useCall = create<CallState>((set, get) => {
           // Start the noise filter now, so it has settled by the time you join: starting it during the join made your own join chime stutter.
           void get().applyNoise();
           startEffects();
+          void measureUplink();
         } catch {
           set({ error: MEDIA_DENIED_MESSAGE });
         }
@@ -436,6 +460,7 @@ export const useCall = create<CallState>((set, get) => {
         beaconUrls: config.beaconUrls,
         clientVersion: CLIENT_VERSION,
         videoTiers: config.limits.videoTiers,
+        uplinkKbps: () => get().uplinkKbps,
         relayVideoTier: config.limits.relayVideoTier,
         // `?ice=relay` forces every connection through a relay, to check whether a room has one.
         telemetry: (event) => telemetry.record(event),

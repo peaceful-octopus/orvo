@@ -5,6 +5,9 @@
 export const COPY = {
   /** Shown next to the name of someone whose call reaches you through a relay server. */
   relayed: 'Connected through a relay',
+  /** Shown when your own connection, not the room, limits the video you send. */
+  uplinkLimited: 'Your connection is limiting your video quality in a room this size.',
+  uplinkTooSlow: 'Your connection is too slow to send video to this many people, so they see your camera as off. Audio is unaffected.',
   mediaDenied: {
     title: 'Orvo cannot see your camera or microphone',
     body: 'Allow access in your browser or system settings, then try again.',

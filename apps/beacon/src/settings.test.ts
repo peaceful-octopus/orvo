@@ -74,7 +74,7 @@ describe('SettingsStore', () => {
     expect(store.isSaved('warnRoomSize')).toBe(false);
 
     expect(await store.update({ reset: ['maxRoomSize'] })).toEqual({ ok: true });
-    expect(store.effective().maxRoomSize).toBe(10);
+    expect(store.effective().maxRoomSize).toBe(MAX_ROOM_SIZE);
     expect(store.isSaved('maxRoomSize')).toBe(false);
   });
 
@@ -98,7 +98,7 @@ describe('SettingsStore', () => {
 
   it('checks settings against each other', async () => {
     const store = new SettingsStore({ defaults: defaults(), authConfigured: false });
-    expect(await store.update({ set: { warnRoomSize: 12 } })).toMatchObject({ ok: false, errors: { warnRoomSize: expect.any(String) } });
+    expect(await store.update({ set: { warnRoomSize: MAX_ROOM_SIZE + 1 } })).toMatchObject({ ok: false, errors: { warnRoomSize: expect.any(String) } });
     expect(await store.update({ set: { turnUrls: ['turn:t:3478'] } })).toMatchObject({ ok: false, errors: { turnSecret: expect.any(String) } });
     expect(await store.update({ set: { turnSecret: 'abc' } })).toMatchObject({ ok: false, errors: { turnUrls: expect.any(String) } });
     expect(await store.update({ set: { turnUrls: ['turn:t:3478'], turnSecret: 'abc' } })).toEqual({ ok: true });
@@ -111,7 +111,7 @@ describe('SettingsStore', () => {
     expect(await store.update({ set: { maxRoomSize: 4 } })).toEqual({ ok: true });
     expect(store.effective()).toMatchObject({ maxRoomSize: 4, warnRoomSize: 4 });
     expect(await store.update({ reset: ['maxRoomSize'] })).toEqual({ ok: true });
-    expect(store.effective().warnRoomSize).toBe(6);
+    expect(store.effective().warnRoomSize).toBe(WARN_ROOM_SIZE);
   });
 
   it('allows requiring sign-in only where a provider is configured', async () => {
@@ -169,7 +169,7 @@ describe('SettingsStore', () => {
       fs.writeFileSync(path.join(dir, 'blocker'), 'a file where a directory is needed');
       const store = await SettingsStore.open({ defaults: defaults(), file: path.join(dir, 'blocker', 'settings.json'), authConfigured: false });
       expect(await store.update({ set: { maxRoomSize: 5 } })).toMatchObject({ ok: false, errors: { _: expect.stringContaining('could not be saved') } });
-      expect(store.effective().maxRoomSize).toBe(10);
+      expect(store.effective().maxRoomSize).toBe(MAX_ROOM_SIZE);
     });
 
     it('ignores a damaged file, and the parts of a file that are not acceptable, with a warning', async () => {

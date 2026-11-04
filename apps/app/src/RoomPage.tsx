@@ -1,4 +1,4 @@
-import { roomStatus } from '@orvo/protocol';
+import { adaptiveVideoTier, roomStatus } from '@orvo/protocol';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Bubble } from './Bubble';
 import { useCall } from './callStore';
@@ -95,6 +95,7 @@ export function RoomPage({ room }: { room: string }) {
   const deviceProps = { devices, selected, canSelectOutput: outputs, onSelect: (kind: DeviceKind, id: string) => void selectDevice(kind, id) };
   const { mode, setMode } = useUi();
   const limits = useConfig((s) => s.config.limits);
+  const uplinkKbps = useCall((s) => s.uplinkKbps);
   const apiKey = useConfig((s) => giphyApiKey(s.config));
   const activityInstance = useActivity(openActivityInstance);
   const activitySummary = useActivitySummary();
@@ -335,6 +336,7 @@ export function RoomPage({ room }: { room: string }) {
   }
 
   const status = roomStatus(members.length, limits);
+  const uplink = adaptiveVideoTier(members.length, uplinkKbps, limits.videoTiers, screen ? 2 : 1);
   const notice = unreachableNotice(members.filter((m) => m.unreachable).map((m) => m.name));
 
   return (
@@ -345,6 +347,11 @@ export function RoomPage({ room }: { room: string }) {
       {notice && (
         <p className="banner" role="alert">
           {notice}
+        </p>
+      )}
+      {uplink.limitedByUplink && video && (
+        <p className="banner" role="status">
+          {uplink.video ? COPY.uplinkLimited : COPY.uplinkTooSlow}
         </p>
       )}
       {status !== 'ok' && (

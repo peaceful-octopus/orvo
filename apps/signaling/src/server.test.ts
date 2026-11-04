@@ -1,4 +1,4 @@
-import { MAX_FRAME_BYTES, parseServerMessage, type ServerMessage } from '@orvo/protocol';
+import { MAX_FRAME_BYTES, MAX_ROOM_SIZE, WARN_ROOM_SIZE, parseServerMessage, type ServerMessage } from '@orvo/protocol';
 import { FakeClock, makeJoinToken, testKeys } from '@orvo/testkit';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -108,9 +108,9 @@ describe('joining', () => {
     expect(await replay.next('error')).toMatchObject({ code: 'bad-token' });
   });
 
-  it('refuses the 11th member with room-full', async () => {
+  it('refuses a member beyond the room size with room-full', async () => {
     await start();
-    for (let n = 0; n < 10; n++) await join(`p${n}`);
+    for (let n = 0; n < MAX_ROOM_SIZE; n++) await join(`p${n}`);
     const late = connect();
     late.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId: 'late' }, clock.now), name: 'late' });
     expect(await late.next('error')).toMatchObject({ code: 'room-full' });
@@ -139,10 +139,10 @@ describe('joining', () => {
     expect(await sixth.next('error')).toMatchObject({ code: 'room-full' });
   });
 
-  it('reports degraded status above six members', async () => {
+  it('reports degraded status above the warning size', async () => {
     await start();
-    for (let n = 0; n < 6; n++) await join(`p${n}`);
-    expect((await join('p6')).welcome.status).toBe('degraded');
+    for (let n = 0; n < WARN_ROOM_SIZE; n++) await join(`p${n}`);
+    expect((await join(`p${WARN_ROOM_SIZE}`)).welcome.status).toBe('degraded');
   });
 
   it('requires join as the first message and closes idle connections', async () => {

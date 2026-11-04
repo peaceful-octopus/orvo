@@ -10,6 +10,7 @@ import {
   ROOM_LOCKED,
   TelemetryBatch,
   UpdateRoomRequest,
+  UPLINK_TEST_MAX_BYTES,
   generateRoomId,
   isClientSupported,
   isValidRoomSlug,
@@ -227,6 +228,16 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     };
     return reply.header('cache-control', 'max-age=60').send(signConfig(config, kid, secretKey));
   });
+
+  // Takes a block of data and throws it away, so a client can time an upload and size its video to its connection.
+  app.post(
+    '/v1/uplink-test',
+    {
+      bodyLimit: UPLINK_TEST_MAX_BYTES,
+      ...(opts.rateLimitPerMinute === false ? {} : { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }),
+    },
+    async (_req, reply) => reply.header('cache-control', 'no-store').code(204).send(),
+  );
 
   app.post('/v1/telemetry', { ...limited, bodyLimit: 8 * 1024 }, async (req, reply) => {
     const parsed = TelemetryBatch.safeParse(req.body);

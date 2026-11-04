@@ -1,4 +1,4 @@
-import { JoinResponse, MAX_ROOM_SIZE, WARN_ROOM_SIZE, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@orvo/protocol';
+import { JoinResponse, UPLINK_TEST_MAX_BYTES, MAX_ROOM_SIZE, WARN_ROOM_SIZE, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@orvo/protocol';
 import { FakeClock, signingKey, testKeys } from '@orvo/testkit';
 import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -406,5 +406,22 @@ describe('static config', () => {
     const signed = { kid: 'x', payload: { hello: 'world' }, sig: 'abc' };
     await start({ staticConfig: signed });
     expect((await app.inject({ method: 'GET', url: '/v1/config' })).json()).toEqual(signed);
+  });
+});
+
+describe('uplink test', () => {
+  const upload = (bytes: number) =>
+    app.inject({ method: 'POST', url: '/v1/uplink-test', payload: JSON.stringify('x'.repeat(bytes)), headers: { 'content-type': 'text/plain' } });
+
+  it('accepts an upload and says nothing back', async () => {
+    await start();
+    const res = await upload(500 * 1024);
+    expect(res.statusCode).toBe(204);
+    expect(res.body).toBe('');
+  });
+
+  it('refuses an upload larger than a test needs', async () => {
+    await start();
+    expect((await upload(UPLINK_TEST_MAX_BYTES + 1024)).statusCode).toBe(413);
   });
 });

@@ -46,3 +46,63 @@ export function roomStatus(
   if (peerCount > limits.warnRoomSize) return 'degraded';
   return 'ok';
 }
+
+/** Audio sent to each peer, on the wire (Opus plus packet headers). */
+export const AUDIO_WIRE_BPS = 60_000;
+/** Packet header overhead on top of the video bitrate. */
+const VIDEO_OVERHEAD = 1.05;
+/** Part of a measured uplink that calls may use; the rest absorbs other traffic and errors in the measurement. */
+export const USABLE_UPLINK = 0.7;
+/** Below this per-peer video bitrate the picture is not worth sending, and the camera is treated as off. */
+export const MIN_VIDEO_BPS = 100_000;
+
+export interface AdaptiveVideo {
+  /** False when the uplink cannot carry video to this many people. */
+  video: boolean;
+  tier: VideoTier;
+  /** Whether the uplink, and not the room's size tier, set the limits. */
+  limitedByUplink: boolean;
+}
+
+/** Picture size and frame rate that suit a bitrate. */
+function ladder(bps: number): { scaleResolutionDownBy: number; maxFramerate: number } {
+  if (bps >= 900_000) return { scaleResolutionDownBy: 1, maxFramerate: 30 };
+  if (bps >= 600_000) return { scaleResolutionDownBy: 1.25, maxFramerate: 30 };
+  if (bps >= 400_000) return { scaleResolutionDownBy: 1.5, maxFramerate: 24 };
+  if (bps >= 200_000) return { scaleResolutionDownBy: 2, maxFramerate: 20 };
+  return { scaleResolutionDownBy: 3, maxFramerate: 15 };
+}
+
+/**
+ * What one person can send each of the others. Rooms are a full mesh, so the uplink is shared by (people - 1) copies of
+ * the camera, plus the same again for each shared screen, plus audio. The room's tier is a ceiling; a slower uplink lowers
+ * bitrate, picture size and frame rate to fit, and below `MIN_VIDEO_BPS` leaves video off. Without a measurement the room's
+ * tier applies as it is.
+ */
+export function adaptiveVideoTier(
+  peerCount: number,
+  uplinkKbps: number | undefined,
+  tiers: VideoTierRule[] = DEFAULT_VIDEO_TIERS,
+  videoStreams = 1,
+): AdaptiveVideo {
+  const roomTier = videoTierFor(peerCount, tiers);
+  const others = Math.max(1, peerCount - 1);
+  if (uplinkKbps === undefined || !(uplinkKbps > 0) || peerCount < 2) return { video: true, tier: roomTier, limitedByUplink: false };
+  const perStream = (uplinkKbps * 1000 * USABLE_UPLINK) / others;
+  const bps = Math.floor((perStream - AUDIO_WIRE_BPS) / Math.max(1, videoStreams) / VIDEO_OVERHEAD);
+  if (bps >= roomTier.maxBitrate) return { video: true, tier: roomTier, limitedByUplink: false };
+  if (bps < MIN_VIDEO_BPS) return { video: false, tier: { ...roomTier, maxBitrate: MIN_VIDEO_BPS }, limitedByUplink: true };
+  const fit = ladder(bps);
+  return {
+    video: true,
+    tier: {
+      maxBitrate: bps,
+      scaleResolutionDownBy: Math.max(roomTier.scaleResolutionDownBy, fit.scaleResolutionDownBy),
+      maxFramerate: Math.min(roomTier.maxFramerate, fit.maxFramerate),
+    },
+    limitedByUplink: true,
+  };
+}
+
+/** The most a beacon accepts in one upload test. */
+export const UPLINK_TEST_MAX_BYTES = 3 * 1024 * 1024;
