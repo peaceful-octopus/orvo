@@ -1,4 +1,4 @@
-import { JoinResponse, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@orvo/protocol';
+import { JoinResponse, MAX_ROOM_SIZE, WARN_ROOM_SIZE, fromBase64Url, toBase64Url, isValidRoomSlug, verifyConfig, verifyJoinToken } from '@orvo/protocol';
 import { FakeClock, signingKey, testKeys } from '@orvo/testkit';
 import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -247,7 +247,7 @@ describe('limits and announcements', () => {
     await start();
     const res = await app.inject({ method: 'GET', url: '/v1/config' });
     const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
-    expect(result).toMatchObject({ ok: true, config: { limits: { maxRoomSize: 10, warnRoomSize: 6 } } });
+    expect(result).toMatchObject({ ok: true, config: { limits: { maxRoomSize: MAX_ROOM_SIZE, warnRoomSize: WARN_ROOM_SIZE } } });
     expect((result as { config: { announcement?: unknown } }).config.announcement).toBeUndefined();
   });
 });

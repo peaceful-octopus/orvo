@@ -1,4 +1,4 @@
-import { JoinResponse, verifyConfig } from '@orvo/protocol';
+import { JoinResponse, MAX_ROOM_SIZE, verifyConfig } from '@orvo/protocol';
 import { MemoryPlacementStore } from '@orvo/placement';
 import { FakeClock, testKeys } from '@orvo/testkit';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -162,7 +162,7 @@ describe('admin routes', () => {
     expect(res.body).not.toContain('giphy-key-value');
     const { settings, authConfigured } = res.json();
     expect(authConfigured).toBe(false);
-    expect(settings.maxRoomSize).toEqual({ source: 'env', value: 10, default: 10 });
+    expect(settings.maxRoomSize).toEqual({ source: 'env', value: MAX_ROOM_SIZE, default: MAX_ROOM_SIZE });
     expect(settings.turnUrls).toEqual({ source: 'saved', value: ['turn:t:3478'], default: [] });
     expect(settings.turnSecret).toEqual({ source: 'saved', isSet: true, defaultIsSet: false });
   });
@@ -170,7 +170,7 @@ describe('admin routes', () => {
   it('change what clients and joins see right away, and put the environment back on reset', async () => {
     await start();
     const token = await login();
-    expect((await config()).limits.maxRoomSize).toBe(10);
+    expect((await config()).limits.maxRoomSize).toBe(MAX_ROOM_SIZE);
     expect((await config()).announcement).toBeUndefined();
 
     const changed = await call('PATCH', '/v1/admin/settings', {
@@ -194,7 +194,7 @@ describe('admin routes', () => {
 
     await call('PATCH', '/v1/admin/settings', { token, payload: { reset: ['maxRoomSize', 'warnRoomSize', 'announcement', 'minClientVersion', 'turnUrls', 'turnSecret', 'relayVideoKbps'] } });
     const back = await config();
-    expect(back.limits.maxRoomSize).toBe(10);
+    expect(back.limits.maxRoomSize).toBe(MAX_ROOM_SIZE);
     expect(back.announcement).toBeUndefined();
     expect(JoinResponse.parse((await joinRoom('another-room-abc123')).json()).tier).toBe('free');
   });
@@ -205,7 +205,7 @@ describe('admin routes', () => {
     const res = await call('PATCH', '/v1/admin/settings', { token, payload: { set: { maxRoomSize: 1000, roomCreation: 'signed-in' } } });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ code: 'bad-settings', errors: { maxRoomSize: expect.any(String) } });
-    expect((await config()).limits.maxRoomSize).toBe(10);
+    expect((await config()).limits.maxRoomSize).toBe(MAX_ROOM_SIZE);
     for (const payload of [{ set: 'x' }, { set: [] }, { reset: 'maxRoomSize' }, { reset: [1] }]) {
       expect((await call('PATCH', '/v1/admin/settings', { token, payload })).statusCode, JSON.stringify(payload)).toBe(400);
     }

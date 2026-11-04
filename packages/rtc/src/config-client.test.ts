@@ -1,4 +1,4 @@
-import { signConfig, toBase64Url } from '@orvo/protocol';
+import { MAX_ROOM_SIZE, WARN_ROOM_SIZE, signConfig, toBase64Url } from '@orvo/protocol';
 import { makeConfig, testKeys, type TestKeys } from '@orvo/testkit';
 import { describe, expect, it } from 'vitest';
 import { ConfigClient, defaultConfig, type KeyValueStorage } from './config-client';
@@ -138,7 +138,7 @@ describe('ConfigClient trusting the beacon over HTTPS', () => {
 describe('defaultConfig', () => {
   it('has the built-in limits and the supplied beacon urls', () => {
     const config = defaultConfig(['https://a.example'], NOW);
-    expect(config.limits).toMatchObject({ maxRoomSize: 10, warnRoomSize: 6 });
+    expect(config.limits).toMatchObject({ maxRoomSize: MAX_ROOM_SIZE, warnRoomSize: WARN_ROOM_SIZE });
     expect(config.beaconUrls).toEqual(['https://a.example']);
   });
 });

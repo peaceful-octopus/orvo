@@ -1,3 +1,4 @@
+import { MAX_ROOM_SIZE } from '@orvo/protocol';
 import { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,7 +47,7 @@ describe('settings kept in Redis', () => {
 
     await a.update({ reset: ['maxRoomSize', 'warnRoomSize'] });
     await settled();
-    expect(b.effective().maxRoomSize).toBe(10);
+    expect(b.effective().maxRoomSize).toBe(MAX_ROOM_SIZE);
     expect(b.isSaved('maxRoomSize')).toBe(false);
   });
 
@@ -63,7 +64,7 @@ describe('settings kept in Redis', () => {
     const broken = { hgetall: async () => ({}), duplicate: () => quietSubscriber, multi: () => tx } as unknown as Redis;
     const store = await open(broken);
     expect(await store.update({ set: { maxRoomSize: 4 } })).toMatchObject({ ok: false, errors: { _: expect.stringContaining('read only') } });
-    expect(store.effective().maxRoomSize).toBe(10);
+    expect(store.effective().maxRoomSize).toBe(MAX_ROOM_SIZE);
   });
 
   describe('changes made at the same time', () => {
@@ -97,7 +98,7 @@ describe('settings kept in Redis', () => {
       await a.update({ set: { announcement: 'Stay', maxRoomSize: 5, warnRoomSize: 4 } });
       await a.update({ reset: ['maxRoomSize', 'warnRoomSize'] });
       const reader = await track(open(connect(host)));
-      expect(reader.effective()).toMatchObject({ announcement: 'Stay', maxRoomSize: 10 });
+      expect(reader.effective()).toMatchObject({ announcement: 'Stay', maxRoomSize: MAX_ROOM_SIZE });
       expect(reader.isSaved('announcement')).toBe(true);
       expect(reader.isSaved('maxRoomSize')).toBe(false);
     });

@@ -1,3 +1,4 @@
+import { MAX_ROOM_SIZE } from '@orvo/protocol';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 
 // These run against a server with an admin password and one without (see playwright.config.ts, E2E_ADMIN=1). The app is
@@ -59,7 +60,7 @@ test('a wrong password is refused and the right one opens the settings @admin', 
   await page.getByLabel('Admin password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page.getByRole('heading', { name: 'Calls and limits' })).toBeVisible();
-  await expect(box(page, 'Room size')).toHaveValue('10');
+  await expect(box(page, 'Room size')).toHaveValue(String(MAX_ROOM_SIZE));
 
   // A reload keeps the login for this tab; logging out ends it.
   await page.reload();
@@ -88,20 +89,20 @@ test('changes apply to the server right away, and a reset brings the default bac
   await expect(guest.getByText('Rooms hold up to 4 people.')).toBeVisible();
 
   await group(admin, 'Room size').getByRole('button', { name: 'Reset to default' }).click();
-  await expect(box(admin, 'Room size')).toHaveValue('10');
+  await expect(box(admin, 'Room size')).toHaveValue(String(MAX_ROOM_SIZE));
   await admin.getByRole('button', { name: 'Save changes' }).click();
   await expect(group(admin, 'Room size').getByText('Changed here')).toHaveCount(0);
 
   const fresh = await newPage(browser);
   await fresh.goto('/');
-  await expect(fresh.getByText('Rooms hold up to 10 people.')).toBeVisible();
+  await expect(fresh.getByText(`Rooms hold up to ${MAX_ROOM_SIZE} people.`)).toBeVisible();
 });
 
 test('an open page follows changes the operator makes later @admin', async ({ browser }) => {
   const guest = await newPage(browser);
   await guest.clock.install();
   await guest.goto('/');
-  await expect(guest.getByText('Rooms hold up to 10 people.')).toBeVisible();
+  await expect(guest.getByText(`Rooms hold up to ${MAX_ROOM_SIZE} people.`)).toBeVisible();
 
   const admin = await newPage(browser);
   await loginToAdmin(admin);

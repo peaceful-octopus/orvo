@@ -1,3 +1,4 @@
+import { MAX_ROOM_SIZE, WARN_ROOM_SIZE } from '@orvo/protocol';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,8 +20,8 @@ afterEach(() => {
 describe('settingsFromEnv', () => {
   it('uses the built-in defaults with an empty environment', () => {
     expect(defaults()).toMatchObject({
-      maxRoomSize: 10,
-      warnRoomSize: 6,
+      maxRoomSize: MAX_ROOM_SIZE,
+      warnRoomSize: WARN_ROOM_SIZE,
       minClientVersion: '0.0.0',
       announcement: '',
       stunUrls: ['stun:stun.l.google.com:19302'],

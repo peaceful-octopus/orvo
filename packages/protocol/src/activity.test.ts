@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ActivityManifest, MAX_ACTIVITY_DATA_BYTES, activityDataFits, parseGuestMessage } from './activity';
+import { MAX_ROOM_SIZE } from './limits';
 
 const manifest = {
   id: 'snake',
@@ -28,7 +29,7 @@ describe('ActivityManifest', () => {
     ['path traversal', { entry: '/activities/../v1/keys' }],
     ['a protocol-relative segment', { entry: '/activities//evil.example.com' }],
     ['an id with uppercase or slashes', { id: 'Snake/../x' }],
-    ['more players than a room holds', { maxPlayers: 11 }],
+    ['more players than a room holds', { maxPlayers: MAX_ROOM_SIZE + 1 }],
     ['min above max', { minPlayers: 5, maxPlayers: 2 }],
   ])('rejects %s', (_label, change) => {
     expect(ActivityManifest.safeParse({ ...manifest, ...change }).success).toBe(false);
