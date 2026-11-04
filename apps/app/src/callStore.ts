@@ -505,7 +505,15 @@ export const useCall = create<CallState>((set, get) => {
     async shareScreen() {
       if (get().screen) return;
       try {
-        const screen = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
+        // Computer audio is offered in the picker. The call's own sound is kept out of it so that others do not hear themselves back.
+        const options = {
+          video: { frameRate: 15 },
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+          systemAudio: 'include',
+          suppressLocalAudioPlayback: true,
+          restrictOwnAudio: true,
+        };
+        const screen = await navigator.mediaDevices.getDisplayMedia(options as DisplayMediaStreamOptions);
         const track = screen.getVideoTracks()[0];
         if (!track) return;
         track.contentHint = 'detail'; // keep text sharp rather than smooth
