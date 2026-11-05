@@ -11,7 +11,7 @@ while you do something else.
 ## What it does
 
 - **Rooms with a link.** Start a room, copy the link, send it. Guests join from a browser with no account. Rooms hold
-  up to 10 people by default.
+  up to 20 people by default.
 - **Face bubbles.** People are circles, not a grid of rectangles, and a bubble glows while its person is speaking. Pick a layout from the control bar, or share your
   screen and it appears as a tile beside the bubbles.
 - **Reactions.** Send an emoji or a GIF that floats over your video for everyone to see.
