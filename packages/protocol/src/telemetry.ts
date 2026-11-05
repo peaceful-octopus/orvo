@@ -20,6 +20,18 @@ export const TelemetryEvent = z.discriminatedUnion('type', [
   }),
   /** Signaling connection lost and then recovered (`ok`) or given up on. */
   z.object({ type: z.literal('reconnect'), ok: z.boolean(), attempts: z.number().int().min(1).max(1000) }),
+  /** How video encoding went over one call: how often a browser held quality down for lack of CPU or bandwidth. */
+  z.object({
+    type: z.literal('encoder'),
+    samples: z.number().int().min(1).max(100_000),
+    cpuLimited: z.number().int().min(0).max(100_000),
+    bandwidthLimited: z.number().int().min(0).max(100_000),
+    /** Average milliseconds to encode one frame. */
+    encodeMs: z.number().int().min(0).max(1000),
+    /** The most video connections open at once. */
+    peers: z.number().int().min(1).max(100),
+    hardware: z.boolean(),
+  }),
 ]);
 export type TelemetryEvent = z.infer<typeof TelemetryEvent>;
 

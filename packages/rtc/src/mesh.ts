@@ -14,6 +14,7 @@ import {
 import { requestJoin } from './beacon-session';
 import { backoffDelay } from './backoff';
 import type { PortMapper } from './port-mapping';
+import { EncoderLog } from './encoder-log';
 import { PeerLink, type SignalPayload } from './peer-link';
 import { sendPolicy, type Route } from './route';
 import {
@@ -69,6 +70,7 @@ export class MeshTransport implements RoomTransport {
   private pausedVideo = new Set<string>();
   private connectStarted = new Map<string, number>();
   private reportedPeers = new Set<string>();
+  private encoderLog = new EncoderLog();
   private lastSent = new Map<string, DataMessage>();
   private screen?: MediaStream;
   private outbox: string[] = [];
@@ -123,6 +125,7 @@ export class MeshTransport implements RoomTransport {
 
   leave(): void {
     this.closing = true;
+    this.reportEncoder();
     clearInterval(this.pingTimer);
     this.socket?.close(1000);
     this.socket = undefined;
@@ -349,6 +352,7 @@ export class MeshTransport implements RoomTransport {
           if (state === 'unreachable') this.reportPeer(id, 'unreachable', 'unknown');
           if (state === 'connected') void this.applyVideoTiers();
         },
+        stats: (report) => this.encoderLog.add(id, report),
         route: (route) => {
           this.routes.set(id, route);
           if (route !== 'unknown') this.reportPeer(id, 'connected', route);
@@ -372,10 +376,18 @@ export class MeshTransport implements RoomTransport {
   private closeLink(id: string) {
     this.links.get(id)?.close();
     this.links.delete(id);
+    this.encoderLog.remove(id);
     this.routes.delete(id);
     this.pausedVideo.delete(id);
     this.connectStarted.delete(id);
     this.reportedPeers.delete(id);
+  }
+
+  /** Reports how video encoding went over the call, once, when it ends. */
+  private reportEncoder() {
+    const summary = this.encoderLog.summary();
+    this.encoderLog.reset();
+    if (summary) this.opts.telemetry?.({ type: 'encoder', ...summary });
   }
 
   /** Reports how a peer connection settled, once per connection. */

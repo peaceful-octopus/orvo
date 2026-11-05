@@ -158,6 +158,9 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     mappedPeers: metrics.counter('orvo_client_peer_mapped_connections_total', 'Client-reported direct connections that run through a port the router forwards (UPnP, PCP or NAT-PMP).'),
     peerSeconds: metrics.histogram('orvo_client_peer_connect_seconds', 'Client-measured time to connect to a peer.', LATENCY_BUCKETS, ['route'] as const),
     reconnects: metrics.counter('orvo_client_signaling_reconnects_total', 'Signaling reconnections, by outcome.', ['ok'] as const),
+    encoderCalls: metrics.counter('orvo_client_encoder_calls_total', 'Calls that reported video encoder statistics, by whether a hardware encoder was used.', ['hardware'] as const),
+    encoderSamples: metrics.counter('orvo_client_encoder_samples_total', 'Ten-second video encoder readings reported by clients, by what limited quality.', ['limit'] as const),
+    encodeSeconds: metrics.histogram('orvo_client_encode_frame_seconds', 'Average time a client took to encode one video frame, per call.', [0.001, 0.002, 0.004, 0.008, 0.016, 0.033, 0.066, 0.1]),
   };
   metrics.gauge('orvo_beacon_nodes', 'Signaling nodes currently registered.', async () => (await opts.store.listNodes()).length);
   metrics.gauge('orvo_beacon_placement_degraded', '1 while the shared placement store is unreachable and answers come from memory.', () =>
@@ -250,6 +253,12 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
         client.peers.inc({ result: event.result, route: event.route });
         if (event.result === 'connected') client.peerSeconds.observe({ route: event.route }, event.ms / 1000);
         if (event.mapped) client.mappedPeers.inc();
+      } else if (event.type === 'encoder') {
+        client.encoderCalls.inc({ hardware: String(event.hardware) });
+        client.encoderSamples.inc({ limit: 'cpu' }, event.cpuLimited);
+        client.encoderSamples.inc({ limit: 'bandwidth' }, event.bandwidthLimited);
+        client.encoderSamples.inc({ limit: 'none' }, Math.max(0, event.samples - event.cpuLimited - event.bandwidthLimited));
+        client.encodeSeconds.observe(event.encodeMs / 1000);
       } else {
         client.reconnects.inc({ ok: String(event.ok) });
       }

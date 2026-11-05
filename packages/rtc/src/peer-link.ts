@@ -15,6 +15,8 @@ export interface PeerLinkHooks {
   state(state: PeerState): void;
   route(route: Route): void;
   channelOpen(): void;
+  /** The connection's stats, each time the route is checked. */
+  stats?(report: StatsLike): void;
 }
 
 const CONNECT_TIMEOUT_MS = 25_000;
@@ -192,6 +194,7 @@ export class PeerLink {
     try {
       const report = (await this.pc.getStats()) as unknown as StatsLike;
       const route = routeFromStats(report);
+      this.hooks.stats?.(report);
       this.usesMapping = this.pairUsesMapping(report);
       if (route !== this.currentRoute) {
         this.currentRoute = route;

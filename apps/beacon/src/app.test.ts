@@ -361,6 +361,24 @@ describe('telemetry', () => {
     expect(await metrics.value('orvo_client_signaling_reconnects_total', { ok: 'true' })).toBe(1);
   });
 
+  it('aggregates video encoder reports by what limited quality', async () => {
+    const metrics = new Metrics();
+    await start({ metrics });
+    const res = await post(
+      batch([
+        { type: 'encoder', samples: 10, cpuLimited: 3, bandwidthLimited: 2, encodeMs: 8, peers: 6, hardware: false },
+        { type: 'encoder', samples: 4, cpuLimited: 0, bandwidthLimited: 0, encodeMs: 4, peers: 2, hardware: true },
+      ]),
+    );
+    expect(res.statusCode).toBe(204);
+    expect(await metrics.value('orvo_client_encoder_calls_total', { hardware: 'true' })).toBe(1);
+    expect(await metrics.value('orvo_client_encoder_samples_total', { limit: 'cpu' })).toBe(3);
+    expect(await metrics.value('orvo_client_encoder_samples_total', { limit: 'bandwidth' })).toBe(2);
+    expect(await metrics.value('orvo_client_encoder_samples_total', { limit: 'none' })).toBe(9);
+    expect(await metrics.value('orvo_client_encode_frame_seconds_sum')).toBeCloseTo(0.012);
+    expect((await post(batch([{ type: 'encoder', samples: 0, cpuLimited: 0, bandwidthLimited: 0, encodeMs: 8, peers: 1, hardware: false }]))).statusCode).toBe(400);
+  });
+
   it('rejects malformed, oversize and too-large batches', async () => {
     await start();
     expect((await post({ v: 1, events: [{ type: 'mystery' }] })).statusCode).toBe(400);
