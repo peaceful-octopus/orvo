@@ -56,6 +56,11 @@ export const USABLE_UPLINK = 0.7;
 /** Below this per-peer video bitrate the picture is not worth sending, and the camera is treated as off. */
 export const MIN_VIDEO_BPS = 100_000;
 
+/** Rooms of up to this many people can send more than the room's tier to each peer, when the uplink has been measured to carry it. */
+export const SMALL_ROOM_PEERS = 5;
+/** The most video to each peer in such a room: a sharp 720p picture at 30 frames per second. */
+export const SMALL_ROOM_BITRATE = 2_500_000;
+
 export interface AdaptiveVideo {
   /** False when the uplink cannot carry video to this many people. */
   video: boolean;
@@ -76,8 +81,9 @@ function ladder(bps: number): { scaleResolutionDownBy: number; maxFramerate: num
 /**
  * What one person can send each of the others. Rooms are a full mesh, so the uplink is shared by (people - 1) copies of
  * the camera, plus the same again for each shared screen, plus audio. The room's tier is a ceiling; a slower uplink lowers
- * bitrate, picture size and frame rate to fit, and below `MIN_VIDEO_BPS` leaves video off. Without a measurement the room's
- * tier applies as it is.
+ * bitrate, picture size and frame rate to fit, and below `MIN_VIDEO_BPS` leaves video off. A small room, whose few
+ * encoders cost little, goes above its tier up to `SMALL_ROOM_BITRATE` when the measured uplink allows. Relayed paths are
+ * limited separately (see `sendPolicy`), so this costs a relay nothing. Without a measurement the room's tier applies as it is.
  */
 export function adaptiveVideoTier(
   peerCount: number,
@@ -90,7 +96,10 @@ export function adaptiveVideoTier(
   if (uplinkKbps === undefined || !(uplinkKbps > 0) || peerCount < 2) return { video: true, tier: roomTier, limitedByUplink: false };
   const perStream = (uplinkKbps * 1000 * USABLE_UPLINK) / others;
   const bps = Math.floor((perStream - AUDIO_WIRE_BPS) / Math.max(1, videoStreams) / VIDEO_OVERHEAD);
-  if (bps >= roomTier.maxBitrate) return { video: true, tier: roomTier, limitedByUplink: false };
+  if (bps >= roomTier.maxBitrate) {
+    const ceiling = peerCount <= SMALL_ROOM_PEERS ? Math.max(roomTier.maxBitrate, SMALL_ROOM_BITRATE) : roomTier.maxBitrate;
+    return { video: true, tier: { ...roomTier, maxBitrate: Math.min(bps, ceiling) }, limitedByUplink: false };
+  }
   if (bps < MIN_VIDEO_BPS) return { video: false, tier: { ...roomTier, maxBitrate: MIN_VIDEO_BPS }, limitedByUplink: true };
   const fit = ladder(bps);
   return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_VIDEO_TIERS, MIN_VIDEO_BPS, adaptiveVideoTier, MAX_ROOM_SIZE, WARN_ROOM_SIZE, roomStatus, videoTierFor } from './limits';
+import { DEFAULT_VIDEO_TIERS, MIN_VIDEO_BPS, SMALL_ROOM_BITRATE, SMALL_ROOM_PEERS, adaptiveVideoTier, MAX_ROOM_SIZE, WARN_ROOM_SIZE, roomStatus, videoTierFor } from './limits';
 
 describe('roomStatus', () => {
   it('is ok up to the warning size, degraded above it, full at the maximum', () => {
@@ -58,8 +58,37 @@ describe('adaptiveVideoTier', () => {
     expect(slow.tier.maxBitrate * 5).toBeLessThan(3_000_000);
   });
 
-  it('never asks for more than the room tier, however fast the uplink', () => {
+  it('never asks for more than the room tier in a larger room, however fast the uplink', () => {
     expect(adaptiveVideoTier(MAX_ROOM_SIZE, 1_000_000).tier.maxBitrate).toBe(videoTierFor(MAX_ROOM_SIZE).maxBitrate);
+    expect(adaptiveVideoTier(SMALL_ROOM_PEERS + 1, 1_000_000).tier.maxBitrate).toBe(videoTierFor(SMALL_ROOM_PEERS + 1).maxBitrate);
+  });
+
+  it('lets a small room go above its tier when the measured uplink carries it', () => {
+    for (let people = 2; people <= SMALL_ROOM_PEERS; people++) {
+      const result = adaptiveVideoTier(people, 100_000);
+      expect(result.tier.maxBitrate).toBe(SMALL_ROOM_BITRATE);
+      expect(result.tier.maxBitrate).toBeGreaterThan(videoTierFor(people).maxBitrate);
+      expect(result.tier.scaleResolutionDownBy).toBe(videoTierFor(people).scaleResolutionDownBy);
+      expect(result.limitedByUplink).toBe(false);
+    }
+  });
+
+  it('gives a small room only what the uplink leaves over, between its tier and the most it may use', () => {
+    // Five people on 10 Mbps: 70% shared by four peers is 1.75 Mbps each before audio and overhead.
+    const result = adaptiveVideoTier(5, 10_000);
+    expect(result.tier.maxBitrate).toBeGreaterThan(videoTierFor(5).maxBitrate - 1);
+    expect(result.tier.maxBitrate).toBeLessThan(SMALL_ROOM_BITRATE);
+    expect(result.tier.maxBitrate * 4).toBeLessThan(10_000 * 1000 * 0.7);
+  });
+
+  it('keeps the room tier in a small room when the uplink is not known', () => {
+    expect(adaptiveVideoTier(4, undefined).tier).toEqual(videoTierFor(4));
+  });
+
+  it('shares a small room\'s extra with a shared screen', () => {
+    const camera = adaptiveVideoTier(4, 12_000).tier.maxBitrate;
+    const withScreen = adaptiveVideoTier(4, 12_000, undefined, 2).tier.maxBitrate;
+    expect(withScreen).toBeLessThan(camera);
   });
 
   it('leaves video off when the uplink cannot carry a usable picture to everyone', () => {

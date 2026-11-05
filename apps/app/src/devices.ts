@@ -53,6 +53,40 @@ export function deviceConstraint(id: string): true | { deviceId: { exact: string
   return id ? { deviceId: { exact: id } } : true;
 }
 
+/**
+ * The picture a camera is asked for. With no size given, browsers open a webcam at 640 x 480, which is all the call could
+ * send however much bandwidth there was. These are preferences (`ideal`), so a camera that cannot do 1280 x 720 at 30
+ * frames per second opens at the closest it can.
+ */
+export const CAMERA_PREFERENCE = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } as const;
+
+/** Constraint that asks for one camera, or the default one, at the preferred size. */
+export function cameraConstraint(id: string): MediaTrackConstraints {
+  return id ? { deviceId: { exact: id }, ...CAMERA_PREFERENCE } : { ...CAMERA_PREFERENCE };
+}
+
+type OpenStream = (constraints: MediaStreamConstraints) => Promise<MediaStream>;
+
+/**
+ * Opens a device, a camera at the preferred size first. If that fails for any reason other than the person refusing access
+ * (some cameras cannot be opened in a given mode), it is tried again with no size asked, which is what the app did before.
+ */
+export async function openDevice(open: OpenStream, kind: 'audioinput' | 'videoinput', id: string): Promise<MediaStream> {
+  const key = kind === 'audioinput' ? 'audio' : 'video';
+  const attempts = kind === 'videoinput' ? [cameraConstraint(id), deviceConstraint(id)] : [deviceConstraint(id)];
+  let failure: unknown;
+  for (const constraint of attempts) {
+    try {
+      return await open({ [key]: constraint });
+    } catch (err) {
+      failure = err;
+      const name = (err as { name?: string } | undefined)?.name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') break; // asking again would not change the answer
+    }
+  }
+  throw failure;
+}
+
 /** Resets any choice whose device is no longer present (unplugged) to the system default. */
 export function validSelection(selection: DeviceSelection, lists: DeviceLists): DeviceSelection {
   const next = { ...selection };

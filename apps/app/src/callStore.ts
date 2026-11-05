@@ -20,7 +20,7 @@ import { useActivity } from './activities/activityStore';
 import { chimeDurationMs, playChime, prepareChime, type ChimeKind } from './chime';
 import { CLIENT_VERSION, getServerUrl, loadClientConfig } from './config';
 import {
-  deviceConstraint,
+  openDevice,
   loadSelection,
   noDevices,
   saveSelection,
@@ -119,8 +119,7 @@ let previewStarting: Promise<void> | undefined;
 
 /** One new track from the chosen device; if that device is gone, from the system default instead. */
 async function acquireTrack(kind: 'audioinput' | 'videoinput', id: string): Promise<{ track: MediaStreamTrack; id: string }> {
-  const key = kind === 'audioinput' ? 'audio' : 'video';
-  const get = (wanted: string) => navigator.mediaDevices.getUserMedia({ [key]: deviceConstraint(wanted) });
+  const get = (wanted: string) => openDevice((constraints) => navigator.mediaDevices.getUserMedia(constraints), kind, wanted);
   let stream: MediaStream;
   let used = id;
   try {

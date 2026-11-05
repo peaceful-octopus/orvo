@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deviceConstraint, noDevices, noSelection, toDeviceLists, validSelection } from './devices';
+import { CAMERA_PREFERENCE, cameraConstraint, deviceConstraint, noDevices, noSelection, openDevice, toDeviceLists, validSelection } from './devices';
 
 describe('toDeviceLists', () => {
   const raw = [
@@ -39,6 +39,65 @@ describe('deviceConstraint', () => {
   it('asks for an exact device, or for any when none is chosen', () => {
     expect(deviceConstraint('abc')).toEqual({ deviceId: { exact: 'abc' } });
     expect(deviceConstraint('')).toBe(true);
+  });
+});
+
+describe('cameraConstraint', () => {
+  it('asks for 720p at 30 frames per second as a preference, with or without a chosen camera', () => {
+    expect(cameraConstraint('')).toEqual(CAMERA_PREFERENCE);
+    expect(cameraConstraint('cam1')).toEqual({ deviceId: { exact: 'cam1' }, ...CAMERA_PREFERENCE });
+    // `ideal` never makes the request fail; a camera that cannot do it gives the closest it can.
+    expect(JSON.stringify(CAMERA_PREFERENCE)).not.toMatch(/exact|min/);
+  });
+});
+
+describe('openDevice', () => {
+  const stream = {} as MediaStream;
+  const refused = Object.assign(new Error('no'), { name: 'NotAllowedError' });
+  const cannot = Object.assign(new Error('mode'), { name: 'OverconstrainedError' });
+
+  it('opens a camera at the preferred size when it can', async () => {
+    const asked: MediaStreamConstraints[] = [];
+    const result = await openDevice(async (c) => (asked.push(c), stream), 'videoinput', 'cam1');
+    expect(result).toBe(stream);
+    expect(asked).toEqual([{ video: cameraConstraint('cam1') }]);
+  });
+
+  it('opens the camera with no size asked when it cannot be opened at the preferred one', async () => {
+    const asked: MediaStreamConstraints[] = [];
+    const result = await openDevice(
+      async (c) => {
+        asked.push(c);
+        if (asked.length === 1) throw cannot;
+        return stream;
+      },
+      'videoinput',
+      '',
+    );
+    expect(result).toBe(stream);
+    expect(asked).toEqual([{ video: cameraConstraint('') }, { video: true }]);
+  });
+
+  it('keeps the chosen camera in the second attempt', async () => {
+    const asked: MediaStreamConstraints[] = [];
+    await openDevice(async (c) => (asked.push(c), asked.length === 1 ? Promise.reject(cannot) : stream), 'videoinput', 'cam1');
+    expect(asked[1]).toEqual({ video: { deviceId: { exact: 'cam1' } } });
+  });
+
+  it('does not ask again when the person refused access, and passes the error on', async () => {
+    let calls = 0;
+    await expect(openDevice(async () => (calls++, Promise.reject(refused)), 'videoinput', '')).rejects.toBe(refused);
+    expect(calls).toBe(1);
+  });
+
+  it('passes the last error on when every attempt fails', async () => {
+    await expect(openDevice(() => Promise.reject(cannot), 'videoinput', '')).rejects.toBe(cannot);
+  });
+
+  it('asks a microphone for nothing but the device', async () => {
+    const asked: MediaStreamConstraints[] = [];
+    await openDevice(async (c) => (asked.push(c), stream), 'audioinput', 'mic1');
+    expect(asked).toEqual([{ audio: { deviceId: { exact: 'mic1' } } }]);
   });
 });
 
