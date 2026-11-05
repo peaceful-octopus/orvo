@@ -702,6 +702,221 @@
         "overrides": []
       },
       "options": {}
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "Video held back by CPU",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orvo_client_encoder_samples_total{limit=\"cpu\"}[1h])) / sum(rate(orvo_client_encoder_samples_total[1h]))",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Share of ten-second encoder readings, across client calls, in which the browser lowered video quality because the CPU could not keep up."
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Video held back by network",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 52,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orvo_client_encoder_samples_total{limit=\"bandwidth\"}[1h])) / sum(rate(orvo_client_encoder_samples_total[1h]))",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Share of encoder readings in which the browser lowered video quality because the connection could not carry more."
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Calls on a hardware encoder",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 52,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orvo_client_encoder_calls_total{hardware=\"true\"}[1h])) / sum(rate(orvo_client_encoder_calls_total[1h]))",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Share of calls in which a hardware video encoder was in use at some point."
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Average encode time per frame",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 52,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orvo_client_encode_frame_seconds_sum[1h])) / sum(rate(orvo_client_encode_frame_seconds_count[1h]))",
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Mean over calls of the time to encode one video frame. At 30 frames per second a frame has about 33 ms."
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "What limits video quality (share of readings)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (limit) (rate(orvo_client_encoder_samples_total[15m])) / ignoring(limit) group_left sum(rate(orvo_client_encoder_samples_total[15m]))",
+          "legendFormat": "{{limit}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Of all encoder readings, the share where the browser held quality down for CPU, for bandwidth, or not at all. A rising cpu share points at encoding load."
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Encode time per frame",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(orvo_client_encode_frame_seconds_bucket[1h])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(orvo_client_encode_frame_seconds_bucket[1h])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Per-call average encode time per frame, at the median and the 99th percentile of calls."
     }
   ]
 }
