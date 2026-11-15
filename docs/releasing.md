@@ -4,10 +4,11 @@ Windows and macOS installers are built by `.github/workflows/release.yml` when a
 NSIS installer, an MSI, a universal macOS `.dmg`, and `latest.json` (the update manifest) to a **draft** GitHub Release. Publishing the draft
 rolls it out: installed apps poll `https://github.com/<owner>/<repo>/releases/latest/download/latest.json`.
 
-Android is not part of a release. The only Android build is debug-signed with a key that is public (`docs/android.md`), so
-an APK attached to a release could be replaced or updated over by anyone's build. A manual run of the workflow (Actions >
-Release > Run workflow) builds debug APKs as seven-day artifacts for testing. To publish an Android app, add a release
-keystore as repository secrets, sign with it in the workflow, and only then attach the APK to the release.
+The Android app (arm64, `Orvo_<tag>_android_arm64.apk`) is attached to the draft too, but only when the release keystore
+secrets exist (see "Release signing" in `docs/android.md`). Without them the job prints a notice and the release goes out
+without Android. The job checks the finished APK is signed and not with the public debug key, and fails otherwise.
+Debug-signed APKs (public key, so not safe to distribute) are built only by a manual run of the workflow, as seven-day
+artifacts for testing. Android apps do not use `latest.json`; they do not update themselves.
 
 ## One-time setup
 

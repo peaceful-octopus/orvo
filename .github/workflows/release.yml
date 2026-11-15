@@ -2,8 +2,9 @@ name: Release
 # Push a tag such as v1.0.0 (after `pnpm version:set 1.0.0` and a commit) to build the Windows and macOS installers and
 # attach them, with the update manifest the desktop app polls, to a draft GitHub Release. Publish the draft to roll it out. The
 # same tag also publishes the server image to ghcr.io, so the server and the apps are released together.
-# Android APKs are NOT part of a release: they are signed with the public debug key (see docs/android.md). A manual run
-# builds them as artifacts for testing. See docs/releasing.md.
+# The Android APK is attached to the release only when the release keystore secrets are set (docs/android.md); without
+# them the job does nothing. Debug-signed APKs, signed with a public key, are only ever built on a manual run, as artifacts
+# for testing. See docs/releasing.md.
 on:
   push:
     tags: ["v*"]
@@ -120,6 +121,86 @@ jobs:
           path: Orvo_*.apk
           retention-days: 7
           if-no-files-found: error
+
+  # The release APK for phones (arm64), signed with the release keystore from repository secrets. Skipped, with a notice,
+  # until those secrets exist, so a release is never held up by it and never carries a debug-signed app.
+  android-release:
+    if: github.event_name == 'push'
+    needs: desktop
+    runs-on: ubuntu-latest
+    env:
+      ORVO_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ORVO_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ORVO_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ORVO_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - name: Check that the signing secrets are set
+        id: gate
+        run: |
+          if [ -n "$ORVO_ANDROID_KEYSTORE_BASE64" ] && [ -n "$ORVO_ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ORVO_ANDROID_KEY_ALIAS" ] && [ -n "$ORVO_ANDROID_KEY_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Android release skipped: set ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD (docs/android.md)."
+          fi
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.enabled
+      - run: corepack enable pnpm
+        if: steps.gate.outputs.enabled
+      - uses: actions/setup-node@v7
+        if: steps.gate.outputs.enabled
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@v5
+        if: steps.gate.outputs.enabled
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.gate.outputs.enabled
+        with:
+          targets: aarch64-linux-android
+      - uses: swatinem/rust-cache@v2
+        if: steps.gate.outputs.enabled
+        with:
+          workspaces: apps/client/src-tauri
+          key: android-release
+      - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.enabled
+      - name: The tag must match the version in the files
+        if: steps.gate.outputs.enabled
+        run: |
+          pnpm version:check
+          version=$(node -p "require('./package.json').version")
+          test "v$version" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
+      - name: Build the signed release APK
+        if: steps.gate.outputs.enabled
+        run: |
+          echo "$ORVO_ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          export ORVO_ANDROID_KEYSTORE="$RUNNER_TEMP/release.keystore"
+          export NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_ROOT}"
+          pnpm --filter @orvo/client tauri android build --apk --target aarch64
+      # A release must be signed by the release key and by nothing public: check the result, not the settings.
+      - name: Verify the signature
+        if: steps.gate.outputs.enabled
+        run: |
+          apk=$(ls apps/client/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk)
+          test "$(echo "$apk" | wc -l)" = 1
+          case "$apk" in *unsigned*) echo "The APK is unsigned"; exit 1;; esac
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
+          debug=$(keytool -list -v -keystore apps/client/src-tauri/gen/android/app/debug.keystore -storepass android | sed -n 's/^ *SHA256: //p' | tr -d ':' | tr 'A-F' 'a-f')
+          if grep -qi "$debug" "$RUNNER_TEMP/certs.txt"; then echo "The APK is signed with the public debug key"; exit 1; fi
+          cp "$apk" "Orvo_${GITHUB_REF_NAME}_android_arm64.apk"
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+      - uses: softprops/action-gh-release@v2
+        if: steps.gate.outputs.enabled
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: Orvo_*.apk
 
   # The server image is released with the clients, so a server and the apps that talk to it share a version. It is
   # published right away (unlike the draft desktop release): `latest`, the version and the commit.

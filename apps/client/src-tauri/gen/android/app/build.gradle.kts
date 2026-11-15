@@ -14,6 +14,10 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// The release key is never in the repository. CI passes it through the environment (see docs/android.md); without it a
+// release build is left unsigned, which cannot be installed, rather than falling back to the public debug key.
+val releaseKeystore: String? = System.getenv("ORVO_ANDROID_KEYSTORE")?.takeIf { it.isNotBlank() }
+
 android {
     compileSdk = 37
     namespace = "dev.orvo.app"
@@ -35,6 +39,14 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("ORVO_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ORVO_ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ORVO_ANDROID_KEY_PASSWORD")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -50,6 +62,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfig = if (releaseKeystore != null) signingConfigs.getByName("release") else null
             optimization {
                enable = true
             }
