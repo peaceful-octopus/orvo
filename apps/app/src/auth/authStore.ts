@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getServerUrl } from '../config';
 import { useConfig } from '../configStore';
 import { inTauri, isAndroid } from '../platform';
 import { authorizeUrl, claimsOf, createPkce, discover, exchangeCode, needsRefresh, randomString, refreshTokens, type Endpoints, type TokenSet } from './oidc';
@@ -16,6 +17,18 @@ export interface User {
 interface Session {
   tokens: TokenSet;
   user: User;
+  /**
+   * The server and sign-in provider these tokens were issued for. The ID token is a bearer credential for that server,
+   * and the refresh token (and client secret) belong to that provider, so neither is ever sent anywhere else.
+   */
+  server: string;
+  issuer: string;
+}
+
+/** What is kept in local storage. */
+interface Stored extends TokenSet {
+  server?: string;
+  issuer?: string;
 }
 
 interface Pending {
@@ -44,19 +57,20 @@ interface AuthState {
 
 function load(): Session | undefined {
   try {
-    const tokens = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') as TokenSet | null;
-    const claims = tokens && claimsOf(tokens.idToken);
-    // A token that ran out with no way to renew it is a signed-out person, not a half signed-in one.
-    if (!tokens || !claims || (tokens.expiresAt <= Date.now() && !tokens.refreshToken)) return undefined;
-    return { tokens, user: { sub: claims.sub, name: claims.name, email: claims.email } };
+    const { server, issuer, ...tokens } = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') as Stored;
+    const claims = claimsOf(tokens.idToken);
+    // A token that ran out with no way to renew it is a signed-out person, not a half signed-in one. One that does not
+    // say which server it is for (saved by an older version) or is for another server than this one is not used.
+    if (!claims || !server || !issuer || server !== getServerUrl() || (tokens.expiresAt <= Date.now() && !tokens.refreshToken)) return undefined;
+    return { tokens, server, issuer, user: { sub: claims.sub, name: claims.name, email: claims.email } };
   } catch {
     return undefined;
   }
 }
 
-function save(tokens: TokenSet | undefined) {
+function save(session: Pick<Session, 'tokens' | 'server' | 'issuer'> | undefined) {
   try {
-    if (tokens) localStorage.setItem(SESSION_KEY, JSON.stringify(tokens));
+    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify({ ...session.tokens, server: session.server, issuer: session.issuer }));
     else localStorage.removeItem(SESSION_KEY);
   } catch {
     // Without storage the person stays signed in until the page closes.
@@ -196,8 +210,9 @@ export const useAuth = create<AuthState>((set, get) => ({
     const tokens = await exchangeCode({ tokenEndpoint: token, clientId: config.clientId, clientSecret: config.clientSecret, redirectUri: pending.redirectUri, code, verifier: pending.verifier });
     const claims = claimsOf(tokens.idToken)!;
     if (claims.nonce !== pending.nonce) throw new Error('The sign-in response was not meant for this request.');
-    save(tokens);
-    set({ session: { tokens, user: { sub: claims.sub, name: claims.name, email: claims.email } } });
+    const session = { tokens, server: getServerUrl(), issuer: config.issuer };
+    save(session);
+    set({ session: { ...session, user: { sub: claims.sub, name: claims.name, email: claims.email } } });
     return pending.returnTo;
   },
 
@@ -209,6 +224,9 @@ export const useAuth = create<AuthState>((set, get) => ({
   async token() {
     const session = get().session;
     if (!session) return undefined;
+    // Signed in for another server or provider than the one in use now (the server setting changed): act as a guest and
+    // keep the session, which is valid again if the person switches back.
+    if (session.server !== getServerUrl() || session.issuer !== providerConfig()?.issuer) return undefined;
     if (!needsRefresh(session.tokens.expiresAt, Date.now())) return session.tokens.idToken;
     refreshing ??= (async () => {
       try {
@@ -216,7 +234,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         if (!config || !session.tokens.refreshToken) throw new Error('cannot renew');
         const { token } = await endpointsFor(config.issuer);
         const tokens = await refreshTokens({ tokenEndpoint: token, clientId: config.clientId, clientSecret: config.clientSecret, refreshToken: session.tokens.refreshToken });
-        save(tokens);
+        save({ ...session, tokens });
         set({ session: { ...session, tokens } });
         return tokens.idToken;
       } catch {

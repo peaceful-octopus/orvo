@@ -1,8 +1,9 @@
 name: Release
-# Push a tag such as v1.0.0 (after `pnpm version:set 1.0.0` and a commit) to build the Windows and macOS installers and the
-# Android APKs (x86_64 and arm64) and attach them, with the update manifest the desktop app polls, to a draft GitHub Release. Publish the draft to roll it out. The
+# Push a tag such as v1.0.0 (after `pnpm version:set 1.0.0` and a commit) to build the Windows and macOS installers and
+# attach them, with the update manifest the desktop app polls, to a draft GitHub Release. Publish the draft to roll it out. The
 # same tag also publishes the server image to ghcr.io, so the server and the apps are released together.
-# See docs/releasing.md.
+# Android APKs are NOT part of a release: they are signed with the public debug key (see docs/android.md). A manual run
+# builds them as artifacts for testing. See docs/releasing.md.
 on:
   push:
     tags: ["v*"]
@@ -68,8 +69,11 @@ jobs:
           releaseDraft: true
           includeUpdaterJson: true
 
-  # Debug-signed APKs for now: they install by sideloading but are not for the Play Store, which needs a release keystore.
+  # Debug-signed APKs, for testing only: the debug key is public, so anyone could build an APK that installs over one of
+  # these as an update. They are kept as short-lived artifacts of a manual run and never attached to a release. Publishing
+  # an Android app needs a release keystore kept in repository secrets.
   android:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -99,12 +103,6 @@ jobs:
           workspaces: apps/client/src-tauri
           key: android-${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
-      - name: The tag must match the version in the files
-        if: github.event_name == 'push'
-        run: |
-          pnpm version:check
-          version=$(node -p "require('./package.json').version")
-          test "v$version" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
       # The runner image ships the Android SDK and an NDK; Gradle fetches any platform it is missing.
       - run: |
           export NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_NDK_ROOT}"
@@ -122,22 +120,6 @@ jobs:
           path: Orvo_*.apk
           retention-days: 7
           if-no-files-found: error
-
-  # The desktop job creates the draft release, so the APKs are added once it exists.
-  attach-android:
-    if: github.event_name == 'push'
-    needs: [desktop, android]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: orvo-android-*
-          merge-multiple: true
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          draft: true
-          files: Orvo_*.apk
 
   # The server image is released with the clients, so a server and the apps that talk to it share a version. It is
   # published right away (unlike the draft desktop release): `latest`, the version and the commit.

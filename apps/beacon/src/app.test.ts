@@ -204,6 +204,31 @@ describe('tiers and TURN', () => {
   });
 });
 
+describe('the beacon address in the signed config', () => {
+  const beaconUrls = async (host: string) => {
+    const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host } });
+    const result = verifyConfig(res.json(), { keys: { [key.kid]: key.publicKey }, now: clock.now, graceMs: 0 });
+    return { urls: result.ok ? result.config.beaconUrls : undefined, vary: res.headers.vary };
+  };
+
+  it('is the configured public address, whatever Host the request names', async () => {
+    await start({ publicUrl: 'https://orvo.example.com/' });
+    expect((await beaconUrls('evil.example')).urls).toEqual(['https://orvo.example.com']);
+    const joined = await join({ room: 'quiet-pond-reed' }, { host: 'evil.example' });
+    expect(joined.json().signalingUrl).toBe('wss://orvo.example.com/ws');
+  });
+
+  it('follows the Host header without one, and tells caches so', async () => {
+    await start();
+    expect(await beaconUrls('orvo.example.com')).toEqual({ urls: ['http://orvo.example.com'], vary: 'host' });
+  });
+
+  it('refuses a public address that is not http(s)', async () => {
+    await expect(start({ publicUrl: 'ftp://orvo.example.com' })).rejects.toThrow(/PUBLIC_URL/);
+    app = await createBeaconApp({ signingKey: signingKey(key), store: new MemoryPlacementStore(nodes), stunUrls: [] });
+  });
+});
+
 describe('limits and announcements', () => {
   it('publishes configured limits, tiers and announcement in the signed config', async () => {
     const announcement = { id: 'maint-1', text: 'Maintenance on Friday.' };

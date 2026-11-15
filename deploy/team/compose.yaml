@@ -42,6 +42,7 @@ services:
       REDIS_URL: redis://redis:6379
       SIGNING_KEY: ${SIGNING_KEY:?generate one with the sign-config keygen command}
       BEHIND_PROXY: "1"
+      PUBLIC_URL: https://${DOMAIN:?set DOMAIN}
       STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
       TURN_URLS: ${TURN_URLS:-}
       TURN_SECRET: ${TURN_SECRET:-}

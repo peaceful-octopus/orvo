@@ -105,6 +105,12 @@ export interface BeaconOptions {
   /** Requests per minute per client IP; `false` disables limiting. */
   rateLimitPerMinute?: number | false;
   trustProxy?: boolean;
+  /**
+   * The address clients reach this beacon at, such as `https://orvo.example.com`. It is what the signed config publishes
+   * as the beacon's address. Without it the address comes from the request's Host header, which the caller controls, so
+   * a request for any host gets a validly signed config naming that host.
+   */
+  publicUrl?: string;
 }
 
 const JOIN_TOKEN_TTL_MS = 60_000;
@@ -115,8 +121,8 @@ const CONFIG_TTL_MS = 3600_000;
 
 const TIER_RANK: Record<Tier, number> = { free: 0, 'relay-lite': 1, full: 2 };
 
-function requestOrigin(req: FastifyRequest): string {
-  return `${req.protocol}://${req.headers.host}`;
+function requestOrigin(req: FastifyRequest, publicUrl?: string): string {
+  return publicUrl ?? `${req.protocol}://${req.headers.host}`;
 }
 
 export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInstance> {
@@ -126,6 +132,11 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
   // Options, with whatever the operator has changed since the server started laid over them.
   const cur = () => ({ ...opts, ...opts.live?.() });
   const roomRecordTtl = opts.roomRecordTtlMs ?? 24 * 3600_000;
+  if (opts.publicUrl) {
+    const url = new URL(opts.publicUrl);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('PUBLIC_URL must be an http(s) address.');
+    opts = { ...opts, publicUrl: url.origin };
+  }
   const initial = cur();
   if ((initial.roomCreation === 'signed-in' || initial.defaultRoomAccess === 'signed-in') && !opts.auth) {
     throw new Error('Requiring sign-in needs an identity provider: configure `auth` (OIDC_ISSUER and OIDC_CLIENT_ID).');
@@ -204,7 +215,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       validUntil: t + CONFIG_TTL_MS,
       minClientVersion: c.minClientVersion ?? '0.0.0',
       minProtocol: 1,
-      beaconUrls: [requestOrigin(req)],
+      beaconUrls: [requestOrigin(req, opts.publicUrl)],
       limits: {
         maxRoomSize: c.limits?.maxRoomSize ?? MAX_ROOM_SIZE,
         warnRoomSize: c.limits?.warnRoomSize ?? WARN_ROOM_SIZE,
@@ -229,6 +240,8 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
           }
         : undefined,
     };
+    // Without a configured address the config names whatever host was asked for, so a shared cache must not reuse it for another.
+    if (!opts.publicUrl) reply.header('vary', 'host');
     return reply.header('cache-control', 'max-age=60').send(signConfig(config, kid, secretKey));
   });
 
@@ -404,7 +417,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     }
 
     const peerId = resumed?.peerId ?? `p${randomId(6)}`;
-    const url = opts.nodeUrl?.(node, req) ?? node.url ?? requestOrigin(req).replace(/^http/, 'ws') + '/ws';
+    const url = opts.nodeUrl?.(node, req) ?? node.url ?? requestOrigin(req, opts.publicUrl).replace(/^http/, 'ws') + '/ws';
 
     const tier = await tierFor(body.room, body.entitlement, who.identity);
     const c = cur();

@@ -15,8 +15,10 @@ State lives in the `orvo-data` volume: a generated signing key (`keys.json`) so 
 **Friends over the internet need HTTPS.** Browsers only allow camera access on `localhost` or over HTTPS. Put your own reverse proxy in front of port 8080. It must pass WebSocket upgrades on `/ws`, and you set `BEHIND_PROXY=1` so the server builds `wss://` URLs:
 
 ```
-BEHIND_PROXY=1 docker compose up -d
+BEHIND_PROXY=1 PUBLIC_URL=https://orvo.example.com docker compose up -d
 ```
+
+`PUBLIC_URL` is the address people reach the server at. The server signs it into its config as the beacon's address; without it the address comes from the request's `Host` header, which anyone can set, so a request naming another host gets a validly signed config that points clients there. Set it on every server that is reachable from the internet. (The small-team compose file derives it from `DOMAIN`.)
 
 **STUN.** Clients use Google's public STUN server by default. To use another, set `STUN_URLS=stun:your-host:3478`.
 
@@ -53,7 +55,7 @@ Details, the exact behavior and provider setup: [accounts.md](accounts.md).
 
 **GIFs.** To offer a GIF picker, create a Web SDK key in the [Giphy developer dashboard](https://developers.giphy.com/) and set `GIPHY_API_KEY`. The server publishes it to clients in its signed config; it is public by design (it ships to every browser), so use a key made for this app and keep an eye on its quota (new keys start with a low hourly limit until Giphy approves a production key). Without the key the GIF button is hidden and emoji reactions still work. The desktop and web apps never contain the key themselves, so installers can be shared freely and the key can be rotated on the server. When developing, `VITE_GIPHY_API_KEY` in `apps/app/.env.local` (which git ignores) works with the development server only, and a release build fails if that key ends up in its output. To use GIFs with a locally built installer, start the server with `GIPHY_API_KEY` set.
 
-Configuration (environment variables): `PORT` (8080), `DATA_DIR` (`/data`), `ACTIVITIES_DIR` (`<DATA_DIR>/activities`, extra activities to offer in calls; see [activities.md](activities.md)), `STUN_URLS` (comma separated), `CORS_ORIGIN` (any), `BEHIND_PROXY`, `GIPHY_API_KEY`, `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_AUDIENCE` / `OIDC_SCOPE`, `ROOM_CREATION` (`anyone` or `signed-in`), `DEFAULT_ROOM_ACCESS` (`anyone` or `signed-in`), `DRAIN_MS` (5000, delay before shutdown so clients can finish), `MAX_ROOM_SIZE` / `WARN_ROOM_SIZE` (20 / 12), `MIN_CLIENT_VERSION` (refuse older apps), `ANNOUNCEMENT` and `ANNOUNCEMENT_ID` (a dismissible notice shown to everyone; change the id to show a new one).
+Configuration (environment variables): `PORT` (8080), `DATA_DIR` (`/data`), `ACTIVITIES_DIR` (`<DATA_DIR>/activities`, extra activities to offer in calls; see [activities.md](activities.md)), `STUN_URLS` (comma separated), `CORS_ORIGIN` (any), `BEHIND_PROXY`, `PUBLIC_URL`, `GIPHY_API_KEY`, `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_AUDIENCE` / `OIDC_SCOPE`, `ROOM_CREATION` (`anyone` or `signed-in`), `DEFAULT_ROOM_ACCESS` (`anyone` or `signed-in`), `DRAIN_MS` (5000, delay before shutdown so clients can finish), `MAX_ROOM_SIZE` / `WARN_ROOM_SIZE` (20 / 12), `MIN_CLIENT_VERSION` (refuse older apps), `ANNOUNCEMENT` and `ANNOUNCEMENT_ID` (a dismissible notice shown to everyone; change the id to show a new one).
 
 Without Docker: `pnpm install`, `pnpm --filter @orvo/app build`, `pnpm --filter @orvo/server start`.
 
@@ -95,7 +97,7 @@ Two things to know:
 - If Redis cannot be read when a beacon starts, it starts with the environment's values and logs a warning, then loads the saved ones as soon as Redis answers.
 - Behind your reverse proxy the admin page is hidden (it answers 404) unless you set `ADMIN_ALLOW_REMOTE=1`. It is protected by its password and a login rate limit, and the check that the request is local only works without a proxy. Use it only over HTTPS.
 
-Beacon environment: `ADMIN_PASSWORD`, `ADMIN_ALLOW_REMOTE`, `ACTIVITIES_DIR`, `REDIS_URL`, `SIGNING_KEY`, `STUN_URLS`, `TURN_URLS`, `TURN_SECRET`, `TURN_LITE_URLS`, `TURN_LITE_SECRET` (capped pool), `MAX_ROOM_SIZE`, `WARN_ROOM_SIZE`, `RELAY_VIDEO_KBPS`, `RELAY_VIDEO_SCALE`, `RELAY_VIDEO_FPS`, `MIN_CLIENT_VERSION`, `ANNOUNCEMENT`, `ANNOUNCEMENT_ID`, `GIPHY_API_KEY`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_AUDIENCE`, `OIDC_SCOPE`, `ROOM_CREATION`, `DEFAULT_ROOM_ACCESS` (see [accounts.md](accounts.md); with several beacons and `REDIS_URL`, room owners and rules are shared through Redis), `CONFIG_FILE` (a pre-signed config served as is), `WEB_DIR`, `CORS_ORIGIN`, `BEHIND_PROXY`. Node environment: `BEACON_URL` or `TRUSTED_KEYS`, `REDIS_URL`, `PUBLIC_WS_URL`, `NODE_ID`, `REGION`, `WEIGHT`, `DRAIN_MS`.
+Beacon environment: `ADMIN_PASSWORD`, `ADMIN_ALLOW_REMOTE`, `ACTIVITIES_DIR`, `REDIS_URL`, `SIGNING_KEY`, `STUN_URLS`, `TURN_URLS`, `TURN_SECRET`, `TURN_LITE_URLS`, `TURN_LITE_SECRET` (capped pool), `MAX_ROOM_SIZE`, `WARN_ROOM_SIZE`, `RELAY_VIDEO_KBPS`, `RELAY_VIDEO_SCALE`, `RELAY_VIDEO_FPS`, `MIN_CLIENT_VERSION`, `ANNOUNCEMENT`, `ANNOUNCEMENT_ID`, `GIPHY_API_KEY`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_AUDIENCE`, `OIDC_SCOPE`, `ROOM_CREATION`, `DEFAULT_ROOM_ACCESS` (see [accounts.md](accounts.md); with several beacons and `REDIS_URL`, room owners and rules are shared through Redis), `CONFIG_FILE` (a pre-signed config served as is), `WEB_DIR`, `CORS_ORIGIN`, `BEHIND_PROXY`, `PUBLIC_URL`. Node environment: `BEACON_URL` or `TRUSTED_KEYS`, `REDIS_URL`, `PUBLIC_WS_URL`, `NODE_ID`, `REGION`, `WEIGHT`, `DRAIN_MS`.
 
 ### STUN and relay (TURN)
 - **STUN** lets two browsers find a direct path to each other and costs almost no bandwidth. Everyone gets it. The default is Google's public server; to use your own, run `docker compose --profile stun up -d` (both compose files have the profile) and set `STUN_URLS=stun:stun.your-domain:3478`.

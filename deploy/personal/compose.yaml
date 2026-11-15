@@ -16,6 +16,9 @@ services:
       - "8080:8080"
     environment:
       BEHIND_PROXY: ${BEHIND_PROXY:-}
+      # The address people reach this server at, such as https://orvo.example.com. Set it for a server on the internet:
+      # without it the address in the signed config is taken from the request's Host header.
+      PUBLIC_URL: ${PUBLIC_URL:-}
       # The admin page at /admin, for changing the settings below without restarting. It exists only with a password, and
       # only answers from your local network (open it by the server's LAN address) unless ADMIN_ALLOW_REMOTE=1.
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}

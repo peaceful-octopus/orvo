@@ -25,7 +25,8 @@ Debug APKs, whether built on a developer machine or on GitHub, are signed with `
 the repository and public (password `android`). Every build then has the same signature, so a new APK installs over the
 old one. Never use this key for anything that is published; the Play Store needs a release key that is kept secret. The
 key's SHA-1 is `27:9C:DC:CC:7C:22:7E:43:33:4D:02:11:2C:AA:F6:49:61:64:96:70`, for the Android OAuth client in Google Cloud Console. Release APKs need a signing
-keystore, which is not set up yet.
+keystore, which is not set up yet, so releases carry no Android app: the Release workflow builds debug APKs only on a
+manual run, as short-lived artifacts for testing.
 
 ## Signing in with Google
 
