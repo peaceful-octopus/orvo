@@ -39,6 +39,34 @@ export interface PlacementStore {
   touchRoom(room: string, ttlMs: number): Promise<void>;
   /** Replaces the record of an existing room; returns false when the room has expired. */
   updateRoom(room: string, record: RoomRecord, ttlMs: number): Promise<boolean>;
+
+  /**
+   * People the room's owner removed, by peer id and by account. Written by the signaling node that removed them and read
+   * by the beacon, which then keeps them out wherever the room runs next, even after the node or the room is gone.
+   */
+  getBans(room: string): Promise<RoomBans>;
+  addBan(room: string, ban: { peerId: string; acct?: string }, ttlMs: number): Promise<void>;
+  /**
+   * Who a signaling node has admitted to the room, written by the node. A locked room readmits only these, so "was already
+   * in the room" means a node let them in, and not merely that the beacon once handed them a token.
+   */
+  addMember(room: string, peerId: string, ttlMs: number): Promise<void>;
+  isMember(room: string, peerId: string): Promise<boolean>;
+}
+
+export interface RoomBans {
+  peers: string[];
+  accts: string[];
+}
+
+/** What a node needs of the store to make removals and admissions last. */
+export type RoomAccessWriter = Pick<PlacementStore, 'addBan' | 'addMember'>;
+
+/** The shared store cannot be reached and what was asked is not something this beacon remembers, so it cannot be answered safely. */
+export class StoreUnavailableError extends Error {
+  constructor() {
+    super('The placement store is unreachable.');
+  }
 }
 
 export class NoNodesError extends Error {

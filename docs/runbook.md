@@ -34,7 +34,7 @@ Clients keep a list of beacon addresses from the signed config. Add the new addr
 2. On every beacon, set `SIGNING_KEY=<new-id>:<secret>` and `PREVIOUS_PUBLIC_KEYS='{"<old-id>":"<old public key>"}'`. `GET /v1/keys` now publishes both.
 3. Signaling nodes fetching keys from `BEACON_URL` learn the new key within five minutes without a restart. Nodes with a fixed `TRUSTED_KEYS` need it updated first, **before** step 2.
 4. Apps without embedded keys re-fetch keys from the beacon when a signature fails. Apps built with `VITE_TRUSTED_KEYS` need a release that embeds the new public key; ship that **before** step 2 and wait for it to spread.
-5. After the longest-lived tokens have expired (resume tokens last 15 minutes) and cached configs have been refreshed, remove `PREVIOUS_PUBLIC_KEYS` and restart the nodes once to drop the old key.
+5. After the longest-lived tokens have expired (resume tokens last six hours; beacons accept ones signed by any key still in `PREVIOUS_PUBLIC_KEYS`, so rotating does not log anyone out of a locked room) and cached configs have been refreshed, remove `PREVIOUS_PUBLIC_KEYS` and restart the nodes once to drop the old key.
 
 ## Alerts
 Each heading is an alert name from `deploy/observability/alerts.yml`.
@@ -67,7 +67,7 @@ A node uses over 1.5 GB. Measured memory per connection is in `docs/capacity.md`
 Clients are being disconnected for sending signals too fast. One abusive client is closed and may reconnect and repeat; many suggests a buggy client version. Check `orvo_beacon_joins_by_client_version_total` on the beacon to see which client versions are joining, and consider `MIN_CLIENT_VERSION`.
 
 ### PlacementStoreDegraded
-A beacon cannot reach Redis and is placing rooms from memory. Running calls are unaffected, rooms stay on their nodes, and new joins still succeed. Risk: two beacons may place the *same new room* on different nodes until Redis returns, splitting that room. Restore Redis; the beacon recovers by itself. Rooms split during the outage correct themselves when members next reconnect.
+A beacon cannot reach Redis and is placing rooms from memory. Running calls are unaffected, rooms stay on their nodes, and rooms this beacon has already seen, and new rooms it makes itself, still work. A join to a room it has *not* seen (a typed name, say, that another beacon created or locked) is answered 503 `room-state-unavailable` and the client retries, because the room might be locked or owned by someone and the beacon will not guess. Risk: two beacons may place the *same new room* on different nodes until Redis returns, splitting that room. Restore Redis; the beacon recovers by itself. Rooms split during the outage correct themselves when members next reconnect.
 
 ### DirectConnectionRateLow
 Under 80% of connected pairs are direct. Free rooms have no relay, so the remainder either need a relay (entitled rooms) or fail (see `PeersUnreachableHigh`). A drop usually means a large group of users on restrictive networks (a company or school adopting the app). It is a signal for sizing relay capacity, not an incident.
@@ -88,7 +88,7 @@ Its rooms move to other nodes. Clients reconnect within seconds (the drill asser
 Nothing deregisters it, so for up to the registration TTL (6 s) the beacon may still hand out its address and clients fail to connect. They retry with delays capped at 4 s (an unreachable beacon backs off up to 30 s instead), so once the registration lapses the next attempt succeeds elsewhere and rooms are consistently on one surviving node. Each client makes exactly one reconnect loop, however many attempts fail. A longer TTL tolerates a Redis blip without nodes dropping out; a shorter one recovers faster.
 
 ### Redis is unreachable
-Connected calls are untouched. Beacons answer from memory (`PlacementStoreDegraded` fires): existing rooms still resolve to their nodes and new rooms can still be created. Nodes log store errors and keep serving. When Redis returns, leases are renewed and rooms have not moved.
+Connected calls are untouched. Beacons answer from memory (`PlacementStoreDegraded` fires): existing rooms still resolve to their nodes and new rooms can still be created; joins to rooms the beacon has not seen are refused with 503 until Redis returns (access rules fail closed). Nodes log store errors and keep serving. When Redis returns, leases are renewed and rooms have not moved.
 
 ### The beacon is unreachable
 Connected calls are untouched. A client whose signaling connection drops cannot rejoin until a beacon answers, and keeps retrying with growing, jittered delays; when a beacon returns it rejoins with the same identity.

@@ -82,7 +82,7 @@ How it relates to the environment: the compose settings (`MAX_ROOM_SIZE`, `ANNOU
 Not in the admin page, because they need a restart: sign-in (`OIDC_*`), `BEHIND_PROXY`, `CORS_ORIGIN`, `RATE_LIMIT_PER_MINUTE`, `PORT` and `DATA_DIR`. A relay secret changed in the admin page does not change the coturn container, which must be recreated with the same secret.
 
 ## 2. Small team: beacon, signaling nodes and Redis
-`deploy/team/compose.yaml` runs a beacon, two signaling nodes and Redis from the same image. It does not terminate HTTPS; you put your own reverse proxy in front (see below). Nodes register themselves in Redis and keep their rooms' leases alive; the beacon places each room on one node and every participant of that room is sent to it.
+`deploy/team/compose.yaml` runs a beacon, two signaling nodes and Redis from the same image. It does not terminate HTTPS; you put your own reverse proxy in front (see below). Nodes register themselves in Redis, keep their rooms' leases alive and record there who they admit and who a room's owner removes (so a locked room and a removal hold across nodes and restarts); the beacon places each room on one node and every participant of that room is sent to it.
 
 ```
 cd tools/sign-config && pnpm exec tsx src/main.ts keygen --kid prod-1    # prints the signing key pair

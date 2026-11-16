@@ -203,8 +203,18 @@ describe('Redis outage', () => {
     clients.push(newcomer);
     expect(newcomer.welcomePeers).toBe(3);
 
-    // Brand new rooms can still be created, and stay put.
-    const fresh = generateRoomId();
+    // A join to a room this beacon has not seen is refused, not treated as new: it might be locked or owned by someone.
+    const unseen = await fetch(new URL('/v1/rooms/join', harness.beaconUrl), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ room: generateRoomId() }),
+    });
+    expect(unseen.status).toBe(503);
+    expect(((await unseen.json()) as { code: string }).code).toBe('room-state-unavailable');
+
+    // Brand new rooms, started the way the app starts them, can still be created, and stay put.
+    const created = await fetch(new URL('/v1/rooms', harness.beaconUrl), { method: 'POST' });
+    const fresh = ((await created.json()) as { room: string }).room;
     const first = await nodeFor(harness, fresh);
     expect(await nodeFor(harness, fresh)).toBe(first);
     const lone = new SimClient({ beaconUrl: harness.beaconUrl, room: fresh, name: 'new-room', reporter });

@@ -13,15 +13,17 @@ const nodeId = 'local';
 // One registry for the whole process, so /metrics shows the beacon and the signaling node together.
 const metrics = new Metrics({ defaultMetrics: true });
 
+const store = new MemoryPlacementStore([{ id: nodeId, region: 'default', weight: 1, draining: false }]);
 const server = await createBeaconServer({
   env: process.env,
-  store: new MemoryPlacementStore([{ id: nodeId, region: 'default', weight: 1, draining: false }]),
+  store,
   metrics,
   webDir: process.env.WEB_DIR ?? path.resolve(here, '../../app/dist'),
   // Activities that ship with the server; an operator's own come from ACTIVITIES_DIR.
   bundledActivities: path.resolve(here, '../activities'),
   // There is no entitlement service on a personal server to grant a relay, so one that is configured serves every room.
   relayForEveryRoom: true,
+  nodesShareStore: true,
 });
 const { app } = server;
 
@@ -29,6 +31,8 @@ const signaling = new SignalingServer({
   nodeId,
   keys: { [server.signingKey.kid]: server.signingKey.publicKey },
   metrics: { registry: metrics.registry },
+  // The node and the beacon share this process's store, so what the node admits and removes is what the beacon enforces.
+  roomAccess: store,
 });
 signaling.attach(app.server);
 

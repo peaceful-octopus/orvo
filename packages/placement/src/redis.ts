@@ -1,6 +1,6 @@
 import { RoomRecord, Tier } from '@orvo/protocol';
 import type { Redis } from 'ioredis';
-import type { NodeInfo, PlacementStore } from './types';
+import type { NodeInfo, PlacementStore, RoomBans } from './types';
 
 // Replace the lease only if it still names the expected (dead) owner.
 const TAKE_OVER = `
@@ -108,5 +108,25 @@ export class RedisPlacementStore implements PlacementStore {
 
   async updateRoom(room: string, record: RoomRecord, ttlMs: number) {
     return (await this.redis.set(this.key('room', room), JSON.stringify(record), 'PX', ttlMs, 'XX')) === 'OK';
+  }
+
+  async getBans(room: string): Promise<RoomBans> {
+    const [peers, accts] = await Promise.all([this.redis.smembers(this.key('ban-peers', room)), this.redis.smembers(this.key('ban-accts', room))]);
+    return { peers, accts };
+  }
+
+  async addBan(room: string, ban: { peerId: string; acct?: string }, ttlMs: number) {
+    const tx = this.redis.multi();
+    tx.sadd(this.key('ban-peers', room), ban.peerId).pexpire(this.key('ban-peers', room), ttlMs);
+    if (ban.acct) tx.sadd(this.key('ban-accts', room), ban.acct).pexpire(this.key('ban-accts', room), ttlMs);
+    await tx.exec();
+  }
+
+  async addMember(room: string, peerId: string, ttlMs: number) {
+    await this.redis.set(this.key('member', `${room}:${peerId}`), '1', 'PX', ttlMs);
+  }
+
+  async isMember(room: string, peerId: string) {
+    return (await this.redis.exists(this.key('member', `${room}:${peerId}`))) === 1;
   }
 }

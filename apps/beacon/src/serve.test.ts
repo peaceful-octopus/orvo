@@ -26,6 +26,7 @@ async function start(env: Record<string, string> = {}, extra: { relayForEveryRoo
     env: { DATA_DIR: dir, SIGNING_KEY, RATE_LIMIT_PER_MINUTE: '0', ...env },
     store: nodes(),
     relayForEveryRoom: extra.relayForEveryRoom ?? false,
+    nodesShareStore: false,
     redis: extra.redis,
   });
   servers.push(server);
@@ -89,7 +90,7 @@ describe('createBeaconServer', () => {
     );
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orvo-serve-'));
     dirs.push(dir);
-    const server = await createBeaconServer({ env: { DATA_DIR: dir, SIGNING_KEY }, store: nodes(), bundledActivities: bundled, relayForEveryRoom: false });
+    const server = await createBeaconServer({ env: { DATA_DIR: dir, SIGNING_KEY }, store: nodes(), bundledActivities: bundled, relayForEveryRoom: false, nodesShareStore: false });
     servers.push(server);
     expect((await payload(server)).activities?.map((a) => a.id)).toEqual(['demo']);
   });

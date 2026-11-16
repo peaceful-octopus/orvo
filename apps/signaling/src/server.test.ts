@@ -277,6 +277,67 @@ describe('leaving, resuming and draining', () => {
   });
 });
 
+describe('recording who is admitted and removed', () => {
+  function recorder(failWith?: Error) {
+    const members: string[] = [];
+    const bans: { peerId: string; acct?: string }[] = [];
+    return {
+      members,
+      bans,
+      access: {
+        addMember: async (_room: string, peerId: string) => {
+          if (failWith) throw failWith;
+          members.push(peerId);
+        },
+        addBan: async (_room: string, ban: { peerId: string; acct?: string }) => {
+          if (failWith) throw failWith;
+          bans.push(ban);
+        },
+      },
+    };
+  }
+  const joinAs = (peerId: string, overrides: Record<string, unknown> = {}) => {
+    const client = connect();
+    client.send({ type: 'join', token: makeJoinToken(keys, { room: ROOM, peerId, ...overrides }, clock.now), name: peerId });
+    return client;
+  };
+
+  it('tells the store who it admitted, and who the owner removed with their account', async () => {
+    const r = recorder();
+    await start({ roomAccess: r.access });
+    const boss = joinAs('owner', { owner: true, acct: 'idp|boss' });
+    await boss.next('welcome');
+    const bob = joinAs('bob', { acct: 'idp|bob' });
+    await bob.next('welcome');
+    expect(r.members.sort()).toEqual(['bob', 'owner']);
+    boss.send({ type: 'kick', peerId: 'bob' });
+    await bob.next('kicked');
+    expect(r.bans).toEqual([{ peerId: 'bob', acct: 'idp|bob' }]);
+  });
+
+  it('does not admit anyone it refused', async () => {
+    const r = recorder();
+    await start({ roomAccess: r.access });
+    const stranger = joinAs('x', { exp: clock.now - 1 });
+    await stranger.next('error');
+    expect(r.members).toEqual([]);
+  });
+
+  it('still admits and removes when the store cannot be written, and says so', async () => {
+    const errors: unknown[] = [];
+    const r = recorder(new Error('redis is down'));
+    await start({ roomAccess: r.access, onAccessError: (e) => errors.push(e) });
+    const boss = joinAs('owner', { owner: true });
+    await boss.next('welcome');
+    const bob = joinAs('bob');
+    await bob.next('welcome');
+    boss.send({ type: 'kick', peerId: 'bob' });
+    await bob.next('kicked');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(errors.length).toBe(3);
+  });
+});
+
 describe('removing people (kicking)', () => {
   async function joinAs(peerId: string, overrides: Record<string, unknown> = {}) {
     const client = connect();

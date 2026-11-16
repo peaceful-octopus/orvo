@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { requestJoin } from './beacon-session';
-import { BeaconUnavailableError, JoinError, UpgradeRequiredError } from './transport';
+import { BeaconUnavailableError, JoinError, KickedError, RoomLockedError, UpgradeRequiredError } from './transport';
 
 const session = {
   signalingUrl: 'wss://n1/ws',
@@ -63,5 +63,12 @@ describe('requestJoin', () => {
     await expect(requestJoin(['https://a.example'], params, f.impl)).rejects.toBeInstanceOf(BeaconUnavailableError);
     const g = fakeFetch({ 'https://a.example': json({}, 503) });
     await expect(requestJoin(['https://a.example'], params, g.impl)).rejects.toThrow('No server is available');
+  });
+
+  it('reports being removed from a room, and a locked room, as what they are', async () => {
+    const removed = fakeFetch({ 'https://a.example': json({ error: 'removed', code: 'removed-from-room' }, 403) });
+    await expect(requestJoin(['https://a.example'], params, removed.impl)).rejects.toBeInstanceOf(KickedError);
+    const locked = fakeFetch({ 'https://a.example': json({ error: 'locked', code: 'room-locked' }, 403) });
+    await expect(requestJoin(['https://a.example'], params, locked.impl)).rejects.toBeInstanceOf(RoomLockedError);
   });
 });

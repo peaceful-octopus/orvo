@@ -1,5 +1,5 @@
 import type { RoomRecord, Tier } from '@orvo/protocol';
-import { StoreFullError, type NodeInfo, type PlacementStore } from './types';
+import { StoreFullError, type NodeInfo, type PlacementStore, type RoomBans } from './types';
 
 interface Expiring<T> {
   value: T;
@@ -17,6 +17,8 @@ export class MemoryPlacementStore implements PlacementStore {
   private leases = new Map<string, Expiring<string>>();
   private tiers = new Map<string, Expiring<Tier>>();
   private rooms = new Map<string, Expiring<RoomRecord>>();
+  private bans = new Map<string, Expiring<{ peers: Set<string>; accts: Set<string> }>>();
+  private members = new Map<string, Expiring<true>>();
 
   private nextSweep = 0;
 
@@ -31,7 +33,7 @@ export class MemoryPlacementStore implements PlacementStore {
   /** Removes everything that has expired. Reads already ignore it; this is what lets the memory go. */
   sweep() {
     const now = this.now();
-    for (const map of [this.nodes, this.leases, this.tiers, this.rooms] as Map<string, Expiring<unknown>>[]) {
+    for (const map of [this.nodes, this.leases, this.tiers, this.rooms, this.bans, this.members] as Map<string, Expiring<unknown>>[]) {
       for (const [key, entry] of map) if (entry.expires <= now) map.delete(key);
     }
   }
@@ -115,6 +117,32 @@ export class MemoryPlacementStore implements PlacementStore {
     if (!this.live(this.rooms, room)) return false;
     this.rooms.set(room, { value: record, expires: this.now() + ttlMs });
     return true;
+  }
+
+  /** Stores a record read elsewhere, replacing any older copy, so this store can stand in if that source becomes unavailable. */
+  setRoom(room: string, record: RoomRecord, ttlMs: number) {
+    this.rooms.set(room, { value: record, expires: this.now() + ttlMs });
+  }
+
+  async getBans(room: string): Promise<RoomBans> {
+    const found = this.live(this.bans, room);
+    return { peers: [...(found?.peers ?? [])], accts: [...(found?.accts ?? [])] };
+  }
+
+  async addBan(room: string, ban: { peerId: string; acct?: string }, ttlMs: number) {
+    const found = this.live(this.bans, room) ?? { peers: new Set<string>(), accts: new Set<string>() };
+    found.peers.add(ban.peerId);
+    if (ban.acct) found.accts.add(ban.acct);
+    this.bans.set(room, { value: found, expires: this.now() + ttlMs });
+  }
+
+  async addMember(room: string, peerId: string, ttlMs: number) {
+    this.sweepSometimes();
+    this.members.set(`${room}\0${peerId}`, { value: true, expires: this.now() + ttlMs });
+  }
+
+  async isMember(room: string, peerId: string) {
+    return this.live(this.members, `${room}\0${peerId}`) === true;
   }
 
   private live<T>(map: Map<string, Expiring<T>>, key: string): T | undefined {

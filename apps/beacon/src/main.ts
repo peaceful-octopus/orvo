@@ -45,6 +45,8 @@ const server = await createBeaconServer({
   bundledActivities: path.resolve(here, '../activities'),
   // Only rooms an entitlement names get a relay; the relay in the settings is that paid pool.
   relayForEveryRoom: false,
+  // Nodes write who they admit and remove to Redis; with a static node list they have no way to reach this beacon's store.
+  nodesShareStore: Boolean(redis),
 });
 const port = Number(process.env.PORT ?? 8080);
 await server.listen(port);

@@ -4,6 +4,8 @@ import {
   WARN_ROOM_SIZE,
   CreateRoomRequest,
   INVALID_TOKEN,
+  REMOVED_FROM_ROOM,
+  ROOM_STATE_UNAVAILABLE,
   JoinRequest,
   LOGIN_REQUIRED_TO_CREATE,
   LOGIN_REQUIRED_TO_JOIN,
@@ -18,6 +20,7 @@ import {
   signConfig,
   signJoinToken,
   signResumeToken,
+  fromBase64Url,
   toBase64Url,
   verifyResumeToken,
   type ActivityManifest,
@@ -30,7 +33,7 @@ import {
   type VideoTierRule,
 } from '@orvo/protocol';
 import { LATENCY_BUCKETS, METRICS_REFUSED, Metrics, checkMetricsToken, metricsAllowed } from '@orvo/metrics';
-import { NoNodesError, StoreFullError, placeRoom, type NodeInfo, type PlacementStore } from '@orvo/placement';
+import { NoNodesError, StoreFullError, StoreUnavailableError, placeRoom, type NodeInfo, type PlacementStore } from '@orvo/placement';
 import cors, { type FastifyCorsOptionsDelegate } from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
@@ -117,6 +120,12 @@ export interface BeaconOptions {
    */
   adminOrigins?: string[];
   /**
+   * Whether the signaling nodes write to `store`: who they admitted and who the owner removed. Then a locked room readmits
+   * only admitted people and removals last beyond the node that made them. False when the nodes cannot reach the store (a
+   * static node list with no Redis), where a locked room trusts a valid resume token and removals are the node's own memory.
+   */
+  nodesShareStore?: boolean;
+  /**
    * The address clients reach this beacon at, such as `https://orvo.example.com`. It is what the signed config publishes
    * as the beacon's address. Without it the address comes from the request's Host header, which the caller controls, so
    * a request for any host gets a validly signed config naming that host.
@@ -139,6 +148,11 @@ function requestOrigin(req: FastifyRequest, publicUrl?: string): string {
 export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInstance> {
   const now = opts.now ?? Date.now;
   const { kid, secretKey, publicKey } = opts.signingKey;
+  // Resume tokens signed by a key that is being rotated out stay good until they expire, like the config does.
+  const resumeKeys = {
+    ...Object.fromEntries(Object.entries(opts.previousPublicKeys ?? {}).map(([id, key]) => [id, fromBase64Url(key)])),
+    [kid]: publicKey,
+  };
   const app = Fastify({ trustProxy: opts.trustProxy ?? false });
   // Options, with whatever the operator has changed since the server started laid over them.
   const cur = () => ({ ...opts, ...opts.live?.() });
@@ -214,6 +228,14 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     opts.rateLimitPerMinute === false
       ? {}
       : { config: { rateLimit: { max: opts.rateLimitPerMinute ?? 120, timeWindow: '1 minute' } } };
+
+  // The shared store is down and this beacon has not seen the room: say so, rather than treat the room as new or open.
+  app.setErrorHandler((err, _req, reply) => {
+    if (err instanceof StoreUnavailableError) {
+      return reply.code(503).send({ error: 'This room cannot be reached right now. Try again in a moment.', code: ROOM_STATE_UNAVAILABLE });
+    }
+    return reply.send(err);
+  });
 
   app.get('/healthz', async () => 'ok');
 
@@ -432,13 +454,28 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
       return refused(reply, 401, 'This room is for signed-in people. Sign in to join.', LOGIN_REQUIRED_TO_JOIN);
     }
 
-    // A locked room admits only people who were already in it (they hold a resume token for it) and its owner.
     const t = now();
-    const resumed = body.resume ? verifyResumeToken(body.resume, { keys: { [kid]: publicKey }, now: t, room: body.room }) : null;
+    const resumed = body.resume ? verifyResumeToken(body.resume, { keys: resumeKeys, now: t, room: body.room }) : null;
     const isOwner = Boolean(who.identity && record.owner && record.owner === who.identity.id);
-    if (record.locked && !resumed && !isOwner) {
-      done('locked');
-      return refused(reply, 403, 'This room is locked. Only people who were already in it can join.', ROOM_LOCKED);
+
+    // Someone the owner removed stays out, by peer id (through the resume token that carries it) and by account, even
+    // after the node that removed them, or the room, is gone. Only the nodes' own memory knows when they cannot reach the store.
+    if (opts.nodesShareStore && !isOwner) {
+      const bans = await opts.store.getBans(body.room);
+      if ((resumed && bans.peers.includes(resumed.peerId)) || (who.identity && bans.accts.includes(who.identity.id))) {
+        done('removed');
+        return refused(reply, 403, 'The owner of this room removed you from it.', REMOVED_FROM_ROOM);
+      }
+    }
+
+    // A locked room admits only people who were already in it and its owner. "Already in it" is a resume token for the
+    // room (so it was handed to them) and, where the nodes report who they admit, a node having let that person in.
+    if (record.locked && !isOwner) {
+      const wasInRoom = resumed !== null && (!opts.nodesShareStore || (await opts.store.isMember(body.room, resumed.peerId)));
+      if (!wasInRoom) {
+        done('locked');
+        return refused(reply, 403, 'This room is locked. Only people who were already in it can join.', ROOM_LOCKED);
+      }
     }
 
     let node: NodeInfo;

@@ -1,6 +1,6 @@
 import type { RoomRecord, Tier } from '@orvo/protocol';
 import { MemoryPlacementStore } from './memory';
-import type { NodeInfo, PlacementStore } from './types';
+import { StoreUnavailableError, type NodeInfo, type PlacementStore, type RoomBans } from './types';
 
 export interface ResilientOptions {
   now?: () => number;
@@ -14,6 +14,11 @@ export interface ResilientOptions {
  * to the nodes they were on, and new rooms are placed on the last known nodes, with leases held locally. Beacons
  * may briefly disagree about a new room while degraded; that is preferable to refusing every join.
  * Registering nodes is passed through, since nodes already tolerate failures there and refresh on their own.
+ *
+ * Access rules fail closed. A room this beacon has not read since the outage began could have been locked, or be owned by
+ * someone, so its record is not guessed: asking for it fails with `StoreUnavailableError` (new rooms the beacon makes
+ * itself are remembered and work). Bans it has not read cannot be assumed empty, and a locked room readmits only people
+ * this beacon has already seen the node confirm.
  */
 export class ResilientPlacementStore implements PlacementStore {
   private mirror: MemoryPlacementStore;
@@ -21,6 +26,9 @@ export class ResilientPlacementStore implements PlacementStore {
   private now: () => number;
   private staleNodesMs: number;
   private isDegraded = false;
+  /** The last bans and members read from the shared store, which are all this beacon can vouch for while it is down. */
+  private lastBans = new Map<string, RoomBans>();
+  private knownMembers = new Set<string>();
 
   constructor(
     private inner: PlacementStore,
@@ -114,10 +122,54 @@ export class ResilientPlacementStore implements PlacementStore {
     return this.guard(
       async () => {
         const record = await this.inner.getRoom(room);
-        if (record) await this.mirror.createRoom(room, record, 24 * 3600_000);
+        // Replace, not keep, what was mirrored: a lock another beacon set since must not be forgotten.
+        if (record) this.mirror.setRoom(room, record, 24 * 3600_000);
         return record;
       },
-      () => this.mirror.getRoom(room),
+      async () => {
+        const known = await this.mirror.getRoom(room);
+        if (!known) throw new StoreUnavailableError();
+        return known;
+      },
+    );
+  }
+
+  async getBans(room: string) {
+    return this.guard(
+      async () => {
+        const bans = await this.inner.getBans(room);
+        if (this.lastBans.size > 10_000) this.lastBans.clear();
+        this.lastBans.set(room, bans);
+        return bans;
+      },
+      async () => {
+        const known = this.lastBans.get(room);
+        if (!known) throw new StoreUnavailableError();
+        return known;
+      },
+    );
+  }
+
+  addBan(room: string, ban: { peerId: string; acct?: string }, ttlMs: number) {
+    return this.inner.addBan(room, ban, ttlMs);
+  }
+
+  addMember(room: string, peerId: string, ttlMs: number) {
+    return this.inner.addMember(room, peerId, ttlMs);
+  }
+
+  async isMember(room: string, peerId: string) {
+    const key = `${room}\0${peerId}`;
+    return this.guard(
+      async () => {
+        const member = await this.inner.isMember(room, peerId);
+        if (member) {
+          if (this.knownMembers.size > 10_000) this.knownMembers.clear();
+          this.knownMembers.add(key);
+        } else this.knownMembers.delete(key);
+        return member;
+      },
+      async () => this.knownMembers.has(key),
     );
   }
 
@@ -125,10 +177,15 @@ export class ResilientPlacementStore implements PlacementStore {
     return this.guard(
       async () => {
         const winner = await this.inner.createRoom(room, record, ttlMs);
-        await this.mirror.createRoom(room, winner, ttlMs);
+        this.mirror.setRoom(room, winner, ttlMs);
+        // A room this beacon just made has no removals yet (unless another creator won, whose bans are unknown).
+        if (winner.createdAt === record.createdAt && winner.owner === record.owner) this.lastBans.set(room, { peers: [], accts: [] });
         return winner;
       },
-      () => this.mirror.createRoom(room, record, ttlMs),
+      async () => {
+        this.lastBans.set(room, { peers: [], accts: [] }); // made here, during the outage: nobody has been removed from it
+        return this.mirror.createRoom(room, record, ttlMs);
+      },
     );
   }
 

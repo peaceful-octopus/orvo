@@ -47,16 +47,22 @@ else's bubble.
   The remove dialog therefore offers **Remove and lock the room** in one step.
 - **Lock the room.** A locked room admits only people who were already in it, and its owner. Everyone else, signed in
   or not, is told the room is locked. This is what stops someone typing names at random to find open rooms.
-  - "Already in it" means holding a resume token for the room, which every join hands out. It lasts six hours and is
-    renewed on every connect, so a member whose connection drops (or who closes the app and reopens it within hours)
-    gets back in, and a stranger does not.
+  - "Already in it" means a signaling node admitted the person and they hold the resume token for the room. The node
+    records each admission in the shared store, so someone who was only handed a token, or whose join the node refused,
+    does not count. The token lasts six hours and is renewed on every connect, so a member whose connection drops (or
+    who closes the app and reopens it within hours) gets back in, and a stranger does not.
   - The owner is always let in, even with no resume token.
   - Unlocking opens the room again. Locking and "only signed-in people" can be used together.
 - **How it is enforced.** The lock is checked by the beacon, which every joiner passes through. Removing is done by the
   signaling node that holds the room: the join token the beacon signs says who owns the room and which account each
   joiner is, and the node accepts a `kick` message only from the connection that joined with the owner's token.
-- **Limits.** Removed people are remembered by the node while the room is in use there, and forgotten when it empties
-  or the node restarts. Only the owner can do any of this, so a guest-made room (which has no owner) has no controls.
+- **Removals last.** The node writes each removal (peer id and account) and each admission to the same store the beacon
+  reads, and the beacon refuses a removed person at the door, so a removal survives the room emptying, a node restart or
+  the room moving to another node. It is kept as long as the room's record is (a day after the last join). This needs the
+  nodes to reach the store: with the personal server or Redis they do; with a static node list (`NODES`, no Redis) they
+  cannot, so removals are remembered only by the node while the room is in use there, and a locked room readmits anyone
+  holding a valid resume token.
+- **Limits.** Only the owner can do any of this, so a guest-made room (which has no owner) has no controls.
   The floating window has no owner controls; dock it to use them.
 
 ## Rooms are ephemeral

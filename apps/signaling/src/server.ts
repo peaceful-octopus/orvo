@@ -10,6 +10,7 @@ import {
   type KeyRing,
   type ServerMessageBody,
 } from '@orvo/protocol';
+import type { RoomAccessWriter } from '@orvo/placement';
 import type http from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Metrics, type MetricsOptions } from '@orvo/metrics';
@@ -30,7 +31,20 @@ export interface SignalingOptions {
   now?: () => number;
   /** Metrics registry settings; share a registry when the node runs inside another service. */
   metrics?: MetricsOptions;
+  /**
+   * Where the node records who it admits and who the owner removes, so the beacon can keep removed people out after this
+   * node (or the room) is gone and readmit to a locked room only people a node let in. Without it removals last only
+   * while the room is in use on this node.
+   */
+  roomAccess?: RoomAccessWriter;
+  /** Told when `roomAccess` could not be written; the join or removal itself still goes through. */
+  onAccessError?: (error: unknown) => void;
 }
+
+/** How long a removal is remembered: as long as the beacon keeps a room's rules after its last join. */
+const BAN_TTL_MS = 24 * 3600_000;
+/** How long an admission counts as "was in the room": as long as the beacon's resume tokens last. */
+const MEMBER_TTL_MS = 6 * 3600_000;
 
 interface Conn {
   ws: WebSocket;
@@ -230,6 +244,7 @@ export class SignalingServer {
     }
 
     clearTimeout(conn.joinTimer);
+    this.remember(this.opts.roomAccess?.addMember(payload.room, payload.peerId, MEMBER_TTL_MS));
     conn.room = payload.room;
     conn.peerId = payload.peerId;
     conn.owner = payload.owner === true;
@@ -246,6 +261,11 @@ export class SignalingServer {
     if (!existing) {
       for (const m of others) if (m.conn) this.send(m.conn, { type: 'peer-joined', peer: { id: payload.peerId, name } });
     }
+  }
+
+  /** Records a store write without holding up the join or the removal it belongs to. */
+  private remember(write: Promise<void> | undefined) {
+    write?.catch((err) => (this.opts.onAccessError ?? ((e) => console.warn('could not record room access', e)))(err));
   }
 
   private joinFailed(conn: Conn, code: ErrorCode) {
@@ -282,6 +302,7 @@ export class SignalingServer {
     bans.peers.add(targetId);
     if (target.acct) bans.accts.add(target.acct);
     this.bans.set(conn.room!, bans);
+    this.remember(this.opts.roomAccess?.addBan(conn.room!, { peerId: targetId, acct: target.acct }, BAN_TTL_MS));
 
     clearTimeout(target.leaveTimer);
     if (target.conn) {

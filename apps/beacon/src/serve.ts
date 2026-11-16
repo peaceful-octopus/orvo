@@ -57,6 +57,8 @@ export interface BeaconServerOptions {
    * it does; where an entitlement service exists, only rooms it names get the relay.
    */
   relayForEveryRoom: boolean;
+  /** Whether the signaling nodes write to `store` (see `BeaconOptions.nodesShareStore`). False for a static node list with no Redis. */
+  nodesShareStore: boolean;
 }
 
 export interface BeaconServer {
@@ -104,6 +106,7 @@ export async function createBeaconServer(opts: BeaconServerOptions): Promise<Bea
     corsOrigin: env.CORS_ORIGIN ?? true,
     trustProxy: Boolean(env.BEHIND_PROXY),
     publicUrl: env.PUBLIC_URL || undefined,
+    nodesShareStore: opts.nodesShareStore,
     metricsToken: env.METRICS_TOKEN || undefined,
     adminOrigins: (env.ADMIN_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
   });

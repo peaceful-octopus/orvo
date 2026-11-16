@@ -104,6 +104,32 @@ export function describeStoreContract(name: string, make: () => Promise<StoreHar
       expect((await h.store.getRoom('r1'))?.signedInOnly).toBe(true);
     });
 
+    it('remembers who was removed from a room, by peer id and account, until the ban expires', async () => {
+      expect(await h.store.getBans('r1')).toEqual({ peers: [], accts: [] });
+      await h.store.addBan('r1', { peerId: 'p1', acct: 'idp|a' }, 5_000);
+      await h.store.addBan('r1', { peerId: 'p2' }, 5_000);
+      const bans = await h.store.getBans('r1');
+      expect([...bans.peers].sort()).toEqual(['p1', 'p2']);
+      expect(bans.accts).toEqual(['idp|a']);
+      expect(await h.store.getBans('other-room')).toEqual({ peers: [], accts: [] });
+      await h.advance(6_000);
+      expect(await h.store.getBans('r1')).toEqual({ peers: [], accts: [] });
+    });
+
+    it('remembers who a node admitted, per room, until the membership expires', async () => {
+      expect(await h.store.isMember('r1', 'p1')).toBe(false);
+      await h.store.addMember('r1', 'p1', 2_000);
+      expect(await h.store.isMember('r1', 'p1')).toBe(true);
+      expect(await h.store.isMember('r1', 'p2')).toBe(false);
+      expect(await h.store.isMember('r2', 'p1')).toBe(false);
+      await h.advance(1_500);
+      await h.store.addMember('r1', 'p1', 2_000); // admitting again renews it
+      await h.advance(1_500);
+      expect(await h.store.isMember('r1', 'p1')).toBe(true);
+      await h.advance(1_000);
+      expect(await h.store.isMember('r1', 'p1')).toBe(false);
+    });
+
     it('remembers a room tier until it expires', async () => {
       expect(await h.store.getRoomTier('r1')).toBeUndefined();
       await h.store.setRoomTier('r1', 'full', 2_000);

@@ -40,6 +40,10 @@ export const LOGIN_REQUIRED_TO_CREATE = 'login-required-to-create';
 export const LOGIN_REQUIRED_TO_JOIN = 'login-required-to-join';
 /** The token sent with the request was not accepted (expired, wrong audience, not from the trusted provider). */
 export const INVALID_TOKEN = 'invalid-token';
+/** The room's owner removed this person (or the account they are signed in with) from the room. */
+export const REMOVED_FROM_ROOM = 'removed-from-room';
+/** The server cannot answer for this room right now (its shared store is down and it has not seen the room). Try again shortly. */
+export const ROOM_STATE_UNAVAILABLE = 'room-state-unavailable';
 /** The room's owner locked it, and this person was not already in it. */
 export const ROOM_LOCKED = 'room-locked';
 

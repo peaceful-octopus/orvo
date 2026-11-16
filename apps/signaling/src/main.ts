@@ -38,7 +38,10 @@ checkMetricsToken(metricsToken);
 const port = Number(process.env.PORT ?? 9000);
 const nodeId = process.env.NODE_ID ?? os.hostname();
 const keys = await loadKeys();
-const signaling = new SignalingServer({ nodeId, keys, metrics: { defaultMetrics: true } });
+// With Redis the node records who it admits and who the owner removes there, where the beacons read it.
+const redis = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : undefined;
+const placement = redis ? new RedisPlacementStore(redis) : undefined;
+const signaling = new SignalingServer({ nodeId, keys, metrics: { defaultMetrics: true }, roomAccess: placement });
 
 // Learn new beacon keys without a restart, so a key rotation does not interrupt anyone. Keys are only ever added
 // to the ring: removing an old key is done by restarting the node once the old tokens have expired.
@@ -73,11 +76,11 @@ signaling.attach(server);
 server.listen(port, () => console.log(`signaling node ${nodeId} listening on :${port}`));
 
 let agent: NodeAgent | undefined;
-if (process.env.REDIS_URL) {
+if (placement) {
   const publicUrl = process.env.PUBLIC_WS_URL;
   if (!publicUrl) throw new Error('PUBLIC_WS_URL is required with REDIS_URL, for example wss://n1.example.com/ws');
   agent = new NodeAgent(
-    new RedisPlacementStore(new Redis(process.env.REDIS_URL)),
+    placement,
     { id: nodeId, url: publicUrl, region: process.env.REGION ?? 'default', weight: Number(process.env.WEIGHT ?? 1) },
     () => ({ rooms: signaling.roomIds(), connections: signaling.stats().connections }),
     { onError: (err) => console.warn('placement store error', err) },

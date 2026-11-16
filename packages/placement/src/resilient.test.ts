@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MemoryPlacementStore } from './memory';
 import { placeRoom } from './place';
 import { ResilientPlacementStore } from './resilient';
-import type { NodeInfo, PlacementStore } from './types';
+import { StoreUnavailableError, type NodeInfo, type PlacementStore } from './types';
 
 const node = (id: string): NodeInfo => ({ id, region: 'r', weight: 1, draining: false });
 
@@ -28,6 +28,10 @@ function flaky(inner: PlacementStore) {
     createRoom: wrap(inner.createRoom.bind(inner)),
     touchRoom: wrap(inner.touchRoom.bind(inner)),
     updateRoom: wrap(inner.updateRoom.bind(inner)),
+    getBans: wrap(inner.getBans.bind(inner)),
+    addBan: wrap(inner.addBan.bind(inner)),
+    addMember: wrap(inner.addMember.bind(inner)),
+    isMember: wrap(inner.isMember.bind(inner)),
   };
   return { store, state };
 }
@@ -122,4 +126,53 @@ describe('ResilientPlacementStore', () => {
     expect(await resilient.updateRoom('room-abc', { ...record, signedInOnly: false }, 60_000)).toBe(true);
     await resilient.touchRoom('room-abc', 60_000); // does not throw
   });
+
+  describe('access rules during an outage', () => {
+    const record = { owner: 'idp|ann', signedInOnly: true, locked: false, createdAt: 1 };
+
+    it('keeps serving the latest record it read, including a lock another beacon set meanwhile', async () => {
+      const { resilient, state, backing } = withBacking();
+      await backing.createRoom('family', record, 1e9);
+      expect((await resilient.getRoom('family'))?.locked).toBe(false);
+      await backing.updateRoom('family', { ...record, locked: true }, 1e9); // the owner locks it through another beacon
+      expect((await resilient.getRoom('family'))?.locked).toBe(true);
+      state.down = true;
+      expect((await resilient.getRoom('family'))?.locked).toBe(true);
+    });
+
+    it('does not guess about a room it has not read: that room may be locked or owned by someone', async () => {
+      const { resilient, state, backing } = withBacking();
+      await backing.createRoom('secret', { ...record, locked: true }, 1e9);
+      state.down = true;
+      await expect(resilient.getRoom('secret')).rejects.toBeInstanceOf(StoreUnavailableError);
+    });
+
+    it('still makes and keeps the rooms it creates itself', async () => {
+      const { resilient, state } = withBacking();
+      state.down = true;
+      await resilient.createRoom('fresh-room-abc', record, 1e9);
+      expect(await resilient.getRoom('fresh-room-abc')).toEqual(record);
+    });
+
+    it('does not assume nobody is banned, and readmits to a locked room only people it has seen confirmed', async () => {
+      const { resilient, state, backing } = withBacking();
+      await backing.addBan('family', { peerId: 'bad', acct: 'idp|bad' }, 1e9);
+      await backing.addMember('family', 'bob', 1e9);
+      await backing.addMember('family', 'sue', 1e9);
+      expect(await resilient.isMember('family', 'bob')).toBe(true);
+      expect((await resilient.getBans('family')).peers).toEqual(['bad']);
+      state.down = true;
+      expect(await resilient.isMember('family', 'bob')).toBe(true);
+      expect(await resilient.isMember('family', 'sue')).toBe(false); // true in Redis, but not something it has seen
+      expect((await resilient.getBans('family')).peers).toEqual(['bad']);
+      await expect(resilient.getBans('unread-room')).rejects.toBeInstanceOf(StoreUnavailableError);
+    });
+  });
 });
+
+function withBacking() {
+  const t = 0;
+  const backing = new MemoryPlacementStore([node('a')], () => t);
+  const { store, state } = flaky(backing);
+  return { resilient: new ResilientPlacementStore(store, { now: () => t }), state, backing };
+}

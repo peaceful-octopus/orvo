@@ -204,6 +204,91 @@ describe('tiers and TURN', () => {
   });
 });
 
+describe('rooms whose nodes record who they admit and remove', () => {
+  const ROOM = 'cozy-room-abc123';
+  const locked = { signedInOnly: false, locked: true, createdAt: 1 };
+  let store: MemoryPlacementStore;
+  const begin = async (extra: Partial<BeaconOptions> = {}) => {
+    store = new MemoryPlacementStore(nodes, () => clock.now);
+    await start({ store, nodesShareStore: true, ...extra });
+  };
+  const resumeTokenFor = async (room = ROOM) => ((await join({ room })).json() as JoinResponse).resumeToken;
+
+  it('readmits to a locked room only people a node admitted, not everyone who was handed a token', async () => {
+    await begin();
+    const token = await resumeTokenFor(); // handed out before the lock; the node never admitted this person
+    await store.createRoom('sealed-room-abc', locked, 1e9);
+    const sealed = await resumeTokenFor('sealed-room-abc');
+    expect((await join({ room: 'sealed-room-abc', resume: sealed })).json().code).toBe('room-locked');
+    const peerId = ((await join({ room: 'sealed-room-abc', resume: sealed })).json() as { code?: string; peerId?: string }).peerId;
+    expect(peerId).toBeUndefined();
+    await store.updateRoom(ROOM, { ...(await store.getRoom(ROOM))!, locked: true }, 1e9);
+    expect((await join({ room: ROOM, resume: token })).json().code).toBe('room-locked');
+
+    // Once a node admits the person (here: the person behind the token), the same token gets back in.
+    const { peerId: admitted } = JSON.parse(Buffer.from(token.split('.')[0]!.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()).payload as { peerId: string };
+    await store.addMember(ROOM, admitted, 1e9);
+    expect((await join({ room: ROOM, resume: token })).statusCode).toBe(200);
+  });
+
+  it('keeps a removed peer out even with a valid resume token and an unlocked room', async () => {
+    await begin();
+    const token = await resumeTokenFor();
+    const { peerId } = JSON.parse(Buffer.from(token.split('.')[0]!.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()).payload as { peerId: string };
+    await store.addBan(ROOM, { peerId }, 1e9);
+    const refused = await join({ room: ROOM, resume: token });
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json().code).toBe('removed-from-room');
+    expect((await join({ room: ROOM })).statusCode).toBe(200); // someone else is fine
+  });
+
+  it('ignores bans and memberships when the nodes cannot write them', async () => {
+    await begin({ nodesShareStore: false });
+    const token = await resumeTokenFor();
+    await store.addBan(ROOM, { peerId: 'whoever' }, 1e9);
+    await store.updateRoom(ROOM, { ...(await store.getRoom(ROOM))!, locked: true }, 1e9);
+    expect((await join({ room: ROOM, resume: token })).statusCode).toBe(200); // a valid resume token is enough, as before
+  });
+
+  it('says so, rather than treating the room as new, when the shared store is down and the room is not one it knows', async () => {
+    let down = false;
+    const inner = new MemoryPlacementStore(nodes, () => clock.now);
+    const flaky = new Proxy(inner, {
+      get: (target, prop) => {
+        const value = (target as never)[prop];
+        return typeof value === 'function' ? (...args: unknown[]) => (down ? Promise.reject(new Error('refused')) : (value as (...a: unknown[]) => unknown).apply(target, args)) : value;
+      },
+    });
+    await start({ store: new ResilientPlacementStore(flaky as PlacementStore, { now: () => clock.now }), nodesShareStore: true });
+    await join({ room: 'warm-up-room-abc' }); // the beacon has been running, so it knows the nodes
+    await inner.createRoom('locked-room-abc', locked, 1e9); // made through another beacon, never read by this one
+    down = true;
+    const res = await join({ room: 'locked-room-abc' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().code).toBe('room-state-unavailable');
+    const made = await app.inject({ method: 'POST', url: '/v1/rooms' }); // new rooms still work
+    expect(made.statusCode).toBe(200);
+    const joined = await join({ room: made.json().room });
+    expect(joined.body).toContain('signalingUrl');
+  });
+});
+
+describe('resume tokens and signing key rotation', () => {
+  it('stay good after the key that signed them is replaced, while that key is still published', async () => {
+    await start();
+    const token = ((await join({ room: 'cozy-room-abc123' })).json() as JoinResponse).resumeToken;
+    const oldKey = { kid: key.kid, publicKey: toBase64Url(key.publicKey) };
+    const rotated = testKeys('beacon-2');
+    await app.close();
+    await start({ signingKey: signingKey(rotated), previousPublicKeys: { [oldKey.kid]: oldKey.publicKey } });
+    const first = JSON.parse(Buffer.from(token.split('.')[0]!.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()).payload.peerId as string;
+    expect(((await join({ room: 'cozy-room-abc123', resume: token })).json() as JoinResponse).peerId).toBe(first);
+    await app.close();
+    await start({ signingKey: signingKey(rotated) }); // the old key is no longer published
+    expect(((await join({ room: 'cozy-room-abc123', resume: token })).json() as JoinResponse).peerId).not.toBe(first);
+  });
+});
+
 describe('/metrics access', () => {
   const metrics = (extra: { from?: string; headers?: Record<string, string> } = {}) =>
     app.inject({ method: 'GET', url: '/metrics', remoteAddress: extra.from ?? '192.168.0.5', headers: extra.headers });
