@@ -1,10 +1,15 @@
 import type { RoomRecord, Tier } from '@orvo/protocol';
-import type { NodeInfo, PlacementStore } from './types';
+import { StoreFullError, type NodeInfo, type PlacementStore } from './types';
 
 interface Expiring<T> {
   value: T;
   expires: number;
 }
+
+/** Most room records held at once. Records last a day, so unauthenticated joins to made-up names must not pile up without end. */
+const DEFAULT_MAX_ROOMS = 50_000;
+/** Expired entries are removed (at most) this often, as a side effect of writes. */
+const SWEEP_MS = 30_000;
 
 /** In-process store for the all-in-one server, a single beacon, and tests. */
 export class MemoryPlacementStore implements PlacementStore {
@@ -13,14 +18,33 @@ export class MemoryPlacementStore implements PlacementStore {
   private tiers = new Map<string, Expiring<Tier>>();
   private rooms = new Map<string, Expiring<RoomRecord>>();
 
+  private nextSweep = 0;
+
   constructor(
     initialNodes: NodeInfo[] = [],
     private now: () => number = Date.now,
+    private options: { maxRooms?: number } = {},
   ) {
     for (const node of initialNodes) this.nodes.set(node.id, { value: node, expires: Infinity });
   }
 
+  /** Removes everything that has expired. Reads already ignore it; this is what lets the memory go. */
+  sweep() {
+    const now = this.now();
+    for (const map of [this.nodes, this.leases, this.tiers, this.rooms] as Map<string, Expiring<unknown>>[]) {
+      for (const [key, entry] of map) if (entry.expires <= now) map.delete(key);
+    }
+  }
+
+  private sweepSometimes() {
+    const now = this.now();
+    if (now < this.nextSweep) return;
+    this.nextSweep = now + SWEEP_MS;
+    this.sweep();
+  }
+
   async registerNode(node: NodeInfo, ttlMs: number) {
+    this.sweepSometimes();
     this.nodes.set(node.id, { value: node, expires: this.now() + ttlMs });
   }
 
@@ -38,6 +62,7 @@ export class MemoryPlacementStore implements PlacementStore {
   }
 
   async acquireLease(room: string, nodeId: string, ttlMs: number, replaceOwner?: string) {
+    this.sweepSometimes();
     const owner = this.live(this.leases, room);
     if (owner && owner !== replaceOwner) return owner;
     this.leases.set(room, { value: nodeId, expires: this.now() + ttlMs });
@@ -45,6 +70,7 @@ export class MemoryPlacementStore implements PlacementStore {
   }
 
   async renewLease(room: string, nodeId: string, ttlMs: number) {
+    this.sweepSometimes();
     const owner = this.live(this.leases, room);
     if (!owner || owner === nodeId) this.leases.set(room, { value: nodeId, expires: this.now() + ttlMs });
     return owner ?? nodeId;
@@ -60,6 +86,7 @@ export class MemoryPlacementStore implements PlacementStore {
   }
 
   async setRoomTier(room: string, tier: Tier, ttlMs: number) {
+    this.sweepSometimes();
     this.tiers.set(room, { value: tier, expires: this.now() + ttlMs });
   }
 
@@ -70,6 +97,11 @@ export class MemoryPlacementStore implements PlacementStore {
   async createRoom(room: string, record: RoomRecord, ttlMs: number) {
     const existing = this.live(this.rooms, room);
     if (existing) return existing;
+    this.sweepSometimes();
+    if (this.rooms.size >= (this.options.maxRooms ?? DEFAULT_MAX_ROOMS)) {
+      this.sweep();
+      if (this.rooms.size >= (this.options.maxRooms ?? DEFAULT_MAX_ROOMS)) throw new StoreFullError();
+    }
     this.rooms.set(room, { value: record, expires: this.now() + ttlMs });
     return record;
   }

@@ -138,7 +138,7 @@ export async function runLoad(config: LoadConfig): Promise<LoadReport> {
   const scrapeOnce = async () => {
     for (const url of config.scrapeUrls ?? []) {
       try {
-        const text = await (await fetch(url, { signal: AbortSignal.timeout(5000) })).text();
+        const text = await (await fetch(url, { signal: AbortSignal.timeout(5000), headers: process.env.METRICS_TOKEN ? { authorization: `Bearer ${process.env.METRICS_TOKEN}` } : {} })).text();
         const s = scrapes.get(url) ?? { url, maxConnections: 0, maxRooms: 0, maxRssMb: 0, maxEventLoopLagP99Ms: 0, avgCpuPercent: 0 };
         s.maxConnections = Math.max(s.maxConnections, scrapeValue(text, 'orvo_signaling_connections') ?? 0);
         s.maxRooms = Math.max(s.maxRooms, scrapeValue(text, 'orvo_signaling_rooms') ?? 0);

@@ -204,6 +204,44 @@ describe('tiers and TURN', () => {
   });
 });
 
+describe('/metrics access', () => {
+  const metrics = (extra: { from?: string; headers?: Record<string, string> } = {}) =>
+    app.inject({ method: 'GET', url: '/metrics', remoteAddress: extra.from ?? '192.168.0.5', headers: extra.headers });
+
+  it('answers the local network, not other addresses or anything that came through a proxy', async () => {
+    await start();
+    expect((await metrics()).statusCode).toBe(200);
+    expect((await metrics({ from: '8.8.8.8' })).statusCode).toBe(403);
+    expect((await metrics({ headers: { 'x-forwarded-for': '8.8.8.8' } })).statusCode).toBe(403);
+  });
+
+  it('answers anyone with the token, and nobody without it', async () => {
+    const token = 'a-long-enough-metrics-token';
+    await start({ metricsToken: token });
+    expect((await metrics({ from: '8.8.8.8', headers: { authorization: `Bearer ${token}` } })).statusCode).toBe(200);
+    expect((await metrics({ from: '8.8.8.8', headers: { authorization: 'Bearer wrong-token-wrong-token' } })).statusCode).toBe(401);
+    expect((await metrics()).statusCode).toBe(401); // even the local network, so a token is never optional once set
+  });
+
+  it('refuses a short token', async () => {
+    await expect(start({ metricsToken: 'short' })).rejects.toThrow(/METRICS_TOKEN/);
+    app = await createBeaconApp({ signingKey: signingKey(key), store: new MemoryPlacementStore(nodes), stunUrls: [] });
+  });
+});
+
+describe('a store that is full', () => {
+  it('turns away new rooms with a 503 and still serves existing ones', async () => {
+    const store = new MemoryPlacementStore(nodes, () => clock.now, { maxRooms: 1 });
+    await start({ store });
+    expect((await join({ room: 'first-room' })).statusCode).toBe(200);
+    const refused = await join({ room: 'second-room' });
+    expect(refused.statusCode).toBe(503);
+    expect(refused.json().code).toBe('busy');
+    expect((await app.inject({ method: 'POST', url: '/v1/rooms' })).statusCode).toBe(503);
+    expect((await join({ room: 'first-room' })).statusCode).toBe(200);
+  });
+});
+
 describe('the beacon address in the signed config', () => {
   const beaconUrls = async (host: string) => {
     const res = await app.inject({ method: 'GET', url: '/v1/config', headers: { host } });

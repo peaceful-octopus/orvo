@@ -1,4 +1,9 @@
 # Prometheus scrape configuration for an Orvo deployment. Edit the targets to match your hosts.
+#
+# Orvo answers /metrics to the local network only, which includes Prometheus on the same Docker network. To scrape across
+# the internet or through a reverse proxy, set METRICS_TOKEN (16+ characters) on every service and add to each job:
+#   authorization:
+#     credentials_file: /etc/prometheus/metrics-token   # a file holding just the token, mounted into the container
 global:
   scrape_interval: 15s
   evaluation_interval: 15s

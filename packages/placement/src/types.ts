@@ -47,6 +47,13 @@ export class NoNodesError extends Error {
   }
 }
 
+/** The store holds as many rooms as it is willing to, so it will not make another until some expire. */
+export class StoreFullError extends Error {
+  constructor() {
+    super('The placement store is full.');
+  }
+}
+
 export const LEASE_TTL_MS = 60_000;
 /** A node is considered gone this long after its last heartbeat; how fast rooms move after a crash. */
 export const NODE_TTL_MS = 6_000;

@@ -8,7 +8,7 @@ For operators of an Orvo deployment (the small-team or platform profiles in `doc
 - **Redis**: node registrations (6 s TTL, refreshed every 2 s) and room leases (60 s TTL, renewed by the owning node). Optional for one beacon.
 - **STUN/TURN**: STUN for everyone; relays only for entitled rooms.
 
-Dashboards: `deploy/observability/` has Prometheus rules, a Grafana dashboard and a compose file. Every service exposes `/metrics`; nodes also have `/healthz` and `/readyz` (503 while draining).
+Dashboards: `deploy/observability/` has Prometheus rules, a Grafana dashboard and a compose file. Every service exposes `/metrics` (to the local network, or with `METRICS_TOKEN`; see `docs/self-hosting.md`); nodes also have `/healthz` and `/readyz` (503 while draining).
 
 ## Routine operations
 
@@ -97,7 +97,7 @@ Connected calls are untouched. A client whose signaling connection drops cannot 
 Clients use their cached signed config (valid up to a week past its expiry, never older than the newest config they have seen) and then built-in defaults. New installs without any cached config use defaults and the beacon address baked into the build.
 
 ## Load testing
-`pnpm load:fleet` starts a beacon and three nodes locally and simulates people (default 1,000, 30 s ramp). For a deployment: `pnpm load --target https://orvo.example.com --scrape https://n1.example.com/metrics,https://n2.example.com/metrics --users 10000 --ramp 120 --hold 60`. It simulates signaling only (join, offers, answers, candidates, reconnects), not media. Do it against a staging deployment, and set `RATE_LIMIT_PER_MINUTE=0` on its beacon because every simulated user shares one address. Measured results and how to read them are in `docs/capacity.md`.
+`pnpm load:fleet` starts a beacon and three nodes locally and simulates people (default 1,000, 30 s ramp). For a deployment: `pnpm load --target https://orvo.example.com --scrape https://n1.example.com/metrics,https://n2.example.com/metrics --users 10000 --ramp 120 --hold 60`. It simulates signaling only (join, offers, answers, candidates, reconnects), not media. Do it against a staging deployment, and set `RATE_LIMIT_PER_MINUTE=0` on its beacon because every simulated user shares one address. When scraping nodes through a proxy, set `METRICS_TOKEN` in the load generator's environment to the nodes' token. Measured results and how to read them are in `docs/capacity.md`.
 
 ### Checking a deployment
 `node deploy/observability/check.mjs http://prometheus:9090` verifies that every scrape target is up, every alert rule loaded and evaluates, and every Grafana panel query is valid. `deploy/team/compose.test.yaml` and `deploy/observability/compose.test.yaml` run the small-team and monitoring stacks on one machine (no DNS or HTTPS) so you can rehearse a node crash (`docker kill`) and watch `SignalingNodeDown` fire.

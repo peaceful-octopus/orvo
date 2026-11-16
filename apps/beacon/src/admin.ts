@@ -1,7 +1,7 @@
 import { fromBase64Url, toBase64Url } from '@orvo/protocol';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { isIP } from 'node:net';
+import { cameThroughProxy, isLocalAddress, secretMatches } from '@orvo/metrics';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { SigningKey } from './keys';
 import type { Drift } from './drift';
 import { SECRET_KEYS, SETTING_KEYS, type SettingsStore } from './settings';
@@ -10,37 +10,14 @@ const TOKEN_TTL_MS = 8 * 3600_000;
 const FAILED_LOGINS_PER_MINUTE = 5;
 const FAILED_LOGIN_WINDOW_MS = 60_000;
 const MAX_TRACKED_ADDRESSES = 1000;
+/** Every address together may get this many times the per-address allowance wrong in a window. */
+const GLOBAL_FAILURE_FACTOR = 4;
+export const MIN_ADMIN_PASSWORD_LENGTH = 12;
 
-/** Headers a reverse proxy adds. A request carrying one came from outside, however local the proxy itself is. */
-const PROXY_HEADERS = ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-real-ip', 'forwarded', 'cf-connecting-ip', 'true-client-ip'];
+export { cameThroughProxy, isLocalAddress };
 
-export function cameThroughProxy(headers: Record<string, unknown>): boolean {
-  return PROXY_HEADERS.some((name) => headers[name] !== undefined);
-}
-
-/** Loopback, private (RFC 1918), link-local and IPv6 unique-local addresses, including IPv4 addresses written as IPv6. */
-export function isLocalAddress(address: string | undefined): boolean {
-  if (!address) return false;
-  const bare = address.replace(/^::ffff:/i, '');
-  if (isIP(bare) === 4) {
-    const [a, b] = bare.split('.').map(Number) as [number, number];
-    return a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
-  }
-  if (isIP(bare) === 6) {
-    const first = bare.toLowerCase().split(':')[0] ?? '';
-    if (bare === '::1') return true;
-    const high = parseInt(first || '0', 16);
-    return (high & 0xfe00) === 0xfc00 || (high & 0xffc0) === 0xfe80;
-  }
-  return false;
-}
-
-/** Hashes first so the comparison takes the same time whatever the lengths. */
-export function passwordMatches(given: unknown, expected: string): boolean {
-  if (typeof given !== 'string') return false;
-  const digest = (s: string) => createHash('sha256').update(s).digest();
-  return timingSafeEqual(digest(given), digest(expected));
-}
+/** Same comparison the admin password uses; see `secretMatches`. */
+export const passwordMatches = secretMatches;
 
 /** Tokens are bound to the server's key and the current password, so changing either one ends every session. */
 function tokenKey(signingKey: SigningKey, password: string): Buffer {
@@ -149,8 +126,14 @@ export function describeSettings(store: SettingsStore, drift?: Drift) {
  * but `status` and `login` need the token that `login` hands out.
  */
 export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptions): Promise<void> {
+  if (opts.password.length < MIN_ADMIN_PASSWORD_LENGTH) {
+    throw new Error(`ADMIN_PASSWORD must be at least ${MIN_ADMIN_PASSWORD_LENGTH} characters: it is the only protection of the admin page.`);
+  }
   const now = opts.now ?? Date.now;
-  const limiter = opts.failedLoginsPerMinute === false ? undefined : new FailedLoginLimiter(opts.failedLoginsPerMinute ?? FAILED_LOGINS_PER_MINUTE, now);
+  const perAddress = opts.failedLoginsPerMinute === false ? undefined : (opts.failedLoginsPerMinute ?? FAILED_LOGINS_PER_MINUTE);
+  const limiter = perAddress === undefined ? undefined : new FailedLoginLimiter(perAddress, now);
+  // Guessing from many addresses (or with forged ones) is slowed down as a whole, whatever the per-address count says.
+  const everyone = perAddress === undefined ? undefined : new FailedLoginLimiter(perAddress * GLOBAL_FAILURE_FACTOR, now);
 
   await app.register(
     async (admin) => {
@@ -168,13 +151,16 @@ export async function registerAdminRoutes(app: FastifyInstance, opts: AdminOptio
       admin.get('/status', async () => ({ enabled: true }));
 
       admin.post('/login', async (req, reply) => {
-        if (limiter?.blocked(req.ip)) return reply.code(429).send({ error: 'Too many wrong passwords. Wait a minute and try again.', code: 'admin-too-many-attempts' });
+        // The socket's address: `req.ip` follows X-Forwarded-For when proxies are trusted, which a caller can forge.
+        const from = req.socket.remoteAddress ?? 'unknown';
+        if (limiter?.blocked(from) || everyone?.blocked('*')) return reply.code(429).send({ error: 'Too many wrong passwords. Wait a minute and try again.', code: 'admin-too-many-attempts' });
         const { password } = (req.body ?? {}) as { password?: unknown };
         if (!passwordMatches(password, opts.password)) {
-          limiter?.fail(req.ip);
+          limiter?.fail(from);
+          everyone?.fail('*');
           return reply.code(401).send({ error: 'Wrong password.', code: 'admin-wrong-password' });
         }
-        limiter?.clear(req.ip);
+        limiter?.clear(from);
         return issueAdminToken(opts.signingKey, opts.password, now());
       });
 

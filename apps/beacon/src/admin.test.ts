@@ -145,6 +145,45 @@ describe('admin routes', () => {
     expect(await wrong()).toBe(401); // and the count started again
   });
 
+  it('count wrong passwords by the connection, so a forged X-Forwarded-For does not get a fresh allowance', async () => {
+    await start({ allowRemote: true, failedLoginsPerMinute: 3 });
+    const wrong = (n: number) => call('POST', '/v1/admin/login', { headers: { 'x-forwarded-for': `203.0.113.${n}` }, payload: { password: 'nope' } }).then((r) => r.statusCode);
+    expect([await wrong(1), await wrong(2), await wrong(3)]).toEqual([401, 401, 401]);
+    expect(await wrong(4)).toBe(429);
+  });
+
+  it('stop guessing from many connections together', async () => {
+    await start({ failedLoginsPerMinute: 3 });
+    const wrong = (from: string) => call('POST', '/v1/admin/login', { from, payload: { password: 'nope' } }).then((r) => r.statusCode);
+    const codes: number[] = [];
+    for (let i = 0; i < 14; i++) codes.push(await wrong(`192.168.1.${i}`));
+    expect(codes.slice(0, 12).every((c) => c === 401)).toBe(true);
+    expect(codes.slice(12)).toEqual([429, 429]); // 3 per address, 12 over all
+  });
+
+  it('refuse a short password at start-up', async () => {
+    await expect(start({ password: 'short' })).rejects.toThrow(/at least 12/);
+    app = await createBeaconApp({ signingKey, store: new MemoryPlacementStore(), stunUrls: [] });
+  });
+
+  it('are not open to other web origins', async () => {
+    await start();
+    const preflight = await call('OPTIONS' as 'GET', '/v1/admin/login', { headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' } });
+    expect(preflight.headers['access-control-allow-origin']).toBeUndefined();
+    const login = await call('POST', '/v1/admin/login', { headers: { origin: 'https://evil.example' }, payload: { password: PASSWORD } });
+    expect(login.headers['access-control-allow-origin']).toBeUndefined();
+    // Unless the operator names an origin, as development does.
+    await app.close();
+    app = await createBeaconApp({ signingKey, store: new MemoryPlacementStore(), stunUrls: [], adminOrigins: ['http://localhost:5173'] });
+    await registerAdminRoutes(app, { store, password: PASSWORD, signingKey });
+    const named = await call('POST', '/v1/admin/login', { headers: { origin: 'http://localhost:5173' }, payload: { password: PASSWORD } });
+    expect(named.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect((await call('POST', '/v1/admin/login', { headers: { origin: 'https://evil.example' }, payload: { password: PASSWORD } })).headers['access-control-allow-origin']).toBeUndefined();
+    // The public API keeps its CORS.
+    const config = await call('GET', '/v1/config', { headers: { origin: 'https://other.example' } });
+    expect(config.headers['access-control-allow-origin']).toBeDefined();
+  });
+
   it('forget wrong passwords after a good login', async () => {
     await start({ failedLoginsPerMinute: 3 });
     const wrong = () => call('POST', '/v1/admin/login', { payload: { password: 'nope' } }).then((r) => r.statusCode);

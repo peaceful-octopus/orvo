@@ -29,9 +29,9 @@ import {
   type VideoTier,
   type VideoTierRule,
 } from '@orvo/protocol';
-import { LATENCY_BUCKETS, Metrics } from '@orvo/metrics';
-import { NoNodesError, placeRoom, type NodeInfo, type PlacementStore } from '@orvo/placement';
-import cors from '@fastify/cors';
+import { LATENCY_BUCKETS, METRICS_REFUSED, Metrics, checkMetricsToken, metricsAllowed } from '@orvo/metrics';
+import { NoNodesError, StoreFullError, placeRoom, type NodeInfo, type PlacementStore } from '@orvo/placement';
+import cors, { type FastifyCorsOptionsDelegate } from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { AuthOptions, Identity } from './auth';
@@ -106,6 +106,17 @@ export interface BeaconOptions {
   rateLimitPerMinute?: number | false;
   trustProxy?: boolean;
   /**
+   * Bearer token that unlocks `/metrics` from anywhere. Without one, `/metrics` answers only requests from the local
+   * network that did not come through a proxy.
+   */
+  metricsToken?: string;
+  /**
+   * Web origins whose pages may call the admin API from a browser (for example `http://localhost:5173` for the
+   * development server, or `http://tauri.localhost` for the desktop app). Empty by default: the admin page is served by
+   * this server itself, so it needs none, and no other website may try passwords against it.
+   */
+  adminOrigins?: string[];
+  /**
    * The address clients reach this beacon at, such as `https://orvo.example.com`. It is what the signed config publishes
    * as the beacon's address. Without it the address comes from the request's Host header, which the caller controls, so
    * a request for any host gets a validly signed config naming that host.
@@ -137,6 +148,7 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('PUBLIC_URL must be an http(s) address.');
     opts = { ...opts, publicUrl: url.origin };
   }
+  checkMetricsToken(opts.metricsToken);
   const initial = cur();
   if ((initial.roomCreation === 'signed-in' || initial.defaultRoomAccess === 'signed-in') && !opts.auth) {
     throw new Error('Requiring sign-in needs an identity provider: configure `auth` (OIDC_ISSUER and OIDC_CLIENT_ID).');
@@ -190,7 +202,12 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     return version;
   };
 
-  await app.register(cors, { origin: opts.corsOrigin ?? true, methods: ['GET', 'HEAD', 'POST', 'PATCH', 'OPTIONS'] });
+  // The admin API is for pages served by this server itself, so no other origin is ever allowed to call it from a browser.
+  // (Otherwise any web page opened on the operator's network could try passwords against it and read the answers.)
+  const publicCors = { origin: opts.corsOrigin ?? true, methods: ['GET', 'HEAD', 'POST', 'PATCH', 'OPTIONS'] };
+  const adminCors = { origin: opts.adminOrigins?.length ? opts.adminOrigins : false, methods: publicCors.methods };
+  const corsFor: FastifyCorsOptionsDelegate = (req, callback) => callback(null, req.url.startsWith('/v1/admin') ? adminCors : publicCors);
+  await app.register(cors, () => corsFor);
   // Limits apply only to the API routes below, not to static files served by the all-in-one server.
   await app.register(rateLimit, { global: false });
   const limited =
@@ -200,7 +217,12 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
 
   app.get('/healthz', async () => 'ok');
 
-  app.get('/metrics', async (_req, reply) => reply.type(metrics.contentType).send(await metrics.render()));
+  app.get('/metrics', async (req, reply) => {
+    if (!metricsAllowed({ headers: req.headers, remoteAddress: req.socket.remoteAddress }, opts.metricsToken)) {
+      return reply.code(opts.metricsToken ? 401 : 403).send(METRICS_REFUSED);
+    }
+    return reply.type(metrics.contentType).send(await metrics.render());
+  });
 
   app.get('/v1/keys', async () => ({ ...opts.previousPublicKeys, [kid]: toBase64Url(publicKey) }));
 
@@ -304,6 +326,16 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     createdAt: now(),
   });
 
+  /** Makes the room's record; undefined when the store holds as many rooms as it will take (see `MemoryPlacementStore`). */
+  async function createRecord(room: string, record: RoomRecord): Promise<RoomRecord | undefined> {
+    try {
+      return await opts.store.createRoom(room, record, roomRecordTtl);
+    } catch (err) {
+      if (err instanceof StoreFullError) return undefined;
+      throw err;
+    }
+  }
+
   app.post('/v1/rooms', limited, async (req, reply) => {
     const who = await whoIs(req);
     if (!who.ok) return refused(reply, 401, 'Your sign-in was not accepted. Sign in again.', INVALID_TOKEN);
@@ -312,9 +344,10 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
     }
     const body = CreateRoomRequest.safeParse(req.body ?? {});
     if (!body.success) return reply.code(400).send({ error: 'Invalid request.', code: 'bad-request' });
-    m.rooms.inc();
     const room = generateRoomId();
-    const record = await opts.store.createRoom(room, newRecord(who.identity, body.data.signedInOnly), roomRecordTtl);
+    const record = await createRecord(room, newRecord(who.identity, body.data.signedInOnly));
+    if (!record) return reply.code(503).send({ error: 'The server is too busy to start new rooms.', code: 'busy' });
+    m.rooms.inc();
     return { room, signedInOnly: record.signedInOnly };
   });
 
@@ -386,7 +419,11 @@ export async function createBeaconApp(opts: BeaconOptions): Promise<FastifyInsta
         done('login-required');
         return refused(reply, 401, 'Sign in to start a room.', LOGIN_REQUIRED_TO_CREATE);
       }
-      record = await opts.store.createRoom(body.room, newRecord(who.identity, undefined), roomRecordTtl);
+      record = await createRecord(body.room, newRecord(who.identity, undefined));
+      if (!record) {
+        done('busy');
+        return reply.code(503).send({ error: 'The server is too busy to start new rooms.', code: 'busy' });
+      }
     } else {
       await opts.store.touchRoom(body.room, roomRecordTtl);
     }

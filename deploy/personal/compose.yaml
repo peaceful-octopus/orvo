@@ -21,8 +21,12 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       # The admin page at /admin, for changing the settings below without restarting. It exists only with a password, and
       # only answers from your local network (open it by the server's LAN address) unless ADMIN_ALLOW_REMOTE=1.
+      # At least 12 characters; the server refuses a shorter one.
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_ALLOW_REMOTE: ${ADMIN_ALLOW_REMOTE:-}
+      # /metrics answers the local network only. To scrape it from elsewhere (through a proxy, say) set a token of at
+      # least 16 characters and send it as a bearer token.
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
       # Starting values for settings the admin page can change; what is saved there wins over these.
       MAX_ROOM_SIZE: ${MAX_ROOM_SIZE:-}
       WARN_ROOM_SIZE: ${WARN_ROOM_SIZE:-}

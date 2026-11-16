@@ -50,8 +50,8 @@ describe('createBeaconServer', () => {
   it('has the admin page only when there is a password, and lets it change what clients see', async () => {
     expect((await (await start()).app.inject({ method: 'GET', url: '/v1/admin/status', remoteAddress: LAN })).statusCode).toBe(404);
 
-    const server = await start({ ADMIN_PASSWORD: 'pw' });
-    const login = await server.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'pw' }, remoteAddress: LAN });
+    const server = await start({ ADMIN_PASSWORD: 'long enough password' });
+    const login = await server.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'long enough password' }, remoteAddress: LAN });
     const { token } = login.json() as { token: string };
     const patch = await server.app.inject({
       method: 'PATCH',
@@ -105,12 +105,12 @@ describe('createBeaconServer', () => {
 
   it('tells the admin page when beacons sharing Redis start from different environment values', async () => {
     const redis = new RedisMock({ host: 'serve-drift' }) as unknown as Redis;
-    const env = { ADMIN_PASSWORD: 'pw' };
+    const env = { ADMIN_PASSWORD: 'long enough password' };
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       await start({ ...env, MAX_ROOM_SIZE: '6' }, { redis });
       const second = await start({ ...env, MAX_ROOM_SIZE: '4' }, { redis });
-      const login = await second.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'pw' }, remoteAddress: LAN });
+      const login = await second.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'long enough password' }, remoteAddress: LAN });
       const { token } = login.json() as { token: string };
       const view = await second.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: { authorization: `Bearer ${token}` }, remoteAddress: LAN });
       expect(view.json().drift.settings).toEqual(['maxRoomSize']);
@@ -126,8 +126,8 @@ describe('createBeaconServer', () => {
   });
 
   it('reports nothing without Redis, where there is only one beacon', async () => {
-    const server = await start({ ADMIN_PASSWORD: 'pw' });
-    const login = await server.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'pw' }, remoteAddress: LAN });
+    const server = await start({ ADMIN_PASSWORD: 'long enough password' });
+    const login = await server.app.inject({ method: 'POST', url: '/v1/admin/login', payload: { password: 'long enough password' }, remoteAddress: LAN });
     const { token } = login.json() as { token: string };
     const view = await server.app.inject({ method: 'GET', url: '/v1/admin/settings', headers: { authorization: `Bearer ${token}` }, remoteAddress: LAN });
     expect(view.json().drift).toBeUndefined();

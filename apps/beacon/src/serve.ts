@@ -32,10 +32,12 @@ import { serveWebApp } from './web';
  *   MIN_CLIENT_VERSION, MAX_ROOM_SIZE, WARN_ROOM_SIZE, STUN_URLS, ANNOUNCEMENT(_ID), GIPHY_API_KEY, RELAY_VIDEO_*,
  *   ROOM_CREATION, DEFAULT_ROOM_ACCESS   starting values of the settings the admin page can change
  *   OIDC_*           sign-in with an OpenID Connect provider (docs/accounts.md)
+ *   ADMIN_ORIGINS    web origins allowed to call the admin API from a browser (default none; the page itself is same-origin)
  *   ADMIN_PASSWORD   turns on the admin page; ADMIN_ALLOW_REMOTE=1 lets it be reached through a proxy
  *   ACTIVITIES_DIR   activities to offer in calls besides the bundled ones (default DATA_DIR/activities)
  *   PUBLIC_URL       the address clients reach the beacon at (https://orvo.example.com); published in the signed config.
  *                    Set it for any server on the internet: without it the address is taken from the request's Host header.
+ *   METRICS_TOKEN    bearer token for /metrics (at least 16 characters). Without it /metrics answers the local network only.
  *   RATE_LIMIT_PER_MINUTE, CORS_ORIGIN, BEHIND_PROXY
  */
 export interface BeaconServerOptions {
@@ -102,6 +104,8 @@ export async function createBeaconServer(opts: BeaconServerOptions): Promise<Bea
     corsOrigin: env.CORS_ORIGIN ?? true,
     trustProxy: Boolean(env.BEHIND_PROXY),
     publicUrl: env.PUBLIC_URL || undefined,
+    metricsToken: env.METRICS_TOKEN || undefined,
+    adminOrigins: (env.ADMIN_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
   });
   // With shared settings, beacons also check that they start from the same environment (see drift.ts).
   const drift = opts.redis

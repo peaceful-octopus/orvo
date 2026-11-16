@@ -78,13 +78,13 @@ const adminServers = [
     command: 'pnpm --filter @orvo/server start',
     url: `http://localhost:${ADMIN_PORT}/healthz`,
     reuseExistingServer: false,
-    env: { ...noSignIn, PORT: String(ADMIN_PORT), DATA_DIR: './data-e2e-admin', ADMIN_PASSWORD: 'e2e-admin-password' },
+    env: { ...noSignIn, PORT: String(ADMIN_PORT), DATA_DIR: './data-e2e-admin', ADMIN_PASSWORD: 'e2e-admin-password', ADMIN_ORIGINS: 'http://localhost:5173' },
   },
   {
     command: 'pnpm --filter @orvo/server start',
     url: `http://localhost:${NO_ADMIN_PORT}/healthz`,
     reuseExistingServer: false,
-    env: { ...noSignIn, PORT: String(NO_ADMIN_PORT), DATA_DIR: './data-e2e-no-admin', ADMIN_PASSWORD: '' },
+    env: { ...noSignIn, PORT: String(NO_ADMIN_PORT), DATA_DIR: './data-e2e-no-admin', ADMIN_PASSWORD: '', ADMIN_ORIGINS: 'http://localhost:5173' },
   },
   { command: 'pnpm --filter @orvo/app dev', url: 'http://localhost:5173', reuseExistingServer: true, env: { VITE_GIPHY_API_KEY: '' } },
 ];

@@ -1,5 +1,6 @@
 import { NodeAgent, RedisPlacementStore } from '@orvo/placement';
 import { keyRingFromJson, fromBase64Url, type KeyRing } from '@orvo/protocol';
+import { METRICS_REFUSED, checkMetricsToken, metricsAllowed } from '@orvo/metrics';
 import { Redis } from 'ioredis';
 import http from 'node:http';
 import os from 'node:os';
@@ -10,6 +11,7 @@ import { SignalingServer } from './server';
 //   BEACON_URL     fetch the beacon's public keys from <BEACON_URL>/v1/keys at start
 //   REDIS_URL + PUBLIC_WS_URL   register in Redis so the beacon can place rooms here
 //   NODE_ID, REGION, WEIGHT, PORT, DRAIN_MS
+//   METRICS_TOKEN  bearer token for /metrics (16+ characters); without it /metrics answers the local network only
 async function fetchBeaconKeys(beacon: string): Promise<KeyRing> {
   const res = await fetch(new URL('/v1/keys', beacon), { signal: AbortSignal.timeout(5000) });
   const keys = (await res.json()) as Record<string, string>;
@@ -31,6 +33,8 @@ async function loadKeys(): Promise<KeyRing> {
   }
 }
 
+const metricsToken = process.env.METRICS_TOKEN || undefined;
+checkMetricsToken(metricsToken);
 const port = Number(process.env.PORT ?? 9000);
 const nodeId = process.env.NODE_ID ?? os.hostname();
 const keys = await loadKeys();
@@ -55,7 +59,13 @@ const server = http.createServer(async (req, res) => {
     res.statusCode = signaling.draining ? 503 : 200;
     return void res.end(signaling.draining ? 'draining' : 'ready');
   }
-  if (path === '/metrics') return void res.setHeader('content-type', signaling.metrics.contentType).end(await signaling.renderMetrics());
+  if (path === '/metrics') {
+    if (!metricsAllowed({ headers: req.headers, remoteAddress: req.socket.remoteAddress }, metricsToken)) {
+      res.statusCode = metricsToken ? 401 : 403;
+      return void res.setHeader('content-type', 'application/json').end(JSON.stringify(METRICS_REFUSED));
+    }
+    return void res.setHeader('content-type', signaling.metrics.contentType).end(await signaling.renderMetrics());
+  }
   res.statusCode = 404;
   res.end();
 });
